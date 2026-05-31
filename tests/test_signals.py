@@ -7,9 +7,9 @@ from lib.diagnostics import get_diagnostics_observations
 from lib.evaluation_review import get_evaluation_observations
 from lib.observations import dedup_observations
 from lib.signals import (
+    _count_external_sources,
     build_advisory_signals,
     build_research_signals,
-    _count_external_sources,
 )
 
 
@@ -24,9 +24,7 @@ def _make_experiment(
     (d / "experiment.md").write_text("# Experiment\n")
     (d / "research_journal.md").write_text(journal or "# Journal\n")
     (d / "research_sources.md").write_text("# Research Sources\n")
-    (d / "results.json").write_text(
-        json.dumps(results if results is not None else []) + "\n"
-    )
+    (d / "results.json").write_text(json.dumps(results if results is not None else []) + "\n")
     return d
 
 
@@ -256,9 +254,7 @@ class TestBuildAdvisorySignals:
         )
         assert build_advisory_signals(d) == []
 
-    def test_returns_only_research_signals_when_no_other_sources(
-        self, tmp_path: Path
-    ) -> None:
+    def test_returns_only_research_signals_when_no_other_sources(self, tmp_path: Path) -> None:
         d = _make_experiment(
             tmp_path,
             results=[
@@ -279,9 +275,7 @@ class TestBuildAdvisorySignals:
         )
         signals = build_advisory_signals(d)
         assert len(signals) >= 1
-        assert any(
-            "plateau" in s.lower() or "clustered" in s.lower() for _, s in signals
-        )
+        assert any("plateau" in s.lower() or "clustered" in s.lower() for _, s in signals)
 
     def test_merges_all_sources(self, tmp_path: Path) -> None:
         d = _make_experiment(
@@ -333,9 +327,7 @@ class TestBuildAdvisorySignals:
         texts = [s for _, s in signals]
         # Should contain observations from all three sources
         assert any("age" in t for t in texts)  # diagnostics
-        assert any(
-            "instability" in t.lower() or "noisy" in t.lower() for t in texts
-        )  # eval review
+        assert any("instability" in t.lower() or "noisy" in t.lower() for t in texts)  # eval review
         assert any(
             "error analysis" in t.lower() or "diagnostics" in t.lower() for t in texts
         )  # research signal (missing analysis)

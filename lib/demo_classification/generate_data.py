@@ -15,7 +15,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
 from lib.demo_classification.data import TARGET_COLUMN, TIME_COLUMN
 
 SEED = 42
@@ -56,9 +55,9 @@ def generate_demo_dataset(n_rows: int = 3600, seed: int = SEED) -> pd.DataFrame:
         }
     )
 
-    df["seat_utilization"] = (
-        df["avg_weekly_active_users"] / np.maximum(df["seat_count"], 1)
-    ).clip(0, 2.0)
+    df["seat_utilization"] = (df["avg_weekly_active_users"] / np.maximum(df["seat_count"], 1)).clip(
+        0, 2.0
+    )
     df["support_per_active_user"] = (
         df["support_tickets_90d"] / np.maximum(df["avg_weekly_active_users"], 1)
     ).clip(0, 2.0)
@@ -72,9 +71,7 @@ def generate_demo_dataset(n_rows: int = 3600, seed: int = SEED) -> pd.DataFrame:
         + 0.10 * (df["plan_tier"].isin(["pro", "business"])).astype(int)
         - 0.22 * df["support_per_active_user"]
     )
-    df["interaction_exec_growth"] = (
-        df["has_exec_sponsor"].astype(int) * df["usage_growth_90d"]
-    )
+    df["interaction_exec_growth"] = df["has_exec_sponsor"].astype(int) * df["usage_growth_90d"]
 
     logits = (
         -1.45

@@ -2,17 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from lib.demo_classification.data import load_demo_dataset, split_demo_dataset
 from lib.demo_classification.modeling import CANDIDATE_RUNNERS
 from lib.runner import init_experiment_dir, run_runner_main
 
 EXPERIMENT_ID = "demo_classification"
 TEMPLATE_PATH = (
-    Path(__file__).resolve().parents[1]
-    / "experiments"
-    / "templates"
-    / "demo_classification.md"
+    Path(__file__).resolve().parents[1] / "experiments" / "templates" / "demo_classification.md"
 )
 
 
@@ -27,6 +23,4 @@ def init_demo(force: bool = False) -> Path:
 
 
 if __name__ == "__main__":
-    raise SystemExit(
-        run_runner_main(EXPERIMENT_ID, CANDIDATE_RUNNERS, _load_splits, TEMPLATE_PATH)
-    )
+    raise SystemExit(run_runner_main(EXPERIMENT_ID, CANDIDATE_RUNNERS, _load_splits, TEMPLATE_PATH))

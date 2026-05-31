@@ -22,9 +22,7 @@ def test_validate_result_entry_warns_on_missing_metric_outside_strict_mode() -> 
         strict_completion=False,
     )
 
-    assert messages == [
-        "warning: results.json[0] requires non-empty string objective_metric"
-    ]
+    assert messages == ["warning: results.json[0] requires non-empty string objective_metric"]
 
 
 def test_validate_result_entry_reports_nested_non_finite_numbers() -> None:
@@ -38,9 +36,7 @@ def test_validate_result_entry_reports_nested_non_finite_numbers() -> None:
         "results.json[0]",
     )
 
-    assert (
-        "results.json[0].metrics.validation.auc must be finite JSON number" in messages
-    )
+    assert "results.json[0].metrics.validation.auc must be finite JSON number" in messages
 
 
 def test_validate_result_entries_requires_one_valid_entry_in_strict_mode() -> None:

@@ -33,9 +33,7 @@ class TestBuildCyclePrompt:
         prompt_after = build_cycle_prompt(d, "0001")
         assert prompt_before.dynamic_sections != prompt_after.dynamic_sections
 
-    def test_includes_minimum_cycles_contract_when_specified(
-        self, tmp_path: Path
-    ) -> None:
+    def test_includes_minimum_cycles_contract_when_specified(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         (d / "experiment.md").write_text(
             "Minimum loop cycles before EXPERIMENT_COMPLETE: 6\n\n# Experiment\n"
@@ -90,9 +88,7 @@ class TestBuildCyclePrompt:
         prompt = build_cycle_prompt(d, "0001").assemble()
         assert "Research Phase Required" in prompt
 
-    def test_includes_advisory_signals_when_diagnostics_report_exists(
-        self, tmp_path: Path
-    ) -> None:
+    def test_includes_advisory_signals_when_diagnostics_report_exists(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         diagnostics_dir = d / "diagnostics"
         diagnostics_dir.mkdir()
@@ -268,9 +264,7 @@ class TestBuildCyclePrompt:
         prompt = build_cycle_prompt(d, "0001").assemble()
         assert "Before You Choose What To Do" not in prompt
 
-    def test_first_cycle_research_fires_with_preseeded_results(
-        self, tmp_path: Path
-    ) -> None:
+    def test_first_cycle_research_fires_with_preseeded_results(self, tmp_path: Path) -> None:
         """Pre-seeded results.json should NOT suppress the first-cycle research gate."""
         d = _make_experiment(
             tmp_path,
@@ -282,9 +276,7 @@ class TestBuildCyclePrompt:
 
 
 class TestErrorAnalysisNudge:
-    def test_nudge_fires_when_candidates_exist_without_error_analysis(
-        self, tmp_path: Path
-    ) -> None:
+    def test_nudge_fires_when_candidates_exist_without_error_analysis(self, tmp_path: Path) -> None:
         d = _make_experiment(
             tmp_path,
             results=[
@@ -329,8 +321,7 @@ class TestErrorAnalysisNudge:
             tmp_path,
             results=[{"candidate_id": "a", "objective_score": 0.7}],
             journal=(
-                "# Journal\n\n## Cycle 0001: baseline\n\nDone.\n\n"
-                "## Cycle 0002: tuning\n\nDone.\n"
+                "# Journal\n\n## Cycle 0001: baseline\n\nDone.\n\n## Cycle 0002: tuning\n\nDone.\n"
             ),
         )
         (d / "research_sources.md").write_text(
@@ -368,12 +359,8 @@ class TestCyclePrompt:
         )
         assembled = prompt.assemble()
         assert "# --- dynamic context below ---" in assembled
-        assert assembled.index("Always here") < assembled.index(
-            "# --- dynamic context below ---"
-        )
-        assert assembled.index("# --- dynamic context below ---") < assembled.index(
-            "# Dynamic"
-        )
+        assert assembled.index("Always here") < assembled.index("# --- dynamic context below ---")
+        assert assembled.index("# --- dynamic context below ---") < assembled.index("# Dynamic")
 
     def test_estimated_tokens_matches_assembled_length(self) -> None:
         prompt = CyclePrompt(
@@ -399,9 +386,7 @@ class TestCyclePrompt:
         assert prompt_a.static_hash == prompt_b.static_hash
         assert prompt_a.static_hash != prompt_c.static_hash
 
-    def test_progressive_truncation_drops_sections_in_priority_order(
-        self, tmp_path: Path
-    ) -> None:
+    def test_progressive_truncation_drops_sections_in_priority_order(self, tmp_path: Path) -> None:
         d = _make_experiment(
             tmp_path,
             results=[
@@ -564,8 +549,7 @@ class TestPromptLineBudget:
 
         line_count = len(prompt.splitlines())
         assert line_count <= 350, (
-            f"Prompt is {line_count} lines, expected ≤350. "
-            f"Prompt starts with: {prompt[:200]!r}"
+            f"Prompt is {line_count} lines, expected ≤350. Prompt starts with: {prompt[:200]!r}"
         )
 
     def test_first_cycle_shorter_than_mature(self, tmp_path: Path) -> None:
@@ -586,9 +570,7 @@ class TestPromptLineBudget:
 
 
 class TestAdvisorySignalsInPrompt:
-    def test_prompt_includes_signal_block_when_signals_exist(
-        self, tmp_path: Path
-    ) -> None:
+    def test_prompt_includes_signal_block_when_signals_exist(self, tmp_path: Path) -> None:
         d = _make_experiment(
             tmp_path,
             results=[
@@ -611,9 +593,7 @@ class TestAdvisorySignalsInPrompt:
         assert "## Advisory Signals" in prompt
         assert "Advisory only" in prompt
 
-    def test_prompt_omits_signal_block_when_no_signal_evidence(
-        self, tmp_path: Path
-    ) -> None:
+    def test_prompt_omits_signal_block_when_no_signal_evidence(self, tmp_path: Path) -> None:
         d = _make_experiment(
             tmp_path,
             results=[{"candidate_id": "a", "objective_score": 0.5}],

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
-import lightgbm as lgb
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -32,9 +32,7 @@ SPLIT_STRATEGY = "time_split_60_20_20"
 RANDOM_STATE = 42
 
 
-def _evaluate_predictions(
-    y_true: pd.Series, probabilities: np.ndarray
-) -> dict[str, float]:
+def _evaluate_predictions(y_true: pd.Series, probabilities: np.ndarray) -> dict[str, float]:
     predictions = (probabilities >= 0.5).astype(int)
     if y_true.nunique() < 2:
         auc = float("nan")
@@ -157,9 +155,7 @@ def run_logreg_engineered(splits: BootstrapSplits) -> CandidateResult:
             ),
             (
                 "estimator",
-                LogisticRegression(
-                    max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"
-                ),
+                LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
             ),
         ]
     )
@@ -200,9 +196,7 @@ def run_logreg_tiny(splits: BootstrapSplits) -> CandidateResult:
             ("preprocessor", _logreg_preprocessor()),
             (
                 "estimator",
-                LogisticRegression(
-                    max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"
-                ),
+                LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
             ),
         ]
     )
@@ -266,9 +260,7 @@ def run_logreg_poly(splits: BootstrapSplits) -> CandidateResult:
                                     ("scaler", StandardScaler()),
                                     (
                                         "poly",
-                                        PolynomialFeatures(
-                                            degree=2, include_bias=False
-                                        ),
+                                        PolynomialFeatures(degree=2, include_bias=False),
                                     ),
                                 ]
                             ),
@@ -408,9 +400,7 @@ def run_logreg_minimal(splits: BootstrapSplits) -> CandidateResult:
             ("scaler", StandardScaler()),
             (
                 "estimator",
-                LogisticRegression(
-                    max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"
-                ),
+                LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
             ),
         ]
     )

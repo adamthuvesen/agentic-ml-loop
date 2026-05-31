@@ -51,17 +51,13 @@ class LoopState:
             runner_command=[str(part) for part in runner_command],
             runner_timeout_seconds=int(data.get("runner_timeout_seconds", 1800)),
             cycle_count=int(data.get("cycle_count", 0)),
-            consecutive_no_progress_cycles=int(
-                data.get("consecutive_no_progress_cycles", 0)
-            ),
+            consecutive_no_progress_cycles=int(data.get("consecutive_no_progress_cycles", 0)),
             consecutive_failed_cycles=int(data.get("consecutive_failed_cycles", 0)),
             last_successful_cycle_id=data.get("last_successful_cycle_id"),
             last_cycle_result=data.get("last_cycle_result"),
             max_cycles=data.get("max_cycles"),
             max_hours=data.get("max_hours"),
-            enforce_budget_until_limit=bool(
-                data.get("enforce_budget_until_limit", False)
-            ),
+            enforce_budget_until_limit=bool(data.get("enforce_budget_until_limit", False)),
             started_at=str(data.get("started_at", "")),
             updated_at=str(data.get("updated_at", "")),
             stop_reason=data.get("stop_reason"),

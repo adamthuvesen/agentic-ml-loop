@@ -110,9 +110,7 @@ def generate_experiment_diagnostics(
         prediction_column=prediction_column,
     )
     write_json(diagnostics_report_path(experiment_dir), report)
-    write_text(
-        diagnostics_summary_path(experiment_dir), render_diagnostics_summary(report)
-    )
+    write_text(diagnostics_summary_path(experiment_dir), render_diagnostics_summary(report))
     return report
 
 
@@ -142,9 +140,7 @@ def build_diagnostics_report(
         "problem_type": _infer_problem_type(analysis_frame, target_column),
         "splits": _split_summaries(frames, target_column),
         "missingness": _missingness_summary(combined),
-        "split_comparison": _split_comparison_summary(
-            frames, target_column, prediction_column
-        ),
+        "split_comparison": _split_comparison_summary(frames, target_column, prediction_column),
         "subgroup_slices": _subgroup_slice_summary(
             analysis_frame, target_column, prediction_column
         ),
@@ -172,9 +168,7 @@ def render_diagnostics_summary(report: dict[str, Any]) -> str:
     if missingness:
         lines.extend(["", "### Missingness"])
         for entry in missingness[:3]:
-            lines.append(
-                f"- `{entry['column']}` missing in {entry['missing_rate']:.1%} of rows"
-            )
+            lines.append(f"- `{entry['column']}` missing in {entry['missing_rate']:.1%} of rows")
 
     split_comparison = report["split_comparison"]
     if split_comparison:
@@ -204,8 +198,7 @@ def render_diagnostics_summary(report: dict[str, Any]) -> str:
         lines.extend(["", "### Interaction Candidates"])
         for entry in interaction_candidates[:3]:
             lines.append(
-                f"- `{entry['feature_a']} × {entry['feature_b']}` "
-                f"(corr lift {entry['lift']:+.3f})"
+                f"- `{entry['feature_a']} × {entry['feature_b']}` (corr lift {entry['lift']:+.3f})"
             )
 
     error_patterns = report["error_patterns"]
@@ -231,7 +224,9 @@ def _render_split_overview(splits: list[dict[str, Any]]) -> list[str]:
             if target_summary["kind"] == "classification":
                 line += f", positive rate={target_summary['positive_rate']:.3f}"
             else:
-                line += f", target mean={target_summary['mean']:.3f}, std={target_summary['std']:.3f}"
+                line += (
+                    f", target mean={target_summary['mean']:.3f}, std={target_summary['std']:.3f}"
+                )
         lines.append(line)
     return lines
 
@@ -254,9 +249,7 @@ def _split_summaries(
     return summaries
 
 
-def _target_summary(
-    frame: pd.DataFrame, target_column: str | None
-) -> dict[str, Any] | None:
+def _target_summary(frame: pd.DataFrame, target_column: str | None) -> dict[str, Any] | None:
     if not target_column or target_column not in frame:
         return None
     target = frame[target_column].dropna()
@@ -311,10 +304,7 @@ def _split_comparison_summary(
             frame,
             excluded_columns={target_column, prediction_column},
         )
-        if (
-            comparison.get("target_shift") is not None
-            or comparison["top_feature_drift"]
-        ):
+        if comparison.get("target_shift") is not None or comparison["top_feature_drift"]:
             comparisons.append(comparison)
     return comparisons
 
@@ -393,9 +383,7 @@ def _subgroup_slice_summary(
         except ValueError:
             continue
         grouped = (
-            valid.groupby("bucket", observed=False)["target"]
-            .agg(["mean", "count"])
-            .reset_index()
+            valid.groupby("bucket", observed=False)["target"].agg(["mean", "count"]).reset_index()
         )
         grouped = grouped[grouped["count"] >= 5]
         if len(grouped) < 2:

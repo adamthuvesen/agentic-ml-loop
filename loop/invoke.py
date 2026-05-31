@@ -100,9 +100,7 @@ def build_runner_config(
     else:
         if runner not in BUILTIN_RUNNER_PRESETS:
             supported = ", ".join(sorted(BUILTIN_RUNNER_PRESETS))
-            raise ValueError(
-                f"Unsupported runner {runner!r}; expected one of {supported}."
-            )
+            raise ValueError(f"Unsupported runner {runner!r}; expected one of {supported}.")
         preset = BUILTIN_RUNNER_PRESETS[runner]
         command = list(preset.command)
         name = runner
@@ -243,9 +241,7 @@ def invoke_runner(
         open(stderr_path, "w", encoding="utf-8") as err_f,
     ):
         try:
-            completed = subprocess.run(
-                runner_config.command, stdout=out_f, stderr=err_f, **kwargs
-            )
+            completed = subprocess.run(runner_config.command, stdout=out_f, stderr=err_f, **kwargs)
         except subprocess.TimeoutExpired:
             # Still persist parsed stdout so timeouts leave a debuggable transcript.
             agent_text = extract_agent_text(stdout_path)
@@ -271,9 +267,7 @@ def invoke_runner(
         "returncode": completed.returncode,
         "stdout_path": str(stdout_path),
         "stderr_path": str(stderr_path),
-        "agent_message_path": (
-            str(agent_message_path) if agent_message_path.exists() else None
-        ),
+        "agent_message_path": (str(agent_message_path) if agent_message_path.exists() else None),
     }
 
 

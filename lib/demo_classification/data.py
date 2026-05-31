@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 TARGET_COLUMN = "will_expand_90d"
 TIME_COLUMN = "snapshot_date"
 

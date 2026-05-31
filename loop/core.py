@@ -10,13 +10,19 @@ from typing import Any
 
 from experiment import journal_path
 from lib.utils import load_json, read_text, utc_now, write_json, write_text
+
 from .artifacts import (
     artifact_snapshot,
     capture_cycle_baselines,
-    compute_progress as compute_progress,  # noqa: F401 - compatibility export
-    restore_artifacts as _restore_artifacts,  # noqa: F401 - re-exported for tests
     restore_cycle_baselines,
 )
+from .artifacts import (
+    compute_progress as compute_progress,  # noqa: F401 - compatibility export
+)
+from .artifacts import (
+    restore_artifacts as _restore_artifacts,  # noqa: F401 - re-exported for tests
+)
+from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, STATE_PATH_NAME
 from .contracts import (  # noqa: F401 - re-exported for tests
     cycle_contract_errors,
     extract_completion_marker,
@@ -31,7 +37,6 @@ from .invoke import (
 )
 from .loop_state import LoopState, load_state, write_state_file
 from .prompts import latest_hypothesis
-from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, STATE_PATH_NAME
 from .status import build_status_markdown
 from .stop_policy import should_stop
 from .ui import (
@@ -43,7 +48,6 @@ from .ui import (
     emit_loop_start,
     emit_loop_stop,
 )
-
 
 ARTIFACT_FILES = (
     "experiment.md",
@@ -57,9 +61,7 @@ STATUS_PATH_NAME = "status.md"
 def ensure_experiment_directory(experiment_dir: Path) -> None:
     """Raise if ``experiment_dir`` is missing required experiment files."""
     if not experiment_dir.exists() or not experiment_dir.is_dir():
-        raise FileNotFoundError(
-            f"Experiment directory does not exist: {experiment_dir}"
-        )
+        raise FileNotFoundError(f"Experiment directory does not exist: {experiment_dir}")
     if not (experiment_dir / "experiment.md").exists():
         raise FileNotFoundError(f"Missing experiment.md in {experiment_dir}")
     if not journal_path(experiment_dir).exists():
@@ -116,13 +118,13 @@ def acquire_lock(experiment_dir: Path) -> Path:
             finally:
                 os.close(fd)
             return lock_path
-        except FileExistsError:
+        except FileExistsError as err:
             active_pid = active_lock_pid(lock_path)
             if active_pid and active_pid != os.getpid():
                 raise RuntimeError(
                     f"Loop is already running for {experiment_dir} under pid {active_pid}. "
                     f"Use 'status' or stop that process first."
-                )
+                ) from err
             lock_path.unlink(missing_ok=True)
     raise RuntimeError(
         f"Could not reclaim stale loop lock for {experiment_dir}. "
@@ -153,9 +155,7 @@ def write_state(experiment_dir: Path, state: LoopState) -> None:
     write_status_markdown(experiment_dir, state)
 
 
-def write_status_markdown(
-    experiment_dir: Path, state: LoopState | dict[str, Any]
-) -> None:
+def write_status_markdown(experiment_dir: Path, state: LoopState | dict[str, Any]) -> None:
     """Write human-readable loop status and top results to ``status.md``."""
     if isinstance(state, dict):
         state = LoopState.from_dict(state)
@@ -271,9 +271,7 @@ def run_cycle(
 
     state.active_cycle_id = cycle_id
     state.active_started_at = cycle_started_at
-    state.active_objective = (
-        latest_hypothesis(experiment_dir) or "(fresh start — no prior plan)"
-    )
+    state.active_objective = latest_hypothesis(experiment_dir) or "(fresh start — no prior plan)"
     state.active_attempt = None
     state.last_attempt_outcome = None
     write_state(experiment_dir, state)
@@ -293,9 +291,7 @@ def run_cycle(
             attempt_stdout = current_cycle_dir / f"attempt_{attempt:02d}_stdout.log"
             attempt_stderr = current_cycle_dir / f"attempt_{attempt:02d}_stderr.log"
             attempt_meta = current_cycle_dir / f"attempt_{attempt:02d}_meta.json"
-            attempt_result_path = (
-                current_cycle_dir / f"attempt_{attempt:02d}_result.json"
-            )
+            attempt_result_path = current_cycle_dir / f"attempt_{attempt:02d}_result.json"
 
             timer = _LiveTimer("Running")
             timer.start()
@@ -531,10 +527,7 @@ def resume_command(args: argparse.Namespace) -> int:
 
     state = load_state(experiment_dir)
 
-    if (
-        state.status == "running"
-        and active_lock_pid(experiment_dir / LOCK_PATH_NAME) is None
-    ):
+    if state.status == "running" and active_lock_pid(experiment_dir / LOCK_PATH_NAME) is None:
         state.status = "idle"
         _clear_active_state(state, "interrupted_before_resume")
 
@@ -550,9 +543,7 @@ def resume_command(args: argparse.Namespace) -> int:
     state.runner_timeout_seconds = runner_config.timeout_seconds
 
     if getattr(args, "run_until_limit", False):
-        effective_mc = (
-            args.max_cycles if args.max_cycles is not None else state.max_cycles
-        )
+        effective_mc = args.max_cycles if args.max_cycles is not None else state.max_cycles
         effective_mh = args.max_hours if args.max_hours is not None else state.max_hours
         if effective_mc is None and effective_mh is None:
             print(
@@ -583,9 +574,7 @@ def resume_command(args: argparse.Namespace) -> int:
 
 def main() -> int:
     """Entry point: dispatch ``start`` / ``resume`` / ``status``."""
-    signal.signal(
-        signal.SIGTERM, signal.default_int_handler
-    )  # align SIGTERM with Ctrl+C
+    signal.signal(signal.SIGTERM, signal.default_int_handler)  # align SIGTERM with Ctrl+C
     args = build_parser().parse_args()
     if args.command == "start":
         return start_command(args)

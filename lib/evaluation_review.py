@@ -29,9 +29,7 @@ _CONCERN_PRIORITY: dict[str, int] = {
 # Columns that are present in both train and eval frames but are NOT features —
 # excluding them prevents auxiliary bookkeeping columns from making every row
 # appear unique to the leakage detector.
-_LEAKAGE_AUXILIARY_COLUMNS: frozenset[str] = frozenset(
-    {"split", "row_id", "account_id", "id"}
-)
+_LEAKAGE_AUXILIARY_COLUMNS: frozenset[str] = frozenset({"split", "row_id", "account_id", "id"})
 
 
 def get_evaluation_observations(experiment_dir: Path) -> list[tuple[int, str]]:
@@ -72,9 +70,7 @@ def generate_evaluation_review(
         if frame is not None and not frame.empty
     }
     if not frames:
-        raise ValueError(
-            "Evaluation review requires at least one non-empty split frame."
-        )
+        raise ValueError("Evaluation review requires at least one non-empty split frame.")
 
     report = build_evaluation_review_report(
         frames,
@@ -190,9 +186,7 @@ def _split_concern(
             scaled = abs(shift)
             if scaled >= threshold:
                 severity = max(severity, scaled)
-                evidence.append(
-                    f"`{split_name}` target rate differs from train by {shift:+.3f}."
-                )
+                evidence.append(f"`{split_name}` target rate differs from train by {shift:+.3f}.")
         else:
             scale = float(train_target.std(ddof=0))
             if not np.isfinite(scale) or scale == 0:
@@ -335,13 +329,16 @@ def _metric_mismatch_concern(results: list[dict[str, Any]]) -> dict[str, Any] | 
         precision = validation.get("precision")
         recall = validation.get("recall")
         avg_precision = validation.get("avg_precision")
-        if isinstance(precision, (int, float)) and isinstance(recall, (int, float)):
-            if precision == 0.0 or recall == 0.0:
-                severity = max(severity, 1.0)
-                evidence.append(
-                    f"`{best.get('candidate_id', '?')}` optimizes `{objective_metric}` "
-                    f"but has validation precision={precision:.3f} and recall={recall:.3f}."
-                )
+        if (
+            isinstance(precision, (int, float))
+            and isinstance(recall, (int, float))
+            and (precision == 0.0 or recall == 0.0)
+        ):
+            severity = max(severity, 1.0)
+            evidence.append(
+                f"`{best.get('candidate_id', '?')}` optimizes `{objective_metric}` "
+                f"but has validation precision={precision:.3f} and recall={recall:.3f}."
+            )
         if isinstance(avg_precision, (int, float)) and avg_precision < 0.1:
             severity = max(severity, 0.5)
             evidence.append(
@@ -397,9 +394,7 @@ def _row_overlap_count(
     # target_column was None), fingerprinting would include everything and is
     # unreliable.  Return 0 as a safe no-op.
     real_exclusions = {
-        c
-        for c in excluded_columns
-        if c is not None and c not in _LEAKAGE_AUXILIARY_COLUMNS
+        c for c in excluded_columns if c is not None and c not in _LEAKAGE_AUXILIARY_COLUMNS
     }
     if not real_exclusions:
         logger.warning(

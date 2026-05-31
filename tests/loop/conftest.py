@@ -34,22 +34,16 @@ class RecordingHooks:
         return PostCycleResult(progress_reasons=["custom:hook"])
 
 
-def make_experiment_dir(
-    tmp_path: Path, *, results: list | None = None, journal: str = ""
-) -> Path:
+def make_experiment_dir(tmp_path: Path, *, results: list | None = None, journal: str = "") -> Path:
     """Create a minimal experiment directory for prompt tests."""
     d = tmp_path / "exp"
     d.mkdir(exist_ok=True)
     (d / "experiment.md").write_text("# Experiment\n")
     (d / "research_journal.md").write_text(journal or "# Journal\n")
     (d / "research_sources.md").write_text("# Research Sources\n")
-    (d / "results.json").write_text(
-        json.dumps(results if results is not None else []) + "\n"
-    )
+    (d / "results.json").write_text(json.dumps(results if results is not None else []) + "\n")
     return d
 
 
-def _make_experiment(
-    tmp_path: Path, *, results: list | None = None, journal: str = ""
-) -> Path:
+def _make_experiment(tmp_path: Path, *, results: list | None = None, journal: str = "") -> Path:
     return make_experiment_dir(tmp_path, results=results, journal=journal)

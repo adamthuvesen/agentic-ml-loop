@@ -19,8 +19,8 @@ from lib.signals import (
     results_snapshot,
 )
 from lib.utils import load_json
-from .constants import ROOT, STATE_PATH_NAME
 
+from .constants import ROOT, STATE_PATH_NAME
 
 PROGRAM_MD_PATH = ROOT / "program.md"
 
@@ -115,9 +115,7 @@ class CyclePrompt:
         if self._assembled_cache is not None:
             return self._assembled_cache
         static_text = "\n\n".join(s.strip() for s in self.static_sections if s.strip())
-        dynamic_text = "\n\n".join(
-            s.strip() for s in self.dynamic_sections if s.strip()
-        )
+        dynamic_text = "\n\n".join(s.strip() for s in self.dynamic_sections if s.strip())
         parts = [static_text, "# --- dynamic context below ---"]
         if dynamic_text:
             parts.append(dynamic_text)
@@ -269,8 +267,7 @@ def top_results_lines(experiment_dir: Path, *, n: int = 5) -> list[str]:
         [
             r
             for r in results
-            if isinstance(r, dict)
-            and isinstance(r.get("objective_score"), (int, float))
+            if isinstance(r, dict) and isinstance(r.get("objective_score"), (int, float))
         ],
         key=lambda x: x.get("objective_score", float("-inf")),
         reverse=True,
@@ -445,17 +442,13 @@ def _assemble_cycle_prompt(
         except json.JSONDecodeError:
             pass
     if consecutive_no_progress >= 2:
-        dynamic_sections.append(
-            STALL_RESEARCH_NUDGE.format(no_progress=consecutive_no_progress)
-        )
+        dynamic_sections.append(STALL_RESEARCH_NUDGE.format(no_progress=consecutive_no_progress))
 
     # Completion rigor check
     if journal_cycles > 0:
         dynamic_sections.append(COMPLETION_RIGOR_CHECK)
 
-    return CyclePrompt(
-        static_sections=static_sections, dynamic_sections=dynamic_sections
-    )
+    return CyclePrompt(static_sections=static_sections, dynamic_sections=dynamic_sections)
 
 
 def build_cycle_prompt(

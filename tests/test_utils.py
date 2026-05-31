@@ -25,9 +25,7 @@ class TestWriteJson:
         assert json.loads(path.read_text()) == {"score": 0.75, "counts": [1, 2, 3]}
         assert not list(tmp_path.glob(".payload.json.*.tmp"))
 
-    def test_rejects_non_finite_values_without_touching_existing_file(
-        self, tmp_path: Path
-    ) -> None:
+    def test_rejects_non_finite_values_without_touching_existing_file(self, tmp_path: Path) -> None:
         path = tmp_path / "payload.json"
         path.write_text('{"ok": true}\n')
 

@@ -35,9 +35,7 @@ RANDOM_STATE = 42
 
 def _regression_preprocessor(feature_set: str) -> ColumnTransformer:
     if feature_set not in ("base", "engineered"):
-        raise ValueError(
-            f"Unknown feature_set: {feature_set!r}. Must be 'base' or 'engineered'."
-        )
+        raise ValueError(f"Unknown feature_set: {feature_set!r}. Must be 'base' or 'engineered'.")
     numeric_features = list(BASE_NUMERIC_COLUMNS)
     if feature_set == "engineered":
         numeric_features += ENGINEERED_NUMERIC_COLUMNS
@@ -77,9 +75,7 @@ def _regression_preprocessor(feature_set: str) -> ColumnTransformer:
 
 def _xgb_preprocessor(feature_set: str) -> ColumnTransformer:
     if feature_set not in ("base", "engineered"):
-        raise ValueError(
-            f"Unknown feature_set: {feature_set!r}. Must be 'base' or 'engineered'."
-        )
+        raise ValueError(f"Unknown feature_set: {feature_set!r}. Must be 'base' or 'engineered'.")
     numeric_features = list(BASE_NUMERIC_COLUMNS)
     if feature_set == "engineered":
         numeric_features += ENGINEERED_NUMERIC_COLUMNS
@@ -107,9 +103,7 @@ def _xgb_preprocessor(feature_set: str) -> ColumnTransformer:
     )
 
 
-def _evaluate_predictions(
-    y_true: pd.Series, predictions: np.ndarray
-) -> dict[str, float]:
+def _evaluate_predictions(y_true: pd.Series, predictions: np.ndarray) -> dict[str, float]:
     rmse = float(np.sqrt(mean_squared_error(y_true, predictions)))
     r2 = float("nan") if y_true.nunique() < 2 else float(r2_score(y_true, predictions))
     return {
@@ -145,9 +139,7 @@ def _fit_log_transform_model(
 ) -> CandidateResult:
     """Fit a pipeline with log(1+y) target transform; evaluate predictions on original scale."""
     selected_features = (
-        engineered_feature_columns()
-        if feature_set == "engineered"
-        else base_feature_columns()
+        engineered_feature_columns() if feature_set == "engineered" else base_feature_columns()
     )
     inner_pipeline = Pipeline(
         steps=[
@@ -199,9 +191,7 @@ def _fit_pipeline_model(
     preprocessor: ColumnTransformer,
 ) -> CandidateResult:
     selected_features = (
-        engineered_feature_columns()
-        if feature_set == "engineered"
-        else base_feature_columns()
+        engineered_feature_columns() if feature_set == "engineered" else base_feature_columns()
     )
     pipeline = Pipeline(
         steps=[
@@ -249,7 +239,7 @@ def run_rule_baseline(splits: DemoRegressionSplits) -> CandidateResult:
 
     def raw_score(frame: pd.DataFrame, ref: pd.DataFrame) -> np.ndarray:
         result = np.zeros(len(frame), dtype=float)
-        for feature, weight in zip(rule_features, weights):
+        for feature, weight in zip(rule_features, weights, strict=True):
             values = frame[feature].astype(float).values
             ref_values = np.sort(ref[feature].astype(float).values)
             ranks = np.searchsorted(ref_values, values) / max(len(ref_values), 1)
@@ -261,9 +251,7 @@ def run_rule_baseline(splits: DemoRegressionSplits) -> CandidateResult:
     test_raw = raw_score(splits.test, splits.train)
 
     design = np.column_stack([np.ones_like(train_raw), train_raw])
-    intercept, slope = np.linalg.lstsq(
-        design, splits.train[TARGET_COLUMN].values, rcond=None
-    )[0]
+    intercept, slope = np.linalg.lstsq(design, splits.train[TARGET_COLUMN].values, rcond=None)[0]
 
     predictions = {
         "train": intercept + slope * train_raw,
@@ -282,7 +270,7 @@ def run_rule_baseline(splits: DemoRegressionSplits) -> CandidateResult:
         notes="Train-calibrated heuristic over growth, adoption, champion strength, and seat utilization.",
         metrics=metrics,
         hyperparameters={
-            "weights": dict(zip(rule_features, weights.tolist())),
+            "weights": dict(zip(rule_features, weights.tolist(), strict=True)),
             "calibration": {
                 "intercept": float(intercept),
                 "slope": float(slope),

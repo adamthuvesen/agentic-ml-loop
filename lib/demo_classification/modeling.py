@@ -30,7 +30,6 @@ from lib.demo_classification.data import (
     engineered_feature_columns,
 )
 
-
 OBJECTIVE_METRIC = "val_auc"
 SPLIT_STRATEGY = "time_split_60_20_20"
 RANDOM_STATE = 42
@@ -38,9 +37,7 @@ RANDOM_STATE = 42
 
 def _preprocessor(feature_set: str) -> ColumnTransformer:
     if feature_set not in ("base", "engineered"):
-        raise ValueError(
-            f"Unknown feature_set: {feature_set!r}. Must be 'base' or 'engineered'."
-        )
+        raise ValueError(f"Unknown feature_set: {feature_set!r}. Must be 'base' or 'engineered'.")
     numeric_features = list(BASE_NUMERIC_COLUMNS)
     if feature_set == "engineered":
         numeric_features += ENGINEERED_NUMERIC_COLUMNS
@@ -78,9 +75,7 @@ def _preprocessor(feature_set: str) -> ColumnTransformer:
     )
 
 
-def _evaluate_predictions(
-    y_true: pd.Series, probabilities: np.ndarray
-) -> dict[str, float]:
+def _evaluate_predictions(y_true: pd.Series, probabilities: np.ndarray) -> dict[str, float]:
     predictions = (probabilities >= 0.5).astype(int)
     if y_true.nunique() < 2:
         auc = float("nan")
@@ -121,9 +116,7 @@ def _fit_pipeline_model(
     hyperparameters: dict[str, Any],
 ) -> CandidateResult:
     selected_features = (
-        engineered_feature_columns()
-        if feature_set == "engineered"
-        else base_feature_columns()
+        engineered_feature_columns() if feature_set == "engineered" else base_feature_columns()
     )
     pipeline = Pipeline(
         steps=[
@@ -203,9 +196,7 @@ def run_logreg_basic(splits: DemoSplits) -> CandidateResult:
         candidate_id="logreg-basic",
         model_family="logistic_regression",
         feature_set="base",
-        estimator=LogisticRegression(
-            max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"
-        ),
+        estimator=LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
         splits=splits,
         notes="Logistic regression over the base feature set.",
         hyperparameters={
@@ -221,9 +212,7 @@ def run_logreg_engineered(splits: DemoSplits) -> CandidateResult:
         candidate_id="logreg-engineered",
         model_family="logistic_regression",
         feature_set="engineered",
-        estimator=LogisticRegression(
-            max_iter=800, random_state=RANDOM_STATE, solver="lbfgs"
-        ),
+        estimator=LogisticRegression(max_iter=800, random_state=RANDOM_STATE, solver="lbfgs"),
         splits=splits,
         notes="Logistic regression with engineered utilization, support intensity, and momentum features.",
         hyperparameters={
@@ -341,9 +330,7 @@ def run_xgb_tuned_light(splits: DemoSplits) -> CandidateResult:
     best_pipeline: Pipeline | None = None
     best_params: dict[str, Any] | None = None
     for params in search_space:
-        estimator = XGBClassifier(
-            random_state=RANDOM_STATE, eval_metric="logloss", **params
-        )
+        estimator = XGBClassifier(random_state=RANDOM_STATE, eval_metric="logloss", **params)
         pipeline = Pipeline(
             steps=[
                 ("preprocessor", _preprocessor("engineered")),

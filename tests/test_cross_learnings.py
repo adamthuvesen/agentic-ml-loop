@@ -8,9 +8,7 @@ from lib.learnings import LEARNINGS_EXTRACTION_PROMPT, extract_and_append_learni
 
 
 class TestExtractAndAppendLearnings:
-    def test_appends_to_canonical_learnings_with_profile_tags(
-        self, tmp_path: Path
-    ) -> None:
+    def test_appends_to_canonical_learnings_with_profile_tags(self, tmp_path: Path) -> None:
         experiment_dir = tmp_path / "experiments" / "demo"
         experiment_dir.mkdir(parents=True)
         (experiment_dir / "experiment.md").write_text(
@@ -39,9 +37,7 @@ class TestExtractAndAppendLearnings:
             )
             + "\n"
         )
-        (experiment_dir / "research_journal.md").write_text(
-            "# Journal\n\nUseful notes.\n"
-        )
+        (experiment_dir / "research_journal.md").write_text("# Journal\n\nUseful notes.\n")
 
         result = subprocess.CompletedProcess(
             args=["claude", "--print"],
@@ -72,8 +68,8 @@ class TestExtractAndAppendLearnings:
             'Also tested {"learning_rate": 0.05} with {nested: {keys}}.\n'
         )
         # Should not raise KeyError, ValueError, or IndexError
-        result = LEARNINGS_EXTRACTION_PROMPT.replace(
-            "{experiment_id}", "test-experiment"
-        ).replace("{journal}", brace_journal)
+        result = LEARNINGS_EXTRACTION_PROMPT.replace("{experiment_id}", "test-experiment").replace(
+            "{journal}", brace_journal
+        )
         assert "test-experiment" in result
         assert "{'max_depth': 3" in result

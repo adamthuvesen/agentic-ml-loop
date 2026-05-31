@@ -12,8 +12,7 @@ def ranked_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         [
             result
             for result in results
-            if isinstance(result, dict)
-            and isinstance(result.get("objective_score"), (int, float))
+            if isinstance(result, dict) and isinstance(result.get("objective_score"), (int, float))
         ],
         key=lambda result: result.get("objective_score", float("-inf")),
         reverse=True,
@@ -24,9 +23,7 @@ def series_is_binary(series: pd.Series) -> bool:
     """Return True when a series has non-null values limited to binary labels."""
     if pd.api.types.is_float_dtype(series):
         return False
-    if not (
-        pd.api.types.is_integer_dtype(series) or pd.api.types.is_bool_dtype(series)
-    ):
+    if not (pd.api.types.is_integer_dtype(series) or pd.api.types.is_bool_dtype(series)):
         values = pd.Series(series).dropna().unique().tolist()
         normalized: set[int] = set()
         for value in values:
@@ -39,7 +36,7 @@ def series_is_binary(series: pd.Series) -> bool:
             normalized.add(int(numeric))
         return bool(values) and normalized.issubset({0, 1})
     unique_vals = set(series.dropna().unique().tolist())
-    return bool(unique_vals) and unique_vals <= {0, 1, True, False}
+    return bool(unique_vals) and unique_vals <= {0, 1}
 
 
 def series_is_numeric(series: pd.Series) -> bool:

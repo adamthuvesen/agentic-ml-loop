@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN_IMPORT_PREFIXES = (
     "lib.demo_bootstrap",
@@ -57,15 +56,11 @@ def test_framework_modules_do_not_import_concrete_experiments() -> None:
 
 def test_modules_do_not_reach_into_private_lib_utils_helpers() -> None:
     violations: list[str] = []
-    for path in sorted((ROOT / "lib").glob("*.py")) + sorted(
-        (ROOT / "loop").glob("*.py")
-    ):
+    for path in sorted((ROOT / "lib").glob("*.py")) + sorted((ROOT / "loop").glob("*.py")):
         if path.name == "utils.py":
             continue
         private_imports = [
-            name
-            for name in _imported_names_from_module(path, "lib.utils")
-            if name.startswith("_")
+            name for name in _imported_names_from_module(path, "lib.utils") if name.startswith("_")
         ]
         if private_imports:
             violations.append(

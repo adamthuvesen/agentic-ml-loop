@@ -95,9 +95,7 @@ class TestAcquireLock:
         d = tmp_path / "exp"
         d.mkdir()
         lock_path = d / LOCK_PATH_NAME
-        lock_path.write_text(
-            '{"pid": 999999, "acquired_at": "2025-01-01T00:00:00+00:00"}\n'
-        )
+        lock_path.write_text('{"pid": 999999, "acquired_at": "2025-01-01T00:00:00+00:00"}\n')
 
         with patch("loop.core.active_lock_pid", return_value=None):
             acquired = acquire_lock(d)
@@ -135,9 +133,7 @@ class TestBuildParser:
 
 
 class TestResumeCommand:
-    def test_resume_clears_stale_running_state_without_lock(
-        self, tmp_path: Path
-    ) -> None:
+    def test_resume_clears_stale_running_state_without_lock(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         state = {
             "experiment_id": "exp",
@@ -188,9 +184,7 @@ class TestResumeCommand:
         assert captured_state["active_attempt"] is None
         assert captured_state["last_attempt_outcome"] == "interrupted_before_resume"
 
-    def test_resume_clears_early_completion_when_budget_remains(
-        self, tmp_path: Path
-    ) -> None:
+    def test_resume_clears_early_completion_when_budget_remains(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         state = {
             "experiment_id": "exp",
@@ -236,9 +230,7 @@ class TestResumeCommand:
         assert exit_code == 0
         assert captured_state.get("last_cycle_result") is None
 
-    def test_resume_keeps_completion_when_cycle_budget_exhausted(
-        self, tmp_path: Path
-    ) -> None:
+    def test_resume_keeps_completion_when_cycle_budget_exhausted(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         state = {
             "experiment_id": "exp",
@@ -284,9 +276,7 @@ class TestResumeCommand:
         assert exit_code == 0
         assert captured_state.get("last_cycle_result") == "complete"
 
-    def test_resume_clears_completion_when_hours_budget_set(
-        self, tmp_path: Path
-    ) -> None:
+    def test_resume_clears_completion_when_hours_budget_set(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         state = {
             "experiment_id": "exp",
@@ -334,9 +324,7 @@ class TestResumeCommand:
 
 
 class TestRunLoopHooks:
-    def test_run_loop_uses_default_hooks_when_none_provided(
-        self, tmp_path: Path
-    ) -> None:
+    def test_run_loop_uses_default_hooks_when_none_provided(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         state = initial_state(d, max_cycles=1, max_hours=None)
         captured_hooks: list[object] = []

@@ -11,9 +11,7 @@ JS_FILES = ["room.js", "character.js", "sound.js", "ui.js", "script.js", "engine
 
 def _script_tag_safe_json(raw_json: str) -> str:
     """Escape HTML-significant characters inside embedded JSON script tags."""
-    return (
-        raw_json.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
-    )
+    return raw_json.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
 
 
 def bundle(script_json_path: str, output_path: str | None = None) -> None:

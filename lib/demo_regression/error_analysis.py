@@ -6,7 +6,6 @@ Usage:
 
 from __future__ import annotations
 
-
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
@@ -14,9 +13,9 @@ from sklearn.pipeline import Pipeline
 
 from lib.demo_regression.data import (
     TARGET_COLUMN,
+    base_feature_columns,
     load_demo_regression_dataset,
     split_demo_regression_dataset,
-    base_feature_columns,
 )
 from lib.demo_regression.modeling import _regression_preprocessor
 
@@ -37,9 +36,7 @@ def run_error_analysis() -> None:
 
     val_preds = pipeline.predict(splits.validation[selected_features])
     val_true = splits.validation[TARGET_COLUMN].values
-    residuals = (
-        val_true - val_preds
-    )  # positive = under-prediction, negative = over-prediction
+    residuals = val_true - val_preds  # positive = under-prediction, negative = over-prediction
     abs_residuals = np.abs(residuals)
 
     val = splits.validation.copy()
@@ -91,9 +88,7 @@ def run_error_analysis() -> None:
 
     # 3. Residual by prediction quartile (are we systematically under/over-predicting?)
     print("─── Mean Residual by Prediction Quartile ──────────────────────────")
-    val["_pred_q"] = pd.qcut(
-        val["_pred"], 4, labels=["Q1 (low)", "Q2", "Q3", "Q4 (high)"]
-    )
+    val["_pred_q"] = pd.qcut(val["_pred"], 4, labels=["Q1 (low)", "Q2", "Q3", "Q4 (high)"])
     for q in ["Q1 (low)", "Q2", "Q3", "Q4 (high)"]:
         sub = val[val["_pred_q"] == q]
         print(

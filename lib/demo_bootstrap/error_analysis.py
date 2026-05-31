@@ -5,10 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from sklearn.calibration import calibration_curve
-from sklearn.metrics import brier_score_loss, roc_auc_score
-from sklearn.linear_model import LogisticRegression
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import brier_score_loss, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
@@ -45,9 +45,7 @@ def main() -> None:
                                     ("scaler", StandardScaler()),
                                     (
                                         "poly",
-                                        PolynomialFeatures(
-                                            degree=2, include_bias=False
-                                        ),
+                                        PolynomialFeatures(degree=2, include_bias=False),
                                     ),
                                 ]
                             ),
@@ -58,9 +56,7 @@ def main() -> None:
             ),
             (
                 "estimator",
-                LogisticRegression(
-                    max_iter=500, random_state=42, solver="lbfgs", C=1.0
-                ),
+                LogisticRegression(max_iter=500, random_state=42, solver="lbfgs", C=1.0),
             ),
         ]
     )
@@ -123,9 +119,7 @@ def main() -> None:
     print("=== Error rates by sessions_7d bucket ===")
     bins = [0, 2, 4, 6, 100]
     labels = ["0-2", "3-4", "5-6", "7+"]
-    analysis["sess_bucket"] = pd.cut(
-        analysis["sessions_7d"], bins=bins, labels=labels, right=True
-    )
+    analysis["sess_bucket"] = pd.cut(analysis["sessions_7d"], bins=bins, labels=labels, right=True)
     for bucket in labels:
         bucket_mask = analysis["sess_bucket"] == bucket
         bucket_data = analysis[bucket_mask]
@@ -166,14 +160,12 @@ def main() -> None:
 
     # Calibration analysis
     print("=== Calibration analysis ===")
-    prob_true, prob_pred = calibration_curve(
-        val_y, val_probs, n_bins=5, strategy="quantile"
-    )
+    prob_true, prob_pred = calibration_curve(val_y, val_probs, n_bins=5, strategy="quantile")
     print("Bin  | Predicted | Actual  | Count")
     print("-----|-----------|---------|------")
     # Get bin counts manually
     bin_edges = np.quantile(val_probs, np.linspace(0, 1, 6))
-    for i, (pt, pp) in enumerate(zip(prob_true, prob_pred)):
+    for i, (pt, pp) in enumerate(zip(prob_true, prob_pred, strict=True)):
         low = bin_edges[i]
         high = bin_edges[i + 1]
         count = ((val_probs >= low) & (val_probs <= high)).sum()

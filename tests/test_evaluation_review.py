@@ -16,9 +16,7 @@ from runners.demo_classification_runner import init_demo
 
 
 class TestGenerateEvaluationReview:
-    def test_writes_review_without_touching_results_or_experiment_md(
-        self, tmp_path: Path
-    ) -> None:
+    def test_writes_review_without_touching_results_or_experiment_md(self, tmp_path: Path) -> None:
         with patch("lib.runner.ROOT", tmp_path):
             exp_dir = init_demo()
 

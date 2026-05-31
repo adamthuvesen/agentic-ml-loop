@@ -6,7 +6,6 @@ Usage:
 
 from __future__ import annotations
 
-
 import numpy as np
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.metrics import r2_score
@@ -14,9 +13,9 @@ from sklearn.pipeline import Pipeline
 
 from lib.demo_regression.data import (
     TARGET_COLUMN,
+    base_feature_columns,
     load_demo_regression_dataset,
     split_demo_regression_dataset,
-    base_feature_columns,
 )
 from lib.demo_regression.modeling import _regression_preprocessor
 
@@ -47,9 +46,7 @@ def _fit_hurdle(splits):
 
     positive_mask = splits.train[TARGET_COLUMN] > 0
     stage2 = Ridge(alpha=2.0)
-    stage2.fit(
-        train_x[positive_mask.values], splits.train.loc[positive_mask, TARGET_COLUMN]
-    )
+    stage2.fit(train_x[positive_mask.values], splits.train.loc[positive_mask, TARGET_COLUMN])
 
     val_x = preprocessor.transform(splits.validation[selected])
     prob_pos = stage1.predict_proba(val_x)[:, 1]

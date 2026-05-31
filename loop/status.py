@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import shlex
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE
 from .loop_state import LoopState
 from .prompts import latest_hypothesis, top_results_lines
@@ -32,12 +33,10 @@ def build_status_markdown(
     if state.active_cycle_id:
         lines.append(f"- Active cycle: `{state.active_cycle_id}`")
     if state.active_attempt is not None:
-        lines.append(
-            f"- Active attempt: {state.active_attempt}/{DEFAULT_MAX_ATTEMPTS_PER_CYCLE}"
-        )
+        lines.append(f"- Active attempt: {state.active_attempt}/{DEFAULT_MAX_ATTEMPTS_PER_CYCLE}")
     if state.active_started_at:
         lines.append(f"- Active started at: `{state.active_started_at}`")
-        elapsed = datetime.now(timezone.utc) - iso_to_datetime(state.active_started_at)
+        elapsed = datetime.now(UTC) - iso_to_datetime(state.active_started_at)
         lines.append(f"- Active for: `{format_elapsed(int(elapsed.total_seconds()))}`")
 
     if state.stop_reason:

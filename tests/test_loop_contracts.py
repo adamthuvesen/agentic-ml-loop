@@ -3,9 +3,7 @@ from loop.core import cycle_contract_errors, extract_completion_marker
 
 class TestExtractCompletionMarker:
     def test_extracts_single_valid_marker(self) -> None:
-        marker, errors = extract_completion_marker(
-            "Done.\n<promise>CYCLE_DONE</promise>\n"
-        )
+        marker, errors = extract_completion_marker("Done.\n<promise>CYCLE_DONE</promise>\n")
 
         assert marker == "CYCLE_DONE"
         assert errors == []
@@ -18,9 +16,7 @@ class TestExtractCompletionMarker:
 
     def test_rejects_multiple_markers(self) -> None:
         marker, errors = extract_completion_marker(
-            "<promise>CYCLE_DONE</promise>\n"
-            "Actually done.\n"
-            "<promise>EXPERIMENT_COMPLETE</promise>"
+            "<promise>CYCLE_DONE</promise>\nActually done.\n<promise>EXPERIMENT_COMPLETE</promise>"
         )
 
         assert marker == ""
