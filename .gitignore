@@ -13,6 +13,10 @@ build/
 dist/
 *.egg-info/
 
+# Runner benchmark outputs are local by default. An intentional flagship
+# example can be force-added under examples/ for the showcase.
+bench/
+
 # Runtime loop artifacts
 experiments/**/.loop.lock
 experiments/**/*.lock

@@ -23,7 +23,7 @@ from .artifacts import (
 from .artifacts import (
     restore_artifacts as _restore_artifacts,  # noqa: F401 - re-exported for tests
 )
-from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, STATE_PATH_NAME
+from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, ROOT, STATE_PATH_NAME
 from .contracts import (  # noqa: F401 - re-exported for tests
     cycle_contract_errors,
     extract_completion_marker,
@@ -503,7 +503,50 @@ def build_parser() -> argparse.ArgumentParser:
         add_runner_arguments(subparser)
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("experiment_path")
+
+    bench_parser = subparsers.add_parser(
+        "bench",
+        help="Run one experiment spec across multiple runners and compare research quality.",
+    )
+    bench_parser.add_argument("experiment_path")
+    bench_parser.add_argument(
+        "--runners",
+        default="claude",
+        help="Comma-separated runner names to compare (e.g. claude,codex,cursor).",
+    )
+    bench_parser.add_argument("--max-cycles", type=_positive_int, default=None)
+    bench_parser.add_argument("--max-hours", type=_positive_float, default=None)
     return parser
+
+
+def bench_command(args: argparse.Namespace) -> int:
+    """Run the runner benchmark and print the comparison report."""
+    from .bench import BenchmarkBudget, run_benchmark
+
+    experiment_dir = Path(args.experiment_path).resolve()
+    ensure_experiment_directory(experiment_dir)
+
+    runner_names = [name.strip() for name in args.runners.split(",") if name.strip()]
+    if not runner_names:
+        print("error: --runners must list at least one runner", file=sys.stderr)
+        return 1
+    if args.max_cycles is None and args.max_hours is None:
+        print("error: bench requires --max-cycles and/or --max-hours", file=sys.stderr)
+        return 1
+
+    timestamp = utc_now()
+    bench_dir = (
+        ROOT / "bench" / f"{experiment_dir.name}-{timestamp.replace(':', '').replace('-', '')}"
+    )
+    run_benchmark(
+        experiment_dir,
+        runner_names,
+        budget=BenchmarkBudget(max_cycles=args.max_cycles, max_hours=args.max_hours),
+        bench_dir=bench_dir,
+        timestamp=timestamp,
+    )
+    print(read_text(bench_dir / "comparison.md"))
+    return 0
 
 
 def start_command(args: argparse.Namespace) -> int:
@@ -623,4 +666,6 @@ def main() -> int:
         return resume_command(args)
     if args.command == "status":
         return print_status(Path(args.experiment_path).resolve())
+    if args.command == "bench":
+        return bench_command(args)
     raise ValueError(f"Unknown command: {args.command}")
