@@ -34,9 +34,7 @@ def generate_notebook(experiment_dir: Path, *, include_sensitive: bool = False) 
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Export a portable experiment notebook."
-    )
+    parser = argparse.ArgumentParser(description="Export a portable experiment notebook.")
     parser.add_argument("experiment", help="Experiment directory, e.g. experiments/foo")
     parser.add_argument(
         "--include-sensitive",
@@ -44,9 +42,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Include recipe-declared sensitive outputs in the generated notebook.",
     )
     args = parser.parse_args(argv)
-    path = generate_notebook(
-        Path(args.experiment), include_sensitive=args.include_sensitive
-    )
+    path = generate_notebook(Path(args.experiment), include_sensitive=args.include_sensitive)
     print(path)
     return 0
 

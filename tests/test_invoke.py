@@ -44,9 +44,7 @@ def test_extract_agent_text_uses_result_event_when_assistant_text_missing() -> N
         }
     )
 
-    assert "<promise>EXPERIMENT_COMPLETE</promise>" in (
-        extract_agent_text_from_stream_json(raw)
-    )
+    assert "<promise>EXPERIMENT_COMPLETE</promise>" in (extract_agent_text_from_stream_json(raw))
 
 
 def test_extract_agent_text_ignores_malformed_ndjson_lines(tmp_path: Path) -> None:
@@ -66,9 +64,7 @@ def test_extract_agent_text_ignores_malformed_ndjson_lines(tmp_path: Path) -> No
 
 
 def test_extract_agent_text_falls_back_to_raw_stdout() -> None:
-    assert (
-        extract_agent_text_from_stream_json("plain text marker") == "plain text marker"
-    )
+    assert extract_agent_text_from_stream_json("plain text marker") == "plain text marker"
 
 
 def test_extract_agent_text_handles_string_message_jsonl() -> None:

@@ -7,13 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from runners.demo_classification_runner import init_demo
 from lib.runner import (
     build_runner_parser,
     init_experiment_dir,
+)
+from lib.runner import (
     save_candidate_result as shared_save,
 )
-
+from runners.demo_classification_runner import init_demo
 
 _RUNNER_MODULES = [
     "runners.demo_classification_runner",
@@ -60,9 +61,7 @@ _BASELINE_PARAMS = [
 ]
 
 
-@pytest.mark.parametrize(
-    "runner_module,exp_subdir,candidate_id,objective_metric", _BASELINE_PARAMS
-)
+@pytest.mark.parametrize("runner_module,exp_subdir,candidate_id,objective_metric", _BASELINE_PARAMS)
 def test_saves_rule_baseline(
     runner_module: str,
     exp_subdir: str,
@@ -152,9 +151,7 @@ class TestInitExperimentDirWithTemplate:
         template.write_text("# Custom Template\nThis is custom.\n")
         with patch("lib.runner.ROOT", tmp_path):
             d = init_experiment_dir("test-exp", template_path=template)
-        assert (
-            d / "experiment.md"
-        ).read_text() == "# Custom Template\nThis is custom.\n"
+        assert (d / "experiment.md").read_text() == "# Custom Template\nThis is custom.\n"
 
     def test_falls_back_to_generic_template(self, tmp_path: Path) -> None:
         generic = tmp_path / "experiments" / "templates" / "model-search.md"

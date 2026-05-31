@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 import pytest
 
 from experiment import (
-    LOOP_MANAGED_FILES,
     EXPERIMENT_ROOT_ALLOWLIST,
+    LOOP_MANAGED_FILES,
     count_journal_cycles,
     diagnostics_dir,
     diagnostics_report_path,
@@ -52,9 +53,7 @@ class TestMinCyclesContract:
     def test_get_min_cycles_before_complete(self, tmp_path: Path) -> None:
         d = tmp_path / "exp"
         d.mkdir()
-        (d / "experiment.md").write_text(
-            "Minimum loop cycles before EXPERIMENT_COMPLETE: 7\n"
-        )
+        (d / "experiment.md").write_text("Minimum loop cycles before EXPERIMENT_COMPLETE: 7\n")
         assert get_min_cycles_before_complete(d) == 7
 
     def test_get_min_cycles_missing_returns_none(self, tmp_path: Path) -> None:
@@ -66,9 +65,7 @@ class TestMinCyclesContract:
     def test_count_journal_cycles(self, tmp_path: Path) -> None:
         d = tmp_path / "exp"
         d.mkdir()
-        (d / "research_journal.md").write_text(
-            "# J\n\n## Cycle 0001: A\n\n## Cycle 0002: B\n"
-        )
+        (d / "research_journal.md").write_text("# J\n\n## Cycle 0001: A\n\n## Cycle 0002: B\n")
         assert count_journal_cycles(d) == 2
 
 
@@ -101,27 +98,21 @@ class TestValidateExperiment:
         errors = validate_experiment(experiment_dir, strict_completion=True)
         assert errors == []
 
-    def test_fails_result_entry_missing_candidate_id(
-        self, experiment_dir: Path
-    ) -> None:
+    def test_fails_result_entry_missing_candidate_id(self, experiment_dir: Path) -> None:
         (experiment_dir / "results.json").write_text(
             '[{"objective_score": 0.5, "objective_metric": "val_auc"}]\n'
         )
         errors = validate_experiment(experiment_dir)
         assert any("candidate_id" in e for e in errors)
 
-    def test_fails_result_entry_missing_objective_score(
-        self, experiment_dir: Path
-    ) -> None:
+    def test_fails_result_entry_missing_objective_score(self, experiment_dir: Path) -> None:
         (experiment_dir / "results.json").write_text(
             '[{"candidate_id": "a", "objective_metric": "val_auc"}]\n'
         )
         errors = validate_experiment(experiment_dir)
         assert any("objective_score" in e for e in errors)
 
-    def test_strict_fails_result_entry_missing_objective_metric(
-        self, experiment_dir: Path
-    ) -> None:
+    def test_strict_fails_result_entry_missing_objective_metric(self, experiment_dir: Path) -> None:
         (experiment_dir / "results.json").write_text(
             '[{"candidate_id": "a", "objective_score": 0.5}]\n'
         )
@@ -135,9 +126,7 @@ class TestValidateExperiment:
         errors = validate_experiment(experiment_dir)
         assert any("finite numeric objective_score" in e for e in errors)
 
-    def test_strict_requires_at_least_one_valid_entry(
-        self, experiment_dir: Path
-    ) -> None:
+    def test_strict_requires_at_least_one_valid_entry(self, experiment_dir: Path) -> None:
         (experiment_dir / "results.json").write_text('[{"foo": 1}]\n')
         errors = validate_experiment(experiment_dir, strict_completion=True)
         assert any("at least one valid result entry" in e for e in errors)
@@ -158,24 +147,18 @@ class TestDiagnosticsPaths:
             experiment_dir / "diagnostics" / "report.json"
         )
 
-    def test_read_diagnostics_summary_returns_none_when_missing(
-        self, experiment_dir: Path
-    ) -> None:
+    def test_read_diagnostics_summary_returns_none_when_missing(self, experiment_dir: Path) -> None:
         assert read_diagnostics_summary(experiment_dir) is None
 
 
 class TestEvaluationReviewPaths:
     def test_returns_evaluation_review_paths(self, experiment_dir: Path) -> None:
-        assert evaluation_review_path(experiment_dir) == (
-            experiment_dir / "evaluation_review.md"
-        )
+        assert evaluation_review_path(experiment_dir) == (experiment_dir / "evaluation_review.md")
         assert evaluation_review_report_path(experiment_dir) == (
             experiment_dir / "evaluation_review.json"
         )
 
-    def test_read_evaluation_review_returns_none_when_missing(
-        self, experiment_dir: Path
-    ) -> None:
+    def test_read_evaluation_review_returns_none_when_missing(self, experiment_dir: Path) -> None:
         assert read_evaluation_review(experiment_dir) is None
 
 
@@ -205,9 +188,7 @@ class TestGetObjectiveMetric:
     def test_returns_none_when_no_parenthesized_token(self, tmp_path: Path) -> None:
         d = tmp_path / "exp"
         d.mkdir()
-        (d / "experiment.md").write_text(
-            "# Experiment\n\n## Objective Metric\n\nValidation AUC.\n"
-        )
+        (d / "experiment.md").write_text("# Experiment\n\n## Objective Metric\n\nValidation AUC.\n")
         assert get_objective_metric(d) is None
 
     def test_returns_none_when_no_experiment_md(self, tmp_path: Path) -> None:
@@ -349,9 +330,7 @@ class TestPrefixConventionWarning:
             )
         )
         msgs = validate_experiment(d)
-        warnings = [
-            m for m in msgs if "prefix" in m.lower() or "convention" in m.lower()
-        ]
+        warnings = [m for m in msgs if "prefix" in m.lower() or "convention" in m.lower()]
         assert len(warnings) >= 1
 
 

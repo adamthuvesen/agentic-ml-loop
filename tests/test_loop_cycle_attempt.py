@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from loop.cycle_attempt import run_cycle_attempt
 from loop.invoke import RunnerConfig
-
 from tests.loop.conftest import make_experiment_dir
 
 
@@ -36,10 +35,7 @@ def test_runner_invocation_error_writes_attempt_result(tmp_path: Path) -> None:
         )
 
     assert not outcome.success
-    assert (
-        outcome.attempt_record["failure_reason"]
-        == "runner_invocation_error:RuntimeError"
-    )
+    assert outcome.attempt_record["failure_reason"] == "runner_invocation_error:RuntimeError"
     assert attempt_result_path.exists()
     assert "runner unavailable" in attempt_result_path.read_text()
 

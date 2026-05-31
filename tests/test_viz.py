@@ -72,9 +72,7 @@ class TestParseResultsJson:
         assert candidate["metrics"]["auc"] == 0.812
         assert "at_20" not in candidate
 
-    def test_parses_regression_metrics_without_fake_capture_fields(
-        self, tmp_path: Path
-    ) -> None:
+    def test_parses_regression_metrics_without_fake_capture_fields(self, tmp_path: Path) -> None:
         path = tmp_path / "results.json"
         path.write_text(
             json.dumps(
@@ -168,7 +166,4 @@ def test_bundle_embeds_escaped_json_payload(tmp_path: Path) -> None:
     end = html.index("</script>", start)
     payload = html[start:end]
 
-    assert (
-        "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e"
-        in payload
-    )
+    assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e" in payload

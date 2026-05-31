@@ -10,9 +10,7 @@ class TestArtifactSnapshot:
         d = tmp_path / "exp"
         d.mkdir()
         (d / "research_journal.md").write_text("# Journal\n")
-        (d / "results.json").write_text(
-            '[{"candidate_id": "a", "objective_score": 0.8}]\n'
-        )
+        (d / "results.json").write_text('[{"candidate_id": "a", "objective_score": 0.8}]\n')
         snap = artifact_snapshot(d)
         assert set(snap.keys()) == {
             "journal_hash",
@@ -118,9 +116,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         assert not (d / "evaluation_review.json").exists()
         assert not diag.exists()
 
-    def test_pre_existing_evaluation_review_survives_retry(
-        self, tmp_path: Path
-    ) -> None:
+    def test_pre_existing_evaluation_review_survives_retry(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         sources_path = d / "research_sources.md"
         review_md = d / "evaluation_review.md"

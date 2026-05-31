@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 Observation = tuple[int, str]
 
@@ -33,9 +33,7 @@ def dedup_observations(observations: list[Observation]) -> list[Observation]:
             continue
 
         for group_idx, keywords in enumerate(_DEDUP_KEYWORD_GROUPS):
-            if group_idx not in used_groups and all(
-                kw in text_lower for kw in keywords
-            ):
+            if group_idx not in used_groups and all(kw in text_lower for kw in keywords):
                 used_groups.add(group_idx)
                 break
 

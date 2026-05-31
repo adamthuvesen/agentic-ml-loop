@@ -10,7 +10,6 @@ from typing import Any
 from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE
 from .prompts import latest_hypothesis, results_snapshot
 
-
 _ANSI_RESET = "\033[0m"
 _ANSI_STYLES = {
     "bold": "\033[1m",
@@ -106,9 +105,7 @@ def iso_to_datetime(value: str) -> datetime:
 
 def _elapsed_str(started_at: str, completed_at: str) -> str:
     """Format elapsed time between two ISO timestamp strings."""
-    secs = int(
-        (iso_to_datetime(completed_at) - iso_to_datetime(started_at)).total_seconds()
-    )
+    secs = int((iso_to_datetime(completed_at) - iso_to_datetime(started_at)).total_seconds())
     return format_elapsed(secs)
 
 
@@ -201,15 +198,9 @@ def emit_cycle_retry(next_attempt: int, attempt_record: dict[str, Any]) -> None:
         reasons.append("journal not updated")
     elif not attempt_record.get("marker"):
         reasons.append("missing marker")
-    reason_str = (
-        ", ".join(reasons)
-        if reasons
-        else attempt_record.get("failure_reason", "unknown")
-    )
+    reason_str = ", ".join(reasons) if reasons else attempt_record.get("failure_reason", "unknown")
     failed = next_attempt - 1
-    _print_kv(
-        "Status", f"{_status_text('error', 'x')} attempt {failed} failed: {reason_str}"
-    )
+    _print_kv("Status", f"{_status_text('error', 'x')} attempt {failed} failed: {reason_str}")
 
 
 def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
@@ -229,9 +220,7 @@ def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
         lb = summary.get("after_snapshot", {}).get("results_by_id", {})
         before_scores = [
             c["objective_score"]
-            for c in summary.get("before_snapshot", {})
-            .get("results_by_id", {})
-            .values()
+            for c in summary.get("before_snapshot", {}).get("results_by_id", {}).values()
             if isinstance(c.get("objective_score"), (int, float))
         ]
         after_scores = [
@@ -257,9 +246,7 @@ def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
                     cid = cid.strip()
                     entry = lb.get(cid, {})
                     score = entry.get("objective_score")
-                    score_str = (
-                        f"{score:.4f}" if isinstance(score, (int, float)) else "?"
-                    )
+                    score_str = f"{score:.4f}" if isinstance(score, (int, float)) else "?"
                     new_lines.append(
                         f"{cid}  {entry.get('model_family', '?')}"
                         f"  {entry.get('objective_metric', '?')} {score_str}{delta_icon}"
@@ -269,9 +256,7 @@ def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
             for line in new_lines[1:]:
                 _print_kv("", line)
         other_reasons = [
-            r
-            for r in summary.get("progress_reasons", [])
-            if not r.startswith("new_candidates:")
+            r for r in summary.get("progress_reasons", []) if not r.startswith("new_candidates:")
         ]
         if other_reasons:
             _print_kv("Changes", ", ".join(other_reasons))
@@ -283,9 +268,7 @@ def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
         )
 
     else:  # failed
-        _print_kv(
-            "Result", f"{_status_text('error', 'x')} {_status_text('error', 'failed')}"
-        )
+        _print_kv("Result", f"{_status_text('error', 'x')} {_status_text('error', 'failed')}")
         for attempt in summary.get("attempts", [])[-1:]:
             for err in (attempt.get("validation_errors") or [])[:2]:
                 _print_kv("Error", _muted(err))
@@ -298,11 +281,7 @@ def emit_loop_stop(experiment_dir: Any, state: dict[str, Any]) -> None:
     status = state.get("status", "")
     _print_section("Summary")
     _print_kv("Cycles", str(cycle_count))
-    kind = (
-        "success"
-        if status == "completed"
-        else ("warning" if status == "stalled" else "error")
-    )
+    kind = "success" if status == "completed" else ("warning" if status == "stalled" else "error")
     _print_kv("Stop reason", f"{_status_text(kind, reason)}")
     results = results_snapshot(experiment_dir)
     if results:

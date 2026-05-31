@@ -25,9 +25,7 @@ def run_error_analysis() -> None:
             ("preprocessor", _preprocessor("base")),
             (
                 "estimator",
-                LogisticRegression(
-                    max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"
-                ),
+                LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
             ),
         ]
     )
@@ -56,9 +54,7 @@ def run_error_analysis() -> None:
     tn_mask = (val_y == 0) & (preds == 0)
 
     print("\nConfusion at threshold=0.5:")
-    print(
-        f"  TP={tp_mask.sum()}, FP={fp_mask.sum()}, FN={fn_mask.sum()}, TN={tn_mask.sum()}"
-    )
+    print(f"  TP={tp_mask.sum()}, FP={fp_mask.sum()}, FN={fn_mask.sum()}, TN={tn_mask.sum()}")
     print(f"  FN rate: {fn_mask.sum() / (val_y == 1).sum():.3f}")
     print(f"  FP rate: {fp_mask.sum() / (val_y == 0).sum():.3f}")
 
@@ -188,9 +184,7 @@ def run_error_analysis() -> None:
     diffs = boot_logreg_aucs - boot_xgb_aucs
     print("\n--- Paired Bootstrap: logreg-basic - xgb-base ---")
     print(f"  Mean diff: {diffs.mean():.4f}")
-    print(
-        f"  95% CI: [{np.percentile(diffs, 2.5):.4f}, {np.percentile(diffs, 97.5):.4f}]"
-    )
+    print(f"  95% CI: [{np.percentile(diffs, 2.5):.4f}, {np.percentile(diffs, 97.5):.4f}]")
     print(f"  P(logreg > xgb): {(diffs > 0).mean():.3f}")
 
 

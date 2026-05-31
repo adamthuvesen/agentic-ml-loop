@@ -2,16 +2,12 @@ from __future__ import annotations
 
 import re
 
-
 VALID_COMPLETION_MARKERS = frozenset({"CYCLE_DONE", "EXPERIMENT_COMPLETE"})
 
 
 def extract_completion_marker(output_text: str) -> tuple[str, list[str]]:
     """Return the sole valid completion marker plus validation errors."""
-    markers = [
-        marker.strip()
-        for marker in re.findall(r"<promise>([^<]+)</promise>", output_text)
-    ]
+    markers = [marker.strip() for marker in re.findall(r"<promise>([^<]+)</promise>", output_text)]
     if not markers:
         return "", ["missing completion marker"]
     if len(markers) > 1:

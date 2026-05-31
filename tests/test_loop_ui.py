@@ -1,8 +1,6 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from tests.loop.conftest import _make_experiment
-
 from loop import (
     LOCK_PATH_NAME,
     RESEARCHER_FRAMING,
@@ -12,6 +10,7 @@ from loop import (
     load_researcher_identity,
     write_status_markdown,
 )
+from tests.loop.conftest import _make_experiment
 
 
 class TestFormatElapsed:
@@ -73,9 +72,7 @@ class TestStatusMarkdown:
         assert "claude (claude-opus-4-7[1m], effort=xhigh)" in status
 
     def test_includes_active_attempt_details(self, tmp_path: Path) -> None:
-        d = _make_experiment(
-            tmp_path, results=[{"candidate_id": "a", "objective_score": 0.5}]
-        )
+        d = _make_experiment(tmp_path, results=[{"candidate_id": "a", "objective_score": 0.5}])
         state = {
             "status": "running",
             "cycle_count": 1,
@@ -96,9 +93,7 @@ class TestStatusMarkdown:
         assert "Active started at" in status
         assert "Active for" in status
 
-    def test_marks_running_state_without_lock_as_interrupted(
-        self, tmp_path: Path
-    ) -> None:
+    def test_marks_running_state_without_lock_as_interrupted(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         state = {
             "status": "running",

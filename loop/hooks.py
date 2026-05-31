@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 from experiment import get_cross_learnings_enabled, learnings_file
 from lib.learnings import extract_and_append_learnings
+
 from .artifacts import compute_progress
 from .prompts import CyclePrompt, build_cycle_prompt
 
@@ -77,9 +78,7 @@ class DefaultCycleHooks:
         progress_reasons = compute_progress(before_snapshot, after_snapshot)
 
         learnings_extracted = False
-        if marker == "EXPERIMENT_COMPLETE" and get_cross_learnings_enabled(
-            experiment_dir
-        ):
+        if marker == "EXPERIMENT_COMPLETE" and get_cross_learnings_enabled(experiment_dir):
             if extract_and_append_learnings(experiment_dir):
                 print(f"Learnings appended to {learnings_file()}")
                 learnings_extracted = True

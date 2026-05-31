@@ -4,8 +4,9 @@ import argparse
 import fcntl
 import json
 import shutil
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from experiment import (
     LOOP_MANAGED_DIRECTORIES,
@@ -55,9 +56,7 @@ def save_candidate_result(
     candidate_runners: dict[str, Callable],
 ) -> dict[str, Any]:
     if not experiment_dir.is_dir():
-        raise FileNotFoundError(
-            f"Experiment directory does not exist: {experiment_dir}"
-        )
+        raise FileNotFoundError(f"Experiment directory does not exist: {experiment_dir}")
     if candidate_id not in candidate_runners:
         known = ", ".join(sorted(candidate_runners)) or "none"
         raise ValueError(f"Unknown candidate '{candidate_id}'. Available: {known}")
@@ -80,13 +79,9 @@ def save_candidate_result(
     with open(lock_path, "w") as lock_f:
         fcntl.flock(lock_f, fcntl.LOCK_EX)
         existing = _load_existing_results(results_path)
-        existing = [
-            r for r in existing if r.get("candidate_id") != candidate.candidate_id
-        ]
+        existing = [r for r in existing if r.get("candidate_id") != candidate.candidate_id]
         existing.append(payload)
-        existing.sort(
-            key=lambda x: x.get("objective_score", float("-inf")), reverse=True
-        )
+        existing.sort(key=lambda x: x.get("objective_score", float("-inf")), reverse=True)
         write_json(results_path, existing)
     return payload
 
@@ -117,9 +112,7 @@ def init_experiment_dir(
                 shutil.rmtree(path)
     experiment_dir.mkdir(parents=True, exist_ok=True)
     if force or not (experiment_dir / "experiment.md").exists():
-        source = template_path or (
-            ROOT / "experiments" / "templates" / "model-search.md"
-        )
+        source = template_path or (ROOT / "experiments" / "templates" / "model-search.md")
         (experiment_dir / "experiment.md").write_text(
             source.read_text(encoding="utf-8"), encoding="utf-8"
         )
@@ -157,9 +150,7 @@ def build_runner_parser(
     retired_candidate_choices: list[str] | None = None,
 ) -> argparse.ArgumentParser:
     retired_candidate_choices = retired_candidate_choices or []
-    parser = argparse.ArgumentParser(
-        description=f"{experiment_id} runner for agentic-ml-loop"
-    )
+    parser = argparse.ArgumentParser(description=f"{experiment_id} runner for agentic-ml-loop")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("list-candidates", help="List bundled candidates")
@@ -196,9 +187,7 @@ def build_runner_parser(
             help="Retired candidate id to run",
         )
 
-    init_parser = subparsers.add_parser(
-        "init-demo", help="Create or refresh the experiment"
-    )
+    init_parser = subparsers.add_parser("init-demo", help="Create or refresh the experiment")
     init_parser.add_argument(
         "--force",
         action="store_true",
@@ -250,9 +239,7 @@ def run_runner_main(
             if args.command == "run-retired-candidate"
             else candidate_runners
         )
-        result = save_candidate_result(
-            experiment_dir, args.candidate, dataset_loader, runners
-        )
+        result = save_candidate_result(experiment_dir, args.candidate, dataset_loader, runners)
         print(
             json.dumps(
                 {

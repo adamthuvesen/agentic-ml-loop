@@ -25,18 +25,15 @@ def _budget_stop(state: LoopState) -> StopDecision | None:
     if state.max_hours is not None:
         elapsed = datetime.now(timezone.utc) - iso_to_datetime(state.started_at)
         if elapsed.total_seconds() >= float(state.max_hours) * 3600:
-            final_status = (
-                "failed" if state.last_cycle_result == "failed" else "completed"
-            )
+            final_status = "failed" if state.last_cycle_result == "failed" else "completed"
             return StopDecision(True, "max_hours_reached", final_status)
     return None
 
 
 def evaluate_stop(state: LoopState) -> StopDecision:
     """Decide if the supervisor should exit before starting another cycle."""
-    if not state.enforce_budget_until_limit:
-        if state.last_cycle_result == "complete":
-            return StopDecision(True, "experiment_complete", "completed")
+    if not state.enforce_budget_until_limit and state.last_cycle_result == "complete":
+        return StopDecision(True, "experiment_complete", "completed")
 
     if state.consecutive_no_progress_cycles >= DEFAULT_STALL_LIMIT:
         return StopDecision(True, "slice_stall", "stalled")

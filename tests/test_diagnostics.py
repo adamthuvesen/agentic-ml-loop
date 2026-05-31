@@ -40,22 +40,16 @@ class TestGenerateExperimentDiagnostics:
         assert json.loads(report_path.read_text())["splits"]
         assert (exp_dir / "results.json").read_text() == results_before
 
-    def test_includes_error_patterns_when_predictions_are_available(
-        self, tmp_path: Path
-    ) -> None:
+    def test_includes_error_patterns_when_predictions_are_available(self, tmp_path: Path) -> None:
         exp_dir = tmp_path / "experiments" / "demo_classification"
         exp_dir.mkdir(parents=True)
         (exp_dir / "results.json").write_text("[]\n")
 
         splits = split_demo_dataset(load_demo_dataset())
         validation = splits.validation.copy()
-        validation["pred_prob"] = (
-            validation[TARGET_COLUMN].map({0: 0.1, 1: 0.9}).astype(float)
-        )
+        validation["pred_prob"] = validation[TARGET_COLUMN].map({0: 0.1, 1: 0.9}).astype(float)
         flipped_rows = validation.index[:8]
-        validation.loc[flipped_rows, "pred_prob"] = (
-            1.0 - validation.loc[flipped_rows, "pred_prob"]
-        )
+        validation.loc[flipped_rows, "pred_prob"] = 1.0 - validation.loc[flipped_rows, "pred_prob"]
 
         report = generate_experiment_diagnostics(
             exp_dir,

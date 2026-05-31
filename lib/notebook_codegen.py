@@ -26,9 +26,7 @@ def _build_notebook_cells(
         cells.extend(
             [
                 _markdown_cell("## Final Model Path"),
-                _code_cell(
-                    _final_model_source(recipe, include_sensitive=include_sensitive)
-                ),
+                _code_cell(_final_model_source(recipe, include_sensitive=include_sensitive)),
             ]
         )
     elif recipe.recipe_type == "analysis_pipeline":
@@ -42,9 +40,7 @@ def _build_notebook_cells(
         raise NotebookRecipeError(f"Unsupported recipe type: {recipe.recipe_type}")
 
     cells.append(_markdown_cell("## Declared Outputs"))
-    cells.append(
-        _code_cell(_outputs_source(recipe, include_sensitive=include_sensitive))
-    )
+    cells.append(_code_cell(_outputs_source(recipe, include_sensitive=include_sensitive)))
     if recipe.sensitive_outputs and not include_sensitive:
         cells.append(
             _markdown_cell(

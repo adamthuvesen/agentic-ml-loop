@@ -18,9 +18,7 @@ MAX_EXCERPT_BULLETS = 2
 MIN_RELEVANCE_SCORE = 3.0
 
 
-def replace_or_append_learnings(
-    learnings_path: Path, experiment_id: str, new_section: str
-) -> None:
+def replace_or_append_learnings(learnings_path: Path, experiment_id: str, new_section: str) -> None:
     """Replace any existing ``## From <experiment_id>`` sections, then append *new_section*.
 
     Preserves the file header (everything before the first ``## `` heading) and
@@ -110,9 +108,7 @@ def build_experiment_profile(experiment_dir: Path) -> ExperimentProfile:
     if feature_count is not None:
         tags.add(_feature_count_bucket(feature_count))
 
-    return ExperimentProfile(
-        experiment_id=experiment_dir.name, tags=tuple(sorted(tags))
-    )
+    return ExperimentProfile(experiment_id=experiment_dir.name, tags=tuple(sorted(tags)))
 
 
 def learnings_profile_tags(experiment_dir: Path) -> list[str]:
@@ -128,9 +124,7 @@ def build_cross_experiment_learnings_context(experiment_dir: Path) -> str | None
     if not learnings_text:
         return None
 
-    retrieved = retrieve_relevant_learnings(
-        experiment_dir, learnings_text=learnings_text
-    )
+    retrieved = retrieve_relevant_learnings(experiment_dir, learnings_text=learnings_text)
     if not retrieved:
         return None
 
@@ -149,8 +143,7 @@ def build_cross_experiment_learnings_context(experiment_dir: Path) -> str | None
         lines.append("")
         if excerpt.matched_tags:
             lines.append(
-                "- Matched profile tags: "
-                + ", ".join(f"`{tag}`" for tag in excerpt.matched_tags)
+                "- Matched profile tags: " + ", ".join(f"`{tag}`" for tag in excerpt.matched_tags)
             )
         for bullet in excerpt.bullets[:MAX_EXCERPT_BULLETS]:
             lines.append(f"- {bullet}")
@@ -175,13 +168,9 @@ def retrieve_relevant_learnings(
     excerpts: list[LearningsExcerpt] = []
     for title, section_body in _parse_sections(learnings_text):
         explicit_tags, body_without_tags = _extract_explicit_tags(section_body)
-        inferred_tags = tuple(
-            sorted(_infer_tags_from_text(f"{title}\n{body_without_tags}"))
-        )
+        inferred_tags = tuple(sorted(_infer_tags_from_text(f"{title}\n{body_without_tags}")))
         matched_explicit = sorted(set(profile.tags) & set(explicit_tags))
-        matched_inferred = sorted(
-            (set(profile.tags) & set(inferred_tags)) - set(explicit_tags)
-        )
+        matched_inferred = sorted((set(profile.tags) & set(inferred_tags)) - set(explicit_tags))
         score = (3.0 * len(matched_explicit)) + (1.5 * len(matched_inferred))
         if score < MIN_RELEVANCE_SCORE:
             continue
@@ -198,9 +187,7 @@ def retrieve_relevant_learnings(
             )
         )
 
-    excerpts.sort(
-        key=lambda item: (item.score, len(item.matched_tags), item.title), reverse=True
-    )
+    excerpts.sort(key=lambda item: (item.score, len(item.matched_tags), item.title), reverse=True)
     return excerpts[:limit]
 
 
@@ -253,9 +240,7 @@ def _section_bullets(section_body: str) -> list[str]:
 
 
 def _section_summary_line(section_body: str) -> str:
-    flattened = " ".join(
-        line.strip() for line in section_body.splitlines() if line.strip()
-    )
+    flattened = " ".join(line.strip() for line in section_body.splitlines() if line.strip())
     return re.sub(r"\s+", " ", flattened).strip()
 
 
@@ -280,9 +265,7 @@ def _extract_section_text(markdown: str, heading: str) -> str | None:
 def _extract_count(section_text: str | None, *, label: str) -> int | None:
     if not section_text:
         return None
-    match = re.search(
-        rf"{re.escape(label)}[^0-9]*(\d[\d,]*)", section_text, re.IGNORECASE
-    )
+    match = re.search(rf"{re.escape(label)}[^0-9]*(\d[\d,]*)", section_text, re.IGNORECASE)
     if not match:
         return None
     return int(match.group(1).replace(",", ""))
@@ -313,9 +296,7 @@ def _infer_tags_from_text(text: str) -> set[str]:
             tags.add(tag)
 
     add_if("classification", "classification", "auc", "precision", "recall", "log_loss")
-    add_if(
-        "regression", "regression", "rmse", "mae", "r^2", " r2", "r2 ", "_r2", "val_r2"
-    )
+    add_if("regression", "regression", "rmse", "mae", "r^2", " r2", "r2 ", "_r2", "val_r2")
     add_if("ranking", "captured_at_", "top 20%", "top-k", "rank", "expected expansion")
     add_if("temporal-split", "temporal split", "time split", "quarter", "month", "q4")
     add_if("random-split", "random split", "stratified split")
@@ -365,9 +346,7 @@ def _infer_tags_from_text(text: str) -> set[str]:
     return tags
 
 
-def _warm_start_lines(
-    profile: ExperimentProfile, excerpts: list[LearningsExcerpt]
-) -> list[str]:
+def _warm_start_lines(profile: ExperimentProfile, excerpts: list[LearningsExcerpt]) -> list[str]:
     priors = [
         _compress_bullet(excerpt.bullets[0])
         for excerpt in excerpts
@@ -376,8 +355,7 @@ def _warm_start_lines(
 
     suggestions: list[str] = []
     if "classification" in profile.tags and any(
-        "logistic regression" in excerpt.body.lower()
-        or "logreg" in excerpt.body.lower()
+        "logistic regression" in excerpt.body.lower() or "logreg" in excerpt.body.lower()
         for excerpt in excerpts
     ):
         suggestions.append(
@@ -388,8 +366,7 @@ def _warm_start_lines(
             "Suggested first move: inspect temporal shift early and treat changing relationships across time as structural evidence, not just noise."
         )
     if any(
-        "bootstrap" in excerpt.body.lower() or "ci" in excerpt.body.lower()
-        for excerpt in excerpts
+        "bootstrap" in excerpt.body.lower() or "ci" in excerpt.body.lower() for excerpt in excerpts
     ):
         suggestions.append(
             "Suggested first move: run uncertainty checks before calling small leaderboard gaps real."
@@ -464,9 +441,9 @@ def extract_and_append_learnings(experiment_dir: Path) -> bool:
     journal_text = read_text(jpath)
     # Use str.replace instead of .format() so that journal text containing
     # Python dicts, JSON, or set literals with { / } never raises KeyError.
-    prompt = LEARNINGS_EXTRACTION_PROMPT.replace(
-        "{experiment_id}", experiment_dir.name
-    ).replace("{journal}", journal_text)
+    prompt = LEARNINGS_EXTRACTION_PROMPT.replace("{experiment_id}", experiment_dir.name).replace(
+        "{journal}", journal_text
+    )
 
     try:
         result = subprocess.run(

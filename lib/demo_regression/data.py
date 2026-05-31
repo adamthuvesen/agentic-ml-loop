@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 TARGET_COLUMN = "net_revenue_change_180d"
 TIME_COLUMN = "snapshot_date"
 

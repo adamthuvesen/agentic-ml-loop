@@ -118,9 +118,7 @@ def run_cycle_attempt(
     journal_file = journal_path(experiment_dir)
     current_journal_text = read_text(journal_file) if journal_file.exists() else ""
     journal_updated = sha256_text(current_journal_text) != baselines_journal_hash
-    experiment_md_changed = (
-        read_text(experiment_dir / "experiment.md") != experiment_md_backup
-    )
+    experiment_md_changed = read_text(experiment_dir / "experiment.md") != experiment_md_backup
 
     warnings = validation_warnings(validation_errors)
     contract_errors = cycle_contract_errors(
@@ -140,9 +138,7 @@ def run_cycle_attempt(
                 "failure_reason": "cycle_validation_failed",
                 "contract_errors": contract_errors,
                 "marker_errors": marker_errors,
-                "validation_errors": [
-                    e for e in validation_errors if not e.startswith("warning:")
-                ],
+                "validation_errors": [e for e in validation_errors if not e.startswith("warning:")],
                 "validation_warnings": warnings,
                 "journal_updated": journal_updated,
                 "experiment_md_changed": experiment_md_changed,
@@ -159,9 +155,7 @@ def run_cycle_attempt(
                 "failure_reason": "cycle_validation_failed",
                 "contract_errors": contract_errors,
                 "marker_errors": marker_errors,
-                "validation_errors": [
-                    e for e in validation_errors if not e.startswith("warning:")
-                ],
+                "validation_errors": [e for e in validation_errors if not e.startswith("warning:")],
                 "validation_warnings": warnings,
                 "journal_updated": journal_updated,
                 "experiment_md_changed": experiment_md_changed,

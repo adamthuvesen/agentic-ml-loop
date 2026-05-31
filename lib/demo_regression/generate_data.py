@@ -14,9 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-
-from lib.demo_regression.data import TIME_COLUMN, TARGET_COLUMN
-
+from lib.demo_regression.data import TARGET_COLUMN, TIME_COLUMN
 
 SEED = 2026
 
@@ -25,9 +23,7 @@ def _sigmoid(values: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-values))
 
 
-def generate_demo_regression_dataset(
-    n_rows: int = 4800, seed: int = SEED
-) -> pd.DataFrame:
+def generate_demo_regression_dataset(n_rows: int = 4800, seed: int = SEED) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     dates = pd.date_range("2023-01-01", "2025-12-31", periods=n_rows)
 
@@ -78,9 +74,7 @@ def generate_demo_regression_dataset(
     account_age_days = rng.integers(30, 2200, size=n_rows)
     seat_count = np.maximum(
         5,
-        (
-            rng.lognormal(mean=np.log(28 * segment_scale), sigma=0.55, size=n_rows)
-        ).astype(int),
+        (rng.lognormal(mean=np.log(28 * segment_scale), sigma=0.55, size=n_rows)).astype(int),
     )
 
     latent_utilization = np.clip(
@@ -151,9 +145,7 @@ def generate_demo_regression_dataset(
     champion_engagement_score = np.clip(
         100
         * rng.beta(
-            1.8
-            + 0.7 * has_exec_sponsor.astype(float)
-            + 0.5 * multi_product.astype(float),
+            1.8 + 0.7 * has_exec_sponsor.astype(float) + 0.5 * multi_product.astype(float),
             3.4,
             size=n_rows,
         ),
@@ -214,15 +206,13 @@ def generate_demo_regression_dataset(
         }
     )
 
-    df["seat_utilization"] = (
-        df["avg_weekly_active_users"] / np.maximum(df["seat_count"], 1)
-    ).clip(0, 1.5)
+    df["seat_utilization"] = (df["avg_weekly_active_users"] / np.maximum(df["seat_count"], 1)).clip(
+        0, 1.5
+    )
     df["support_burden"] = (
         df["support_tickets_90d"] / np.maximum(df["avg_weekly_active_users"], 1)
     ).clip(0, 1.5)
-    df["growth_efficiency"] = (
-        np.maximum(df["usage_growth_90d"], -0.20) * df["seat_utilization"]
-    )
+    df["growth_efficiency"] = np.maximum(df["usage_growth_90d"], -0.20) * df["seat_utilization"]
     df["champion_x_growth"] = (
         df["champion_engagement_score"] / 100.0 * np.maximum(df["usage_growth_90d"], 0)
     )
@@ -285,9 +275,7 @@ def generate_demo_regression_dataset(
         + 18.0 * df["feature_adoption_count"]
         + 1.4 * df["champion_engagement_score"]
         + 0.18 * df["previous_revenue_change_365d"]
-        + 780.0
-        * np.maximum(df["usage_growth_90d"], 0)
-        * np.clip(df["seat_utilization"], 0, 1.2)
+        + 780.0 * np.maximum(df["usage_growth_90d"], 0) * np.clip(df["seat_utilization"], 0, 1.2)
         + 180.0 * df["has_exec_sponsor"].astype(float)
         + 150.0 * df["multi_product"].astype(float)
         + 110.0 * (df["plan_tier"].isin(["pro", "enterprise"])).astype(float)
@@ -295,15 +283,13 @@ def generate_demo_regression_dataset(
         - 120.0 * np.maximum(df["support_burden"] - 0.05, 0)
         + 0.045 * df["account_age_days"]
     )
-    interaction_boost = 420.0 * df["has_exec_sponsor"].astype(float) * df[
-        "multi_product"
-    ].astype(float) * np.maximum(df["usage_growth_90d"], 0) + 190.0 * (
-        df["feature_adoption_count"] >= 7
-    ).astype(float) * (df["segment"] != "smb").astype(float)
+    interaction_boost = 420.0 * df["has_exec_sponsor"].astype(float) * df["multi_product"].astype(
+        float
+    ) * np.maximum(df["usage_growth_90d"], 0) + 190.0 * (df["feature_adoption_count"] >= 7).astype(
+        float
+    ) * (df["segment"] != "smb").astype(float)
     noise_scale = (
-        180.0
-        + 0.02 * df["contract_value_t0"]
-        + 130.0 * np.maximum(df["support_burden"], 0)
+        180.0 + 0.02 * df["contract_value_t0"] + 130.0 * np.maximum(df["support_burden"], 0)
     )
     raw_amount = expanding * (
         size_signal + interaction_boost + rng.normal(0, noise_scale, size=n_rows)

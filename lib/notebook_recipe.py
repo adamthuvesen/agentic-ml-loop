@@ -53,9 +53,7 @@ class NotebookRecipe:
             "target_column",
             "time_column",
         ]
-        missing = [
-            key for key in required if key not in data or data[key] in ("", None)
-        ]
+        missing = [key for key in required if key not in data or data[key] in ("", None)]
         if missing:
             raise NotebookRecipeError(
                 "Notebook recipe is missing required fields: " + ", ".join(missing)
@@ -68,9 +66,7 @@ class NotebookRecipe:
                 f"Unsupported recipe_type {recipe_type!r}; expected one of {supported}."
             )
 
-        output_filename = str(
-            data.get("output_filename") or f"{experiment_id}_portable.ipynb"
-        )
+        output_filename = str(data.get("output_filename") or f"{experiment_id}_portable.ipynb")
         if not output_filename.endswith(".ipynb"):
             raise NotebookRecipeError("output_filename must end with .ipynb.")
 
@@ -82,12 +78,8 @@ class NotebookRecipe:
             output_filename=output_filename,
             target_column=str(data["target_column"]),
             time_column=str(data["time_column"]),
-            eligibility_region_column=_optional_str(
-                data.get("eligibility_region_column")
-            ),
-            eligibility_group_column=_optional_str(
-                data.get("eligibility_group_column")
-            ),
+            eligibility_region_column=_optional_str(data.get("eligibility_region_column")),
+            eligibility_group_column=_optional_str(data.get("eligibility_group_column")),
             eligible_regions=_string_list(data.get("eligible_regions")),
             eligible_groups=_string_list(data.get("eligible_groups")),
             train_dates=_string_list(data.get("train_dates")),
@@ -100,9 +92,7 @@ class NotebookRecipe:
             model_label=_optional_str(data.get("model_label")),
             model_family=_parse_model_family(data.get("model_family")),
             incumbent_score_column=_optional_str(data.get("incumbent_score_column")),
-            incumbent_probability_scale=_optional_float(
-                data.get("incumbent_probability_scale")
-            ),
+            incumbent_probability_scale=_optional_float(data.get("incumbent_probability_scale")),
             run_pipeline_default=bool(data.get("run_pipeline_default", False)),
             safe_outputs=_string_list(data.get("safe_outputs")),
             sensitive_outputs=_string_list(data.get("sensitive_outputs")),
@@ -113,9 +103,7 @@ class NotebookRecipe:
     def validate(self) -> None:
         if self.recipe_type == "final_model":
             if not self.selected_features:
-                raise NotebookRecipeError(
-                    "final_model recipes must declare selected_features."
-                )
+                raise NotebookRecipeError("final_model recipes must declare selected_features.")
             if not self.development_dates or not self.test_dates:
                 raise NotebookRecipeError(
                     "final_model recipes must declare development_dates and test_dates."
@@ -125,11 +113,12 @@ class NotebookRecipe:
                 raise NotebookRecipeError(
                     f"Unsupported model_family {self.model_family!r}; expected one of {supported}."
                 )
-        if self.recipe_type == "analysis_pipeline":
-            if not self.train_dates or not self.validation_dates:
-                raise NotebookRecipeError(
-                    "analysis_pipeline recipes must declare train_dates and validation_dates."
-                )
+        if self.recipe_type == "analysis_pipeline" and (
+            not self.train_dates or not self.validation_dates
+        ):
+            raise NotebookRecipeError(
+                "analysis_pipeline recipes must declare train_dates and validation_dates."
+            )
 
         for label, paths in (
             ("safe_outputs", self.safe_outputs),
@@ -145,8 +134,7 @@ class NotebookRecipe:
         overlap = set(self.safe_outputs) & set(self.sensitive_outputs)
         if overlap:
             raise NotebookRecipeError(
-                "Outputs cannot be both safe and sensitive: "
-                + ", ".join(sorted(overlap))
+                "Outputs cannot be both safe and sensitive: " + ", ".join(sorted(overlap))
             )
 
 
@@ -177,9 +165,7 @@ def _parse_simple_yaml(text: str) -> dict[str, Any]:
                 raise NotebookRecipeError("Found list item without a key.")
             current = data.setdefault(current_key, [])
             if not isinstance(current, list):
-                raise NotebookRecipeError(
-                    f"Field {current_key!r} mixes scalar and list values."
-                )
+                raise NotebookRecipeError(f"Field {current_key!r} mixes scalar and list values.")
             current.append(_parse_scalar(raw_line[4:].strip()))
             continue
         if raw_line.startswith(" "):

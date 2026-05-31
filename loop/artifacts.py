@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import shutil
@@ -32,9 +33,7 @@ def capture_advisory_snapshot(experiment_dir: Path) -> AdvisorySnapshot:
     """Record diagnostics and evaluation-review paths present before a cycle."""
     diagnostics_dir = experiment_dir / "diagnostics"
     pre_cycle_diagnostics = (
-        {diagnostics_dir, *set(diagnostics_dir.glob("**/*"))}
-        if diagnostics_dir.is_dir()
-        else set()
+        {diagnostics_dir, *set(diagnostics_dir.glob("**/*"))} if diagnostics_dir.is_dir() else set()
     )
     pre_cycle_evaluation_reviews = {
         p: read_text(p)
@@ -55,9 +54,7 @@ def capture_cycle_baselines(experiment_dir: Path) -> CycleBaselines:
     sources_path = research_sources_path(experiment_dir)
     return CycleBaselines(
         journal_backup=(
-            read_text(journal_path(experiment_dir))
-            if journal_path(experiment_dir).exists()
-            else ""
+            read_text(journal_path(experiment_dir)) if journal_path(experiment_dir).exists() else ""
         ),
         experiment_md_backup=read_text(experiment_dir / "experiment.md"),
         results_backup=(
@@ -164,10 +161,7 @@ def restore_artifacts(
 
     for name in ("evaluation_review.md", "evaluation_review.json"):
         p = experiment_dir / name
-        if (
-            pre_cycle_evaluation_reviews is not None
-            and p in pre_cycle_evaluation_reviews
-        ):
+        if pre_cycle_evaluation_reviews is not None and p in pre_cycle_evaluation_reviews:
             write_text(p, pre_cycle_evaluation_reviews[p])
         else:
             p.unlink(missing_ok=True)
@@ -185,14 +179,10 @@ def restore_artifacts(
                 if f.is_file() or f.is_symlink():
                     f.unlink(missing_ok=True)
                 elif f.is_dir():
-                    try:
+                    with contextlib.suppress(OSError):
                         f.rmdir()
-                    except OSError:
-                        pass
             if diagnostics_dir not in pre_cycle_diagnostics:
-                try:
+                with contextlib.suppress(OSError):
                     diagnostics_dir.rmdir()
-                except OSError:
-                    pass
         else:
             shutil.rmtree(diagnostics_dir)

@@ -8,7 +8,6 @@ from pathlib import Path
 from lib.result_schema import validate_result_entries
 from lib.utils import load_json, read_text
 
-
 ROOT = Path(__file__).resolve().parent
 EXPERIMENTS_DIR = ROOT / "experiments"
 JOURNAL_FILE_NAME = "research_journal.md"
@@ -56,9 +55,7 @@ LOOP_MANAGED_DIRECTORIES: frozenset[str] = frozenset(
 # Files and directories the loop or runners manage in the experiment root.
 # Anything else surfaces as a soft "stray files" warning so the agent steers
 # new artefacts into outputs/, work/, or scripts/.
-EXPERIMENT_ROOT_ALLOWLIST: frozenset[str] = (
-    LOOP_MANAGED_FILES | LOOP_MANAGED_DIRECTORIES
-)
+EXPERIMENT_ROOT_ALLOWLIST: frozenset[str] = LOOP_MANAGED_FILES | LOOP_MANAGED_DIRECTORIES
 
 
 def journal_path(experiment_dir: Path) -> Path:
@@ -124,9 +121,7 @@ def get_cross_learnings_enabled(experiment_dir: Path) -> bool:
     if not spec_path.exists():
         return True
     text = read_text(spec_path)
-    match = re.search(
-        r"^cross_learnings:\s*(false|no)\s*$", text, re.MULTILINE | re.IGNORECASE
-    )
+    match = re.search(r"^cross_learnings:\s*(false|no)\s*$", text, re.MULTILINE | re.IGNORECASE)
     return match is None
 
 
@@ -265,9 +260,7 @@ def stray_root_entries(experiment_dir: Path) -> list[str]:
     return stray
 
 
-def validate_experiment(
-    experiment_dir: Path, strict_completion: bool = False
-) -> list[str]:
+def validate_experiment(experiment_dir: Path, strict_completion: bool = False) -> list[str]:
     errors: list[str] = []
     if not experiment_dir.exists() or not experiment_dir.is_dir():
         return [f"Experiment directory does not exist: {experiment_dir}"]
@@ -299,18 +292,13 @@ def validate_experiment(
     if strict_completion and not results:
         errors.append("strict completion requires at least one result entry")
     else:
-        errors.extend(
-            validate_result_entries(results, strict_completion=strict_completion)
-        )
+        errors.extend(validate_result_entries(results, strict_completion=strict_completion))
 
     # Metric consistency checks
     declared_metric = get_objective_metric(experiment_dir)
     if declared_metric and isinstance(results, list) and results:
         # Check prefix convention
-        if not (
-            declared_metric.startswith("val_")
-            or declared_metric.startswith("validation_")
-        ):
+        if not (declared_metric.startswith("val_") or declared_metric.startswith("validation_")):
             msg = (
                 f"declared objective metric '{declared_metric}' does not follow "
                 f"val_/validation_ prefix convention"
@@ -338,9 +326,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     validate_parser = subparsers.add_parser("validate", help="Validate an experiment")
-    validate_parser.add_argument(
-        "experiment_path", help="Path to the experiment directory"
-    )
+    validate_parser.add_argument("experiment_path", help="Path to the experiment directory")
     validate_parser.add_argument(
         "--strict-completion",
         action="store_true",

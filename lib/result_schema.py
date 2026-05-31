@@ -5,11 +5,7 @@ from typing import Any
 
 
 def is_finite_number(value: Any) -> bool:
-    return (
-        isinstance(value, (int, float))
-        and not isinstance(value, bool)
-        and math.isfinite(value)
-    )
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
 def non_finite_paths(value: Any, path: str) -> list[str]:

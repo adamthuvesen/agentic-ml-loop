@@ -86,7 +86,7 @@ def _objective_metric_name(result: dict[str, Any]) -> str | None:
         return None
     if objective_metric in train_metrics and objective_metric in validation_metrics:
         return objective_metric
-    common = [name for name in train_metrics.keys() if name in validation_metrics]
+    common = [name for name in train_metrics if name in validation_metrics]
     return common[0] if common else None
 
 
@@ -100,7 +100,7 @@ def _uncertainty_width(result: dict[str, Any]) -> float | None:
         candidate_keys.append(f"{objective_metric}_ci_95")
     candidate_keys.extend(
         key
-        for key in hyperparameters.keys()
+        for key in hyperparameters
         if key.endswith("_ci_95")
         and isinstance(hyperparameters.get(key), list)
         and len(hyperparameters.get(key)) == 2
@@ -146,9 +146,7 @@ def _repeated_overfit_signal(results: list[dict[str, Any]]) -> str | None:
             continue
         train_metrics = metrics.get("train", {})
         validation_metrics = metrics.get("validation", {})
-        if not isinstance(train_metrics, dict) or not isinstance(
-            validation_metrics, dict
-        ):
+        if not isinstance(train_metrics, dict) or not isinstance(validation_metrics, dict):
             continue
         train_value = train_metrics.get(metric_name)
         validation_value = validation_metrics.get(metric_name)
@@ -256,9 +254,7 @@ def build_research_signals(
     """
     results = results if results is not None else results_snapshot(experiment_dir)
     journal_cycles = (
-        journal_cycles
-        if journal_cycles is not None
-        else count_journal_cycles(experiment_dir)
+        journal_cycles if journal_cycles is not None else count_journal_cycles(experiment_dir)
     )
     external_sources = (
         external_sources
@@ -330,9 +326,7 @@ def build_advisory_signals(
     """
     results = results if results is not None else results_snapshot(experiment_dir)
     journal_cycles = (
-        journal_cycles
-        if journal_cycles is not None
-        else count_journal_cycles(experiment_dir)
+        journal_cycles if journal_cycles is not None else count_journal_cycles(experiment_dir)
     )
     external_sources = (
         external_sources

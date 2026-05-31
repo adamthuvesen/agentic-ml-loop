@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import sys
@@ -48,10 +49,7 @@ def parse_experiment_md(path: Path) -> dict:
                         goal = goal[:cut] + "."
                     else:
                         cut = goal[:80].rfind(",")
-                        if cut > 30:
-                            goal = goal[:cut] + "."
-                        else:
-                            goal = goal[:77] + "..."
+                        goal = goal[:cut] + "." if cut > 30 else goal[:77] + "..."
         elif section.startswith("Objective Metric"):
             m = re.search(r"`([^`]+)`", section)
             if m:
@@ -233,29 +231,18 @@ def _clean_name(name: str) -> str:
 def extract_result_table(body: str) -> list[dict]:
     """Extract candidates from the RESULTS section only, not pre-run tables."""
     results_section = ""
-    m = re.search(
-        r"### (?:Results|Baseline Results).*?\n(.*?)(?=\n### |\Z)", body, re.DOTALL
-    )
-    if m:
-        results_section = m.group(1)
-    else:
-        results_section = body
+    m = re.search(r"### (?:Results|Baseline Results).*?\n(.*?)(?=\n### |\Z)", body, re.DOTALL)
+    results_section = m.group(1) if m else body
 
     candidates = []
     seen = set()
     tables = re.findall(r"(\|.+\|.+\|.+)\n\|[-\s|:]+\n((?:\|.+\n)+)", results_section)
     if tables:
         header_row, body = tables[0]
-        header_cols = [
-            c.strip().strip("*").lower() for c in header_row.split("|")[1:-1]
-        ]
+        header_cols = [c.strip().strip("*").lower() for c in header_row.split("|")[1:-1]]
         col_idx: dict[str, int] = {name: i for i, name in enumerate(header_cols)}
         at_20_idx = next(
-            (
-                col_idx[k]
-                for k in ("at_20", "captured_at_20pct", "score")
-                if k in col_idx
-            ),
+            (col_idx[k] for k in ("at_20", "captured_at_20pct", "score") if k in col_idx),
             None,
         )
         for row in body.strip().splitlines():
@@ -270,10 +257,8 @@ def extract_result_table(body: str) -> list[dict]:
             seen.add(name)
             at_20 = None
             if at_20_idx is not None and at_20_idx < len(cols):
-                try:
+                with contextlib.suppress(ValueError):
                     at_20 = float(cols[at_20_idx].replace("—", "").strip())
-                except ValueError:
-                    pass
             candidates.append({"name": name, "at_20": at_20})
     return candidates
 
@@ -374,9 +359,7 @@ def build_scenes(
                 "cycle": cn,
                 "station": "library",
                 "title": "Exploring Ideas",
-                "text": research_texts.get(
-                    cn, "Reviewing results and exploring new approaches"
-                ),
+                "text": research_texts.get(cn, "Reviewing results and exploring new approaches"),
             }
         )
 
@@ -445,7 +428,9 @@ def build_scenes(
                 elif overall_best and best_this_cycle["name"] != overall_best["name"]:
                     result_text = f"No improvement — {overall_best['name']} still leads with {overall_best['score']:.3f}"
                 else:
-                    result_text = f"Still leading: {overall_best['name']} with {overall_best['score']:.3f}"
+                    result_text = (
+                        f"Still leading: {overall_best['name']} with {overall_best['score']:.3f}"
+                    )
 
             if overall_best:
                 prev_best_name = overall_best["name"]
@@ -487,25 +472,17 @@ def build_scenes(
     best = leaderboard[0] if leaderboard else {"name": "?", "score": 0}
 
     # Build summary comparing baseline vs winner
-    total_validation_value = _validation_total_for_experiment(
-        experiment_dir, experiment["metric"]
-    )
-    baseline_entry = next(
-        (c for c in all_candidates if c["id"] == "rule-baseline"), None
-    )
+    total_validation_value = _validation_total_for_experiment(experiment_dir, experiment["metric"])
+    baseline_entry = next((c for c in all_candidates if c["id"] == "rule-baseline"), None)
     best_entry = next((c for c in all_candidates if c["id"] == best["name"]), None)
     if not baseline_entry and leaderboard:
         bl = leaderboard[-1]
-        baseline_entry = next(
-            (c for c in all_candidates if c["id"] == bl["name"]), None
-        )
+        baseline_entry = next((c for c in all_candidates if c["id"] == bl["name"]), None)
     summary = None
     if baseline_entry and best_entry and total_validation_value is not None:
         improvement = best_entry["score"] - baseline_entry["score"]
         pct_improvement = (
-            (improvement / baseline_entry["score"] * 100)
-            if baseline_entry["score"]
-            else 0
+            (improvement / baseline_entry["score"] * 100) if baseline_entry["score"] else 0
         )
         extra_revenue = round(improvement * total_validation_value)
         summary = {
@@ -514,8 +491,7 @@ def build_scenes(
                 "auc": baseline_entry.get("auc", 0),
                 "at_20": baseline_entry.get("at_20", baseline_entry["score"]),
                 "value_captured": round(
-                    baseline_entry.get("at_20", baseline_entry["score"])
-                    * total_validation_value
+                    baseline_entry.get("at_20", baseline_entry["score"]) * total_validation_value
                 ),
             },
             "winner": {
@@ -523,8 +499,7 @@ def build_scenes(
                 "auc": best_entry.get("auc", 0),
                 "at_20": best_entry.get("at_20", best_entry["score"]),
                 "value_captured": round(
-                    best_entry.get("at_20", best_entry["score"])
-                    * total_validation_value
+                    best_entry.get("at_20", best_entry["score"]) * total_validation_value
                 ),
             },
             "total_validation_value": total_validation_value,

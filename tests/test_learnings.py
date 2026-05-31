@@ -143,8 +143,7 @@ class TestReplaceOrAppendLearnings:
     """Tests for the section-level replace-or-append logic."""
 
     _HEADER = (
-        "# Cross-Experiment Learnings\n\n"
-        "Canonical cross-experiment memory for agentic-ml-loop.\n\n"
+        "# Cross-Experiment Learnings\n\nCanonical cross-experiment memory for agentic-ml-loop.\n\n"
     )
 
     def test_appends_when_no_existing_section(self, tmp_path: Path) -> None:
@@ -185,9 +184,7 @@ class TestReplaceOrAppendLearnings:
             + "## From `demo_regression` (2026-04-02)\n\n- Regression insight.\n"
         )
 
-        new_section = (
-            "\n## From `demo_bootstrap` (2026-04-03)\n\n- Bootstrap insight.\n"
-        )
+        new_section = "\n## From `demo_bootstrap` (2026-04-03)\n\n- Bootstrap insight.\n"
         replace_or_append_learnings(lf, "demo_bootstrap", new_section)
 
         content = lf.read_text()
