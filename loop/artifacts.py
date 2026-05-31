@@ -3,13 +3,34 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import logging
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from experiment import journal_path, research_sources_path, results_file
 from lib.utils import read_text, write_text
+
+logger = logging.getLogger(__name__)
+
+
+class RollbackError(RuntimeError):
+    """Raised when restoring cycle-start artifacts fails.
+
+    Surfaced loudly so a failed rollback can never masquerade as a clean cycle;
+    the supervisor aborts rather than continuing on corrupted state.
+    """
+
+
+class ArtifactSnapshot(TypedDict):
+    """Comparable view of experiment artifacts for progress detection and retries."""
+
+    journal_hash: str
+    sources_hash: str
+    results_hash: str
+    candidate_ids: list[str]
+    results_by_id: dict[str, dict[str, Any]]
 
 
 @dataclass
@@ -25,7 +46,7 @@ class CycleBaselines:
     results_backup: str
     sources_path: Path
     sources_backup: str | None
-    before_snapshot: dict[str, Any]
+    before_snapshot: ArtifactSnapshot
     advisory: AdvisorySnapshot
 
 
@@ -88,7 +109,7 @@ def sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def artifact_snapshot(experiment_dir: Path) -> dict[str, Any]:
+def artifact_snapshot(experiment_dir: Path) -> ArtifactSnapshot:
     """Capture a comparable view of experiment artifacts for progress and retries."""
     journal_file = journal_path(experiment_dir)
     journal_text = read_text(journal_file) if journal_file.exists() else ""
@@ -120,7 +141,7 @@ def artifact_snapshot(experiment_dir: Path) -> dict[str, Any]:
     }
 
 
-def compute_progress(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+def compute_progress(before: ArtifactSnapshot, after: ArtifactSnapshot) -> list[str]:
     """Describe what changed between two `artifact_snapshot` results."""
     reasons: list[str] = []
 
@@ -150,39 +171,49 @@ def restore_artifacts(
     pre_cycle_diagnostics: set[Path] | None = None,
     pre_cycle_evaluation_reviews: dict[Path, str] | None = None,
 ) -> None:
-    """Reset mutable files and advisory artifacts to the cycle-start snapshot."""
-    write_text(journal_path(experiment_dir), journal_backup)
-    write_text(experiment_dir / "experiment.md", experiment_md_backup)
-    write_text(results_file(experiment_dir), results_backup)
-    if sources_backup is not None:
-        write_text(sources_path, sources_backup)
-    else:
-        sources_path.unlink(missing_ok=True)
+    """Reset mutable files and advisory artifacts to the cycle-start snapshot.
 
-    for name in ("evaluation_review.md", "evaluation_review.json"):
-        p = experiment_dir / name
-        if pre_cycle_evaluation_reviews is not None and p in pre_cycle_evaluation_reviews:
-            write_text(p, pre_cycle_evaluation_reviews[p])
+    Raises :class:`RollbackError` if any restore operation fails, so a corrupted
+    rollback aborts the cycle loudly instead of leaving partial state behind.
+    """
+    try:
+        write_text(journal_path(experiment_dir), journal_backup)
+        write_text(experiment_dir / "experiment.md", experiment_md_backup)
+        write_text(results_file(experiment_dir), results_backup)
+        if sources_backup is not None:
+            write_text(sources_path, sources_backup)
         else:
-            p.unlink(missing_ok=True)
+            sources_path.unlink(missing_ok=True)
 
-    diagnostics_dir = experiment_dir / "diagnostics"
-    if diagnostics_dir.is_dir():
-        if pre_cycle_diagnostics is not None:
-            for f in sorted(
-                diagnostics_dir.glob("**/*"),
-                key=lambda path: len(path.parts),
-                reverse=True,
-            ):
-                if f in pre_cycle_diagnostics:
-                    continue
-                if f.is_file() or f.is_symlink():
-                    f.unlink(missing_ok=True)
-                elif f.is_dir():
+        for name in ("evaluation_review.md", "evaluation_review.json"):
+            p = experiment_dir / name
+            if pre_cycle_evaluation_reviews is not None and p in pre_cycle_evaluation_reviews:
+                write_text(p, pre_cycle_evaluation_reviews[p])
+            else:
+                p.unlink(missing_ok=True)
+
+        diagnostics_dir = experiment_dir / "diagnostics"
+        if diagnostics_dir.is_dir():
+            if pre_cycle_diagnostics is not None:
+                for f in sorted(
+                    diagnostics_dir.glob("**/*"),
+                    key=lambda path: len(path.parts),
+                    reverse=True,
+                ):
+                    if f in pre_cycle_diagnostics:
+                        continue
+                    if f.is_file() or f.is_symlink():
+                        f.unlink(missing_ok=True)
+                    elif f.is_dir():
+                        with contextlib.suppress(OSError):
+                            f.rmdir()
+                if diagnostics_dir not in pre_cycle_diagnostics:
                     with contextlib.suppress(OSError):
-                        f.rmdir()
-            if diagnostics_dir not in pre_cycle_diagnostics:
-                with contextlib.suppress(OSError):
-                    diagnostics_dir.rmdir()
-        else:
-            shutil.rmtree(diagnostics_dir)
+                        diagnostics_dir.rmdir()
+            else:
+                shutil.rmtree(diagnostics_dir)
+    except OSError as exc:
+        logger.error("Failed to restore cycle artifacts in %s: %s", experiment_dir, exc)
+        raise RollbackError(
+            f"Could not restore cycle-start artifacts in {experiment_dir}: {exc}"
+        ) from exc

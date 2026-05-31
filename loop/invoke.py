@@ -9,10 +9,25 @@ import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 RUNNER_TIMEOUT = 1800
 ROOT = Path(__file__).resolve().parent.parent
+
+
+class RunnerResult(TypedDict):
+    """Outcome of one runner subprocess invocation.
+
+    ``returncode`` is ``-1`` on timeout. ``agent_message_path`` is ``None`` when
+    no assistant text could be extracted. ``timeout`` is present and ``True``
+    only when the subprocess timed out.
+    """
+
+    returncode: int
+    stdout_path: str
+    stderr_path: str
+    agent_message_path: str | None
+    timeout: NotRequired[bool]
 
 
 @dataclass(frozen=True)
@@ -210,7 +225,7 @@ def invoke_runner(
     stderr_path: Path,
     agent_message_path: Path,
     runner_config: RunnerConfig | None = None,
-) -> dict[str, Any]:
+) -> RunnerResult:
     """Run the configured agent CLI once, streaming output to ``stdout_path``.
 
     ``cwd`` is the repo root so paths in the prompt resolve consistently. On success,

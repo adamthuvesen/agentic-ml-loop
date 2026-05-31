@@ -6,9 +6,23 @@ hypothesis-test cycles while keeping a research journal and leaderboard.
 
 The repo ships with synthetic demos only. No external data source is required.
 
+A few things shape how the loop works:
+
+- **The cycle contract is checked in code.** Each cycle must update the research
+  journal, leave `experiment.md` unchanged, emit one completion marker, and pass
+  result-schema and metric checks. Cycles that don't are rolled back and retried
+  ([`loop/cycle_attempt.py`](loop/cycle_attempt.py), [`loop/contracts.py`](loop/contracts.py)).
+- **Each cycle gets an advisory scorecard.** A small rubric grades hypothesis,
+  evidence, uncertainty, leakage/split, and error analysis. It's advisory and
+  never blocks the loop. See [Research referee](#research-referee).
+- **Runners are interchangeable.** The same spec can run under Claude, Codex, or
+  Cursor, and you can compare them. See [Benchmark](#benchmark).
+
+There's a worked example in [`examples/`](examples/).
+
 ## Setup
 
-Requires Python 3.10+ and `uv`.
+Requires Python 3.12+ and `uv`.
 
 ```bash
 uv sync
@@ -36,6 +50,25 @@ runner receives the cycle prompt on stdin and must end with exactly one marker:
 
 - `<promise>CYCLE_DONE</promise>`
 - `<promise>EXPERIMENT_COMPLETE</promise>`
+
+## Research referee
+
+After each cycle the loop computes an advisory scorecard
+([`lib/referee.py`](lib/referee.py)) grading the cycle on a small, transparent
+rubric:
+
+| Criterion | What it checks |
+| --- | --- |
+| `journal_updated` | The cycle was actually recorded (evidence discipline) |
+| `hypothesis_framed` | A falsifiable hypothesis / expectation was stated |
+| `evidence_or_understanding` | New results were produced, or understanding was logged |
+| `noise_awareness` | New candidates were judged against uncertainty (CI / bootstrap / significance) |
+| `leakage_split_clean` | No unaddressed leakage or split-reliability concern |
+| `analysis_when_saturating` | Error analysis happened before declaring a ceiling |
+
+The scorecard is written to `cycles/<id>/scorecard.json`, the latest grade shows
+up in `status.md`, and it is **advisory only** — it never blocks a cycle. Turn
+it off with `--no-referee` or `AGENTIC_ML_LOOP_REFEREE=0`.
 
 ## Runners
 
@@ -75,6 +108,29 @@ export AGENTIC_ML_LOOP_RUNNER_MODEL=claude-sonnet-4-5
 export AGENTIC_ML_LOOP_RUNNER_EFFORT=high
 export AGENTIC_ML_LOOP_RUNNER_TIMEOUT=1800
 ```
+
+## Benchmark
+
+Run the same experiment spec across several runners and compare them:
+
+```bash
+uv run python -m loop bench experiments/demo_bootstrap --runners claude,codex,cursor --max-cycles 6
+```
+
+Each runner gets an isolated copy of the spec and runs the loop to the shared
+budget with the referee on. Results are written to
+`bench/<id>-<timestamp>/comparison.md` and `comparison.csv`, ordered by mean
+referee score, then best validation score. A runner that errors is recorded and
+doesn't stop the others.
+
+## Examples
+
+[`examples/demo_bootstrap_replay.html`](examples/demo_bootstrap_replay.html) is a
+self-contained replay of the `demo_bootstrap` experiment — open it in a browser
+to walk through all five research cycles (hypothesis → research → training →
+scoreboard → journal) with no server or dependencies. It is generated from the
+committed [`research_journal.md`](experiments/demo_bootstrap/research_journal.md)
+and [`results.json`](experiments/demo_bootstrap/results.json) via `viz/`.
 
 ## Demos
 

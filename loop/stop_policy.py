@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .constants import DEFAULT_FAILURE_LIMIT, DEFAULT_STALL_LIMIT
+from .enums import CycleResult, LoopStatus, StopReason
 from .loop_state import LoopState
 from .ui import iso_to_datetime
 
@@ -14,31 +15,31 @@ from .ui import iso_to_datetime
 @dataclass(frozen=True)
 class StopDecision:
     should_end: bool
-    reason: str | None
-    final_status: str
+    reason: StopReason | None
+    final_status: LoopStatus
 
 
 def _budget_stop(state: LoopState) -> StopDecision | None:
+    budget_failed = state.last_cycle_result == CycleResult.FAILED
+    final_status = LoopStatus.FAILED if budget_failed else LoopStatus.COMPLETED
     if state.max_cycles is not None and state.cycle_count >= state.max_cycles:
-        final_status = "failed" if state.last_cycle_result == "failed" else "completed"
-        return StopDecision(True, "max_cycles_reached", final_status)
+        return StopDecision(True, StopReason.MAX_CYCLES_REACHED, final_status)
     if state.max_hours is not None:
         elapsed = datetime.now(UTC) - iso_to_datetime(state.started_at)
         if elapsed.total_seconds() >= float(state.max_hours) * 3600:
-            final_status = "failed" if state.last_cycle_result == "failed" else "completed"
-            return StopDecision(True, "max_hours_reached", final_status)
+            return StopDecision(True, StopReason.MAX_HOURS_REACHED, final_status)
     return None
 
 
 def evaluate_stop(state: LoopState) -> StopDecision:
     """Decide if the supervisor should exit before starting another cycle."""
-    if not state.enforce_budget_until_limit and state.last_cycle_result == "complete":
-        return StopDecision(True, "experiment_complete", "completed")
+    if not state.enforce_budget_until_limit and state.last_cycle_result == CycleResult.COMPLETE:
+        return StopDecision(True, StopReason.EXPERIMENT_COMPLETE, LoopStatus.COMPLETED)
 
     if state.consecutive_no_progress_cycles >= DEFAULT_STALL_LIMIT:
-        return StopDecision(True, "slice_stall", "stalled")
+        return StopDecision(True, StopReason.SLICE_STALL, LoopStatus.STALLED)
     if state.consecutive_failed_cycles >= DEFAULT_FAILURE_LIMIT:
-        return StopDecision(True, "too_many_failed_cycles", "failed")
+        return StopDecision(True, StopReason.TOO_MANY_FAILED_CYCLES, LoopStatus.FAILED)
 
     budget = _budget_stop(state)
     if budget is not None:

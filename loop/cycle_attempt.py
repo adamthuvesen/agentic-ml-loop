@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 from experiment import (
     count_journal_cycles,
@@ -22,13 +23,46 @@ from .contracts import (
 )
 from .invoke import RunnerConfig, default_runner_config, invoke_runner
 
+logger = logging.getLogger(__name__)
+
+
+class CycleSummary(TypedDict):
+    """Successful-attempt payload consumed by ``run_cycle``."""
+
+    output_text: str
+    validation_warnings: list[str]
+    journal_updated: bool
+    experiment_md_changed: bool
+    returncode: int
+
+
+class AttemptRecord(TypedDict, total=False):
+    """Failure record persisted per attempt and surfaced in the cycle summary.
+
+    Heterogeneous by design: a runner-invocation error carries
+    ``error_message`` while a contract failure carries ``contract_errors`` and
+    the validation breakdown. ``total=False`` documents the union of keys.
+    """
+
+    attempt: int
+    returncode: int
+    failure_reason: str
+    error_message: str
+    contract_errors: list[str]
+    marker_errors: list[str]
+    validation_errors: list[str]
+    validation_warnings: list[str]
+    journal_updated: bool
+    experiment_md_changed: bool
+    marker: str
+
 
 @dataclass
 class AttemptOutcome:
     success: bool
     marker: str
-    summary: dict[str, Any] | None
-    attempt_record: dict[str, Any]
+    summary: CycleSummary | None
+    attempt_record: AttemptRecord
 
 
 def run_cycle_attempt(
@@ -74,7 +108,14 @@ def run_cycle_attempt(
             runner_config,
         )
     except Exception as exc:
-        attempt_record = {
+        logger.warning(
+            "Runner invocation failed for cycle %s attempt %s: %s",
+            cycle_id,
+            attempt,
+            exc,
+            exc_info=True,
+        )
+        attempt_record: AttemptRecord = {
             "attempt": attempt,
             "failure_reason": f"runner_invocation_error:{type(exc).__name__}",
             "error_message": str(exc),
@@ -130,48 +171,36 @@ def run_cycle_attempt(
     )
 
     if contract_errors:
-        write_json(
-            attempt_result_path,
-            {
-                "attempt": attempt,
-                "returncode": runner_result["returncode"],
-                "failure_reason": "cycle_validation_failed",
-                "contract_errors": contract_errors,
-                "marker_errors": marker_errors,
-                "validation_errors": [e for e in validation_errors if not e.startswith("warning:")],
-                "validation_warnings": warnings,
-                "journal_updated": journal_updated,
-                "experiment_md_changed": experiment_md_changed,
-                "marker": marker,
-            },
-        )
+        failure_record: AttemptRecord = {
+            "attempt": attempt,
+            "returncode": runner_result["returncode"],
+            "failure_reason": "cycle_validation_failed",
+            "contract_errors": contract_errors,
+            "marker_errors": marker_errors,
+            "validation_errors": [e for e in validation_errors if not e.startswith("warning:")],
+            "validation_warnings": warnings,
+            "journal_updated": journal_updated,
+            "experiment_md_changed": experiment_md_changed,
+            "marker": marker,
+        }
+        write_json(attempt_result_path, failure_record)
         return AttemptOutcome(
             success=False,
             marker=marker,
             summary=None,
-            attempt_record={
-                "attempt": attempt,
-                "returncode": runner_result["returncode"],
-                "failure_reason": "cycle_validation_failed",
-                "contract_errors": contract_errors,
-                "marker_errors": marker_errors,
-                "validation_errors": [e for e in validation_errors if not e.startswith("warning:")],
-                "validation_warnings": warnings,
-                "journal_updated": journal_updated,
-                "experiment_md_changed": experiment_md_changed,
-                "marker": marker,
-            },
+            attempt_record=failure_record,
         )
 
+    summary: CycleSummary = {
+        "output_text": output_text,
+        "validation_warnings": warnings,
+        "journal_updated": journal_updated,
+        "experiment_md_changed": experiment_md_changed,
+        "returncode": runner_result["returncode"],
+    }
     return AttemptOutcome(
         success=True,
         marker=marker,
-        summary={
-            "output_text": output_text,
-            "validation_warnings": warnings,
-            "journal_updated": journal_updated,
-            "experiment_md_changed": experiment_md_changed,
-            "returncode": runner_result["returncode"],
-        },
+        summary=summary,
         attempt_record={},
     )

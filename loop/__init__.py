@@ -19,6 +19,7 @@ from .hooks import (  # noqa: F401
     DefaultCycleHooks,
     PostCycleResult,
     PreCycleResult,
+    RefereeCycleHooks,
 )
 from .prompts import (  # noqa: F401
     RESEARCHER_FRAMING,

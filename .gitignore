@@ -13,6 +13,14 @@ build/
 dist/
 *.egg-info/
 
+# Runner benchmark outputs are local by default. An intentional flagship
+# example can be force-added under examples/ for the showcase.
+bench/
+
+# viz generates intermediate script.json + replay.html here; the committed
+# flagship replay lives under examples/ instead.
+viz/output/
+
 # Runtime loop artifacts
 experiments/**/.loop.lock
 experiments/**/*.lock

@@ -164,7 +164,7 @@ class TestResumeCommand:
 
         captured_state: dict[str, object] = {}
 
-        def fake_run_loop(_experiment_dir, current_state):
+        def fake_run_loop(_experiment_dir, current_state, **_kwargs):
             captured_state.update(current_state.to_dict())
             return current_state
 
@@ -215,7 +215,7 @@ class TestResumeCommand:
 
         captured_state: dict[str, object] = {}
 
-        def fake_run_loop(_experiment_dir: Path, current_state):
+        def fake_run_loop(_experiment_dir: Path, current_state, **_kwargs):
             captured_state.update(current_state.to_dict())
             return current_state
 
@@ -261,7 +261,7 @@ class TestResumeCommand:
 
         captured_state: dict[str, object] = {}
 
-        def fake_run_loop(_experiment_dir: Path, current_state):
+        def fake_run_loop(_experiment_dir: Path, current_state, **_kwargs):
             captured_state.update(current_state.to_dict())
             return current_state
 
@@ -307,7 +307,7 @@ class TestResumeCommand:
 
         captured_state: dict[str, object] = {}
 
-        def fake_run_loop(_experiment_dir: Path, current_state):
+        def fake_run_loop(_experiment_dir: Path, current_state, **_kwargs):
             captured_state.update(current_state.to_dict())
             return current_state
 

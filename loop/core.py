@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import signal
 import sys
@@ -22,13 +23,20 @@ from .artifacts import (
 from .artifacts import (
     restore_artifacts as _restore_artifacts,  # noqa: F401 - re-exported for tests
 )
-from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, STATE_PATH_NAME
+from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, ROOT, STATE_PATH_NAME
 from .contracts import (  # noqa: F401 - re-exported for tests
     cycle_contract_errors,
     extract_completion_marker,
 )
 from .cycle_attempt import run_cycle_attempt
-from .hooks import CycleHooks, DefaultCycleHooks
+from .enums import (
+    AttemptOutcomeKind,
+    CycleResult,
+    LoopStatus,
+    StopReason,
+    attempt_running,
+)
+from .hooks import CycleHooks, DefaultCycleHooks, RefereeCycleHooks
 from .invoke import (
     RunnerConfig,
     add_runner_arguments,
@@ -56,6 +64,8 @@ ARTIFACT_FILES = (
 MUTABLE_ARTIFACT_FILES = ("research_journal.md",)
 LOCK_PATH_NAME = ".loop.lock"
 STATUS_PATH_NAME = "status.md"
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_experiment_directory(experiment_dir: Path) -> None:
@@ -161,7 +171,7 @@ def write_status_markdown(experiment_dir: Path, state: LoopState | dict[str, Any
         state = LoopState.from_dict(state)
     has_active_lock = (
         active_lock_pid(experiment_dir / LOCK_PATH_NAME) is not None
-        if state.status == "running"
+        if state.status == LoopStatus.RUNNING
         else True
     )
     write_text(
@@ -187,7 +197,7 @@ def initial_state(
     runner_config = runner_config or default_runner_config()
     return LoopState(
         experiment_id=experiment_dir.name,
-        status="idle",
+        status=LoopStatus.IDLE,
         runner_name=runner_config.name,
         runner_model=runner_config.model,
         runner_effort=runner_config.effort,
@@ -227,6 +237,17 @@ def _positive_float(value: str) -> float:
     if parsed <= 0:
         raise argparse.ArgumentTypeError("must be a positive number")
     return parsed
+
+
+def _hooks_from_args(args: argparse.Namespace) -> CycleHooks:
+    """Select cycle hooks. Referee is on by default; ``--no-referee`` opts out.
+
+    Honors ``AGENTIC_ML_LOOP_REFEREE=0`` as an environment-level off switch.
+    """
+    env_disabled = os.environ.get("AGENTIC_ML_LOOP_REFEREE", "").strip() in {"0", "false", "no"}
+    if getattr(args, "no_referee", False) or env_disabled:
+        return DefaultCycleHooks()
+    return RefereeCycleHooks()
 
 
 def _runner_config_from_args(args: argparse.Namespace) -> RunnerConfig:
@@ -284,7 +305,7 @@ def run_cycle(
             restore_cycle_baselines(experiment_dir, baselines)
 
             state.active_attempt = attempt
-            state.last_attempt_outcome = f"attempt_{attempt:02d}_running"
+            state.last_attempt_outcome = attempt_running(attempt)
             write_state(experiment_dir, state)
             emit_attempt_start(attempt)
 
@@ -323,7 +344,11 @@ def run_cycle(
                     emit_cycle_retry(attempt + 1, outcome.attempt_record)
                 continue
 
-            assert outcome.summary is not None
+            if outcome.summary is None:
+                raise RuntimeError(
+                    f"Cycle {cycle_id} attempt {attempt} reported success without a "
+                    "summary; this is a bug in run_cycle_attempt."
+                )
             after_snapshot = artifact_snapshot(experiment_dir)
             post = hooks.post_cycle(
                 experiment_dir,
@@ -334,9 +359,9 @@ def run_cycle(
                 outcome.marker,
             )
             progress_reasons = post.progress_reasons
-            result = "progress" if progress_reasons else "no_progress"
+            result = CycleResult.PROGRESS if progress_reasons else CycleResult.NO_PROGRESS
             if outcome.marker == "EXPERIMENT_COMPLETE":
-                result = "complete"
+                result = CycleResult.COMPLETE
 
             summary = {
                 "cycle_id": cycle_id,
@@ -354,8 +379,9 @@ def run_cycle(
             _clear_active_state(state, result)
             return summary
 
-    except BaseException:
-        _clear_active_state(state, "exception")
+    except BaseException as exc:
+        logger.warning("Cycle %s aborted by %s; rolling back", cycle_id, type(exc).__name__)
+        _clear_active_state(state, AttemptOutcomeKind.EXCEPTION)
         raise
 
     restore_cycle_baselines(experiment_dir, baselines)
@@ -364,14 +390,14 @@ def run_cycle(
         "cycle_id": cycle_id,
         "started_at": cycle_started_at,
         "completed_at": utc_now(),
-        "result": "failed",
+        "result": CycleResult.FAILED,
         "failure_reason": "too_many_failed_attempts",
         "attempts": attempt_records,
         "before_snapshot": before_snapshot,
         "after_snapshot": before_snapshot,
     }
     write_json(current_cycle_dir / "cycle_summary.json", summary)
-    _clear_active_state(state, "too_many_failed_attempts")
+    _clear_active_state(state, CycleResult.TOO_MANY_FAILED_ATTEMPTS)
     return summary
 
 
@@ -383,13 +409,13 @@ def apply_cycle_result(state: LoopState, summary: dict[str, Any]) -> None:
     ``failed`` increments ``consecutive_failed_cycles`` and resets the stall counter.
     """
     state.cycle_count += 1
-    result = summary["result"]
+    result = CycleResult(summary["result"])
     state.last_cycle_result = result
-    if result in {"progress", "complete"}:
+    if result in {CycleResult.PROGRESS, CycleResult.COMPLETE}:
         state.consecutive_no_progress_cycles = 0
         state.consecutive_failed_cycles = 0
         state.last_successful_cycle_id = summary["cycle_id"]
-    elif result == "no_progress":
+    elif result == CycleResult.NO_PROGRESS:
         state.consecutive_no_progress_cycles += 1
         state.consecutive_failed_cycles = 0
     else:
@@ -410,7 +436,7 @@ def run_loop(
     """
     if hooks is None:
         hooks = DefaultCycleHooks()
-    state.status = "running"
+    state.status = LoopStatus.RUNNING
     state.stop_reason = None
     write_state(experiment_dir, state)
     emit_loop_start(experiment_dir, state.to_dict())
@@ -431,9 +457,9 @@ def run_loop(
             emit_cycle_result(experiment_dir, summary)
 
     except KeyboardInterrupt:
-        state.status = "stopped"
-        state.stop_reason = "interrupted"
-        _clear_active_state(state, "interrupted")
+        state.status = LoopStatus.STOPPED
+        state.stop_reason = StopReason.INTERRUPTED
+        _clear_active_state(state, AttemptOutcomeKind.INTERRUPTED)
         write_state(experiment_dir, state)
         emit_loop_stop(experiment_dir, state.to_dict())
         return state
@@ -469,10 +495,58 @@ def build_parser() -> argparse.ArgumentParser:
                 "least one of --max-cycles or --max-hours."
             ),
         )
+        subparser.add_argument(
+            "--no-referee",
+            action="store_true",
+            help="Disable the advisory per-cycle research referee scorecard.",
+        )
         add_runner_arguments(subparser)
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("experiment_path")
+
+    bench_parser = subparsers.add_parser(
+        "bench",
+        help="Run one experiment spec across multiple runners and compare research quality.",
+    )
+    bench_parser.add_argument("experiment_path")
+    bench_parser.add_argument(
+        "--runners",
+        default="claude",
+        help="Comma-separated runner names to compare (e.g. claude,codex,cursor).",
+    )
+    bench_parser.add_argument("--max-cycles", type=_positive_int, default=None)
+    bench_parser.add_argument("--max-hours", type=_positive_float, default=None)
     return parser
+
+
+def bench_command(args: argparse.Namespace) -> int:
+    """Run the runner benchmark and print the comparison report."""
+    from .bench import BenchmarkBudget, run_benchmark
+
+    experiment_dir = Path(args.experiment_path).resolve()
+    ensure_experiment_directory(experiment_dir)
+
+    runner_names = [name.strip() for name in args.runners.split(",") if name.strip()]
+    if not runner_names:
+        print("error: --runners must list at least one runner", file=sys.stderr)
+        return 1
+    if args.max_cycles is None and args.max_hours is None:
+        print("error: bench requires --max-cycles and/or --max-hours", file=sys.stderr)
+        return 1
+
+    timestamp = utc_now()
+    bench_dir = (
+        ROOT / "bench" / f"{experiment_dir.name}-{timestamp.replace(':', '').replace('-', '')}"
+    )
+    run_benchmark(
+        experiment_dir,
+        runner_names,
+        budget=BenchmarkBudget(max_cycles=args.max_cycles, max_hours=args.max_hours),
+        bench_dir=bench_dir,
+        timestamp=timestamp,
+    )
+    print(read_text(bench_dir / "comparison.md"))
+    return 0
 
 
 def start_command(args: argparse.Namespace) -> int:
@@ -507,7 +581,7 @@ def start_command(args: argparse.Namespace) -> int:
 
     lock_path = acquire_lock(experiment_dir)
     try:
-        run_loop(experiment_dir, state)
+        run_loop(experiment_dir, state, hooks=_hooks_from_args(args))
     finally:
         release_lock(lock_path)  # always clear lock when run_loop returns or raises
 
@@ -527,9 +601,19 @@ def resume_command(args: argparse.Namespace) -> int:
 
     state = load_state(experiment_dir)
 
-    if state.status == "running" and active_lock_pid(experiment_dir / LOCK_PATH_NAME) is None:
-        state.status = "idle"
-        _clear_active_state(state, "interrupted_before_resume")
+    if (
+        state.status == LoopStatus.RUNNING
+        and active_lock_pid(experiment_dir / LOCK_PATH_NAME) is None
+    ):
+        orphaned_cycle = state.active_cycle_id
+        state.status = LoopStatus.IDLE
+        _clear_active_state(state, AttemptOutcomeKind.INTERRUPTED_BEFORE_RESUME)
+        if orphaned_cycle:
+            print(
+                f"Recovered from an interrupted run: cycle {orphaned_cycle} was in "
+                "progress and has been rolled back to its last clean state. Resuming.",
+                file=sys.stderr,
+            )
 
     if args.max_cycles is not None:
         state.max_cycles = args.max_cycles
@@ -554,7 +638,7 @@ def resume_command(args: argparse.Namespace) -> int:
             return 1
         state.enforce_budget_until_limit = True
 
-    if state.last_cycle_result == "complete":
+    if state.last_cycle_result == CycleResult.COMPLETE:
         cycle_budget_has_room = (
             state.max_cycles is not None and state.cycle_count < state.max_cycles
         )
@@ -564,7 +648,7 @@ def resume_command(args: argparse.Namespace) -> int:
 
     lock_path = acquire_lock(experiment_dir)
     try:
-        run_loop(experiment_dir, state)
+        run_loop(experiment_dir, state, hooks=_hooks_from_args(args))
     finally:
         release_lock(lock_path)  # always clear lock when run_loop returns or raises
 
@@ -582,4 +666,6 @@ def main() -> int:
         return resume_command(args)
     if args.command == "status":
         return print_status(Path(args.experiment_path).resolve())
+    if args.command == "bench":
+        return bench_command(args)
     raise ValueError(f"Unknown command: {args.command}")
