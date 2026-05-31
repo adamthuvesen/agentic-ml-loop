@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import shlex
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE
@@ -36,7 +36,7 @@ def build_status_markdown(
         lines.append(f"- Active attempt: {state.active_attempt}/{DEFAULT_MAX_ATTEMPTS_PER_CYCLE}")
     if state.active_started_at:
         lines.append(f"- Active started at: `{state.active_started_at}`")
-        elapsed = datetime.now(timezone.utc) - iso_to_datetime(state.active_started_at)
+        elapsed = datetime.now(UTC) - iso_to_datetime(state.active_started_at)
         lines.append(f"- Active for: `{format_elapsed(int(elapsed.total_seconds()))}`")
 
     if state.stop_reason:

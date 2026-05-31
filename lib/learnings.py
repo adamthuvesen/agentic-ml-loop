@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from experiment import journal_path, learnings_file
@@ -465,7 +465,7 @@ def extract_and_append_learnings(experiment_dir: Path) -> bool:
         return False
 
     lf = learnings_file()
-    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    date = datetime.now(UTC).strftime("%Y-%m-%d")
     tags = learnings_profile_tags(experiment_dir)
     tags_line = f"Tags: {', '.join(tags)}\n\n" if tags else ""
     entry = f"\n## From `{experiment_dir.name}` ({date})\n\n{tags_line}{extracted}\n"
