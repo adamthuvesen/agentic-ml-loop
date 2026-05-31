@@ -8,7 +8,7 @@ The repo ships with synthetic demos only. No external data source is required.
 
 ## Setup
 
-Requires Python 3.10+ and `uv`.
+Requires Python 3.12+ and `uv`.
 
 ```bash
 uv sync

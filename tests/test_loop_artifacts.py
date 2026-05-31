@@ -1,6 +1,10 @@
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from loop import artifact_snapshot, compute_progress
+from loop.artifacts import RollbackError
 from loop.core import _restore_artifacts
 from tests.loop.conftest import _make_experiment
 
@@ -223,3 +227,24 @@ class TestRestoreArtifactsAdvisoryCleanup:
 
         assert pre_seeded.exists(), "pre-seeded diagnostic should survive restore"
         assert not (diag / "attempt_artifact.json").exists()
+
+
+class TestRestoreArtifactsFailureIsLoud:
+    """A failed restore must raise RollbackError, never silently continue."""
+
+    def test_write_failure_raises_rollback_error(self, tmp_path: Path) -> None:
+        d = _make_experiment(tmp_path)
+        sources_path = d / "research_sources.md"
+
+        with (
+            patch("loop.artifacts.write_text", side_effect=OSError("disk full")),
+            pytest.raises(RollbackError, match="Could not restore"),
+        ):
+            _restore_artifacts(
+                d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup="# Research Sources\n",
+            )

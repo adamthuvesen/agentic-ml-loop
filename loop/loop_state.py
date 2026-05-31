@@ -9,12 +9,13 @@ from typing import Any
 from lib.utils import load_json, write_json
 
 from .constants import STATE_PATH_NAME
+from .enums import CycleResult, LoopStatus, StopReason
 
 
 @dataclass
 class LoopState:
     experiment_id: str
-    status: str
+    status: LoopStatus
     runner_name: str
     runner_model: str | None
     runner_effort: str | None
@@ -24,13 +25,13 @@ class LoopState:
     consecutive_no_progress_cycles: int
     consecutive_failed_cycles: int
     last_successful_cycle_id: str | None
-    last_cycle_result: str | None
+    last_cycle_result: CycleResult | None
     max_cycles: int | None
     max_hours: float | None
     enforce_budget_until_limit: bool
     started_at: str
     updated_at: str
-    stop_reason: str | None
+    stop_reason: StopReason | None
     active_cycle_id: str | None = None
     active_started_at: str | None = None
     active_objective: str | None = None
@@ -39,12 +40,18 @@ class LoopState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LoopState:
-        """Build state from on-disk JSON, applying defaults for missing keys."""
+        """Build state from on-disk JSON, applying defaults for missing keys.
+
+        String enum fields are coerced from their stored values; legacy strings
+        already match the enum values, so older state files load unchanged.
+        """
         runner_name = str(data.get("runner_name", "unknown"))
         runner_command = data.get("runner_command") or [runner_name]
+        last_cycle_result = data.get("last_cycle_result")
+        stop_reason = data.get("stop_reason")
         return cls(
             experiment_id=str(data.get("experiment_id", "")),
-            status=str(data.get("status", "idle")),
+            status=LoopStatus(data.get("status", LoopStatus.IDLE)),
             runner_name=runner_name,
             runner_model=data.get("runner_model"),
             runner_effort=data.get("runner_effort"),
@@ -54,13 +61,15 @@ class LoopState:
             consecutive_no_progress_cycles=int(data.get("consecutive_no_progress_cycles", 0)),
             consecutive_failed_cycles=int(data.get("consecutive_failed_cycles", 0)),
             last_successful_cycle_id=data.get("last_successful_cycle_id"),
-            last_cycle_result=data.get("last_cycle_result"),
+            last_cycle_result=(
+                CycleResult(last_cycle_result) if last_cycle_result is not None else None
+            ),
             max_cycles=data.get("max_cycles"),
             max_hours=data.get("max_hours"),
             enforce_budget_until_limit=bool(data.get("enforce_budget_until_limit", False)),
             started_at=str(data.get("started_at", "")),
             updated_at=str(data.get("updated_at", "")),
-            stop_reason=data.get("stop_reason"),
+            stop_reason=StopReason(stop_reason) if stop_reason is not None else None,
             active_cycle_id=data.get("active_cycle_id"),
             active_started_at=data.get("active_started_at"),
             active_objective=data.get("active_objective"),
