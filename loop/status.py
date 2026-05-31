@@ -4,6 +4,8 @@ import shlex
 from datetime import UTC, datetime
 from pathlib import Path
 
+from lib.referee import latest_scorecard_line
+
 from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE
 from .loop_state import LoopState
 from .prompts import latest_hypothesis, top_results_lines
@@ -39,6 +41,9 @@ def build_status_markdown(
         elapsed = datetime.now(UTC) - iso_to_datetime(state.active_started_at)
         lines.append(f"- Active for: `{format_elapsed(int(elapsed.total_seconds()))}`")
 
+    scorecard_line = latest_scorecard_line(experiment_dir)
+    if scorecard_line:
+        lines.append(f"- {scorecard_line}")
     if state.stop_reason:
         lines.append(f"- Stop reason: `{state.stop_reason}`")
     if state.enforce_budget_until_limit:

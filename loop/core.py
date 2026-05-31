@@ -36,7 +36,7 @@ from .enums import (
     StopReason,
     attempt_running,
 )
-from .hooks import CycleHooks, DefaultCycleHooks
+from .hooks import CycleHooks, DefaultCycleHooks, RefereeCycleHooks
 from .invoke import (
     RunnerConfig,
     add_runner_arguments,
@@ -237,6 +237,17 @@ def _positive_float(value: str) -> float:
     if parsed <= 0:
         raise argparse.ArgumentTypeError("must be a positive number")
     return parsed
+
+
+def _hooks_from_args(args: argparse.Namespace) -> CycleHooks:
+    """Select cycle hooks. Referee is on by default; ``--no-referee`` opts out.
+
+    Honors ``AGENTIC_ML_LOOP_REFEREE=0`` as an environment-level off switch.
+    """
+    env_disabled = os.environ.get("AGENTIC_ML_LOOP_REFEREE", "").strip() in {"0", "false", "no"}
+    if getattr(args, "no_referee", False) or env_disabled:
+        return DefaultCycleHooks()
+    return RefereeCycleHooks()
 
 
 def _runner_config_from_args(args: argparse.Namespace) -> RunnerConfig:
@@ -484,6 +495,11 @@ def build_parser() -> argparse.ArgumentParser:
                 "least one of --max-cycles or --max-hours."
             ),
         )
+        subparser.add_argument(
+            "--no-referee",
+            action="store_true",
+            help="Disable the advisory per-cycle research referee scorecard.",
+        )
         add_runner_arguments(subparser)
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("experiment_path")
@@ -522,7 +538,7 @@ def start_command(args: argparse.Namespace) -> int:
 
     lock_path = acquire_lock(experiment_dir)
     try:
-        run_loop(experiment_dir, state)
+        run_loop(experiment_dir, state, hooks=_hooks_from_args(args))
     finally:
         release_lock(lock_path)  # always clear lock when run_loop returns or raises
 
@@ -589,7 +605,7 @@ def resume_command(args: argparse.Namespace) -> int:
 
     lock_path = acquire_lock(experiment_dir)
     try:
-        run_loop(experiment_dir, state)
+        run_loop(experiment_dir, state, hooks=_hooks_from_args(args))
     finally:
         release_lock(lock_path)  # always clear lock when run_loop returns or raises
 
