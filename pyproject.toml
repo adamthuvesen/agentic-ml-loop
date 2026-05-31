@@ -3,7 +3,7 @@ name = "agentic-ml-loop"
 version = "0.1.0"
 description = "Agent-driven offline model-search loop"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "Adam Thuvesen" }]
 keywords = ["agents", "machine-learning", "experimentation", "offline-evaluation"]
@@ -12,9 +12,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
@@ -65,7 +64,7 @@ addopts = "-v --tb=short"
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 extend-exclude = ["experiments/*/scripts"]
 
 [tool.ruff.lint]
