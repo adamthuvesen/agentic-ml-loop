@@ -1,0 +1,522 @@
+[
+  {
+    "candidate_id": "hurdle-logistic-ridge",
+    "model_family": "two_stage_hurdle",
+    "feature_set": "base",
+    "objective_metric": "val_r2",
+    "objective_score": 0.436983807064821,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Two-stage hurdle: logistic(base) for P(positive), ridge(base) on positive-only train subset for E[amount|positive]. Soft prediction: P(positive) * E[amount|positive].",
+    "metrics": {
+      "train": {
+        "r2": 0.5167344710281292,
+        "rmse": 793.8243655754345,
+        "mae": 442.91663298182056
+      },
+      "validation": {
+        "r2": 0.436983807064821,
+        "rmse": 774.3403047602417,
+        "mae": 446.09444936371597
+      },
+      "test": {
+        "r2": 0.6218442842286562,
+        "rmse": 749.1943944604027,
+        "mae": 435.358200528694
+      }
+    },
+    "hyperparameters": {
+      "stage1": {
+        "model": "LogisticRegression",
+        "C": 1.0
+      },
+      "stage2": {
+        "model": "Ridge",
+        "alpha": 2.0
+      },
+      "prediction_mode": "soft_probability"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion"
+    ]
+  },
+  {
+    "candidate_id": "ridge-engineered",
+    "model_family": "ridge_regression",
+    "feature_set": "engineered",
+    "objective_metric": "val_r2",
+    "objective_score": 0.4356806695992058,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Ridge regression with engineered utilization, burden, and capacity features.",
+    "metrics": {
+      "train": {
+        "r2": 0.5169211463473202,
+        "rmse": 793.6710319305472,
+        "mae": 447.835050732822
+      },
+      "validation": {
+        "r2": 0.4356806695992058,
+        "rmse": 775.2359172302905,
+        "mae": 450.1115829358547
+      },
+      "test": {
+        "r2": 0.6184062317094399,
+        "rmse": 752.5923883870789,
+        "mae": 439.8783419337026
+      }
+    },
+    "hyperparameters": {
+      "alpha": 3.0
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion",
+      "seat_utilization",
+      "support_burden",
+      "growth_efficiency",
+      "champion_x_growth",
+      "expansion_capacity"
+    ]
+  },
+  {
+    "candidate_id": "ridge-basic",
+    "model_family": "ridge_regression",
+    "feature_set": "base",
+    "objective_metric": "val_r2",
+    "objective_score": 0.43508057990437876,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Ridge regression over base features with train-fitted scaling and one-hot categoricals.",
+    "metrics": {
+      "train": {
+        "r2": 0.5151199857713251,
+        "rmse": 795.1492574211476,
+        "mae": 449.1207555485422
+      },
+      "validation": {
+        "r2": 0.43508057990437876,
+        "rmse": 775.6479955083355,
+        "mae": 452.3209814640959
+      },
+      "test": {
+        "r2": 0.6153583243094192,
+        "rmse": 755.5920046223429,
+        "mae": 440.45211310637274
+      }
+    },
+    "hyperparameters": {
+      "alpha": 2.0
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion"
+    ]
+  },
+  {
+    "candidate_id": "xgb-basic",
+    "model_family": "xgboost_regressor",
+    "feature_set": "engineered",
+    "objective_metric": "val_r2",
+    "objective_score": 0.3554285465386281,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Regularized XGBoost regressor over base plus engineered regression features.",
+    "metrics": {
+      "train": {
+        "r2": 0.7930113766154019,
+        "rmse": 519.5229698435289,
+        "mae": 337.26161063056725
+      },
+      "validation": {
+        "r2": 0.3554285465386281,
+        "rmse": 828.5275537980446,
+        "mae": 460.69158179293385
+      },
+      "test": {
+        "r2": 0.47435456402371123,
+        "rmse": 883.2947185849189,
+        "mae": 467.2404898714798
+      }
+    },
+    "hyperparameters": {
+      "n_estimators": 260,
+      "max_depth": 4,
+      "learning_rate": 0.04,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "min_child_weight": 12,
+      "reg_alpha": 0.4,
+      "reg_lambda": 4.0,
+      "random_state": 42,
+      "objective": "reg:squarederror",
+      "eval_metric": "rmse"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion",
+      "seat_utilization",
+      "support_burden",
+      "growth_efficiency",
+      "champion_x_growth",
+      "expansion_capacity"
+    ]
+  },
+  {
+    "candidate_id": "xgb-tweedie",
+    "model_family": "xgboost_tweedie",
+    "feature_set": "base",
+    "objective_metric": "val_r2",
+    "objective_score": 0.34951197308297655,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "XGBoost with Tweedie loss (power=1.5) for zero-inflated right-skewed target. Single-model alternative to two-stage hurdle; same regularization as xgb-basic.",
+    "metrics": {
+      "train": {
+        "r2": 0.8106689556976825,
+        "rmse": 496.86960562011933,
+        "mae": 298.6835302672712
+      },
+      "validation": {
+        "r2": 0.34951197308297655,
+        "rmse": 832.3214282977264,
+        "mae": 453.63743973602493
+      },
+      "test": {
+        "r2": 0.4169848099623852,
+        "rmse": 930.2488028849697,
+        "mae": 465.3239705901775
+      }
+    },
+    "hyperparameters": {
+      "n_estimators": 300,
+      "max_depth": 4,
+      "learning_rate": 0.04,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "min_child_weight": 12,
+      "reg_alpha": 0.4,
+      "reg_lambda": 4.0,
+      "random_state": 42,
+      "objective": "reg:tweedie",
+      "tweedie_variance_power": 1.5
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion"
+    ]
+  },
+  {
+    "candidate_id": "ridge-log",
+    "model_family": "ridge_regression",
+    "feature_set": "base",
+    "objective_metric": "val_r2",
+    "objective_score": 0.12573364444153623,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Ridge on base features with log(1+y) target transform; back-transform to evaluate on original scale.",
+    "metrics": {
+      "train": {
+        "r2": 0.06655642548586937,
+        "rmse": 1103.2541025621015,
+        "mae": 492.6672556033797
+      },
+      "validation": {
+        "r2": 0.12573364444153623,
+        "rmse": 964.9244366961241,
+        "mae": 463.0926430659918
+      },
+      "test": {
+        "r2": -32.62006271631723,
+        "rmse": 7064.126120293493,
+        "mae": 795.3290218916419
+      }
+    },
+    "hyperparameters": {
+      "alpha": 2.0,
+      "target_transform": "log1p"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion"
+    ]
+  },
+  {
+    "candidate_id": "xgb-log",
+    "model_family": "xgboost_regressor",
+    "feature_set": "engineered",
+    "objective_metric": "val_r2",
+    "objective_score": 0.11645300977725614,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "XGBoost with log(1+y) target transform; same architecture as xgb-basic, tests H1 for tree models.",
+    "metrics": {
+      "train": {
+        "r2": 0.4018895720277539,
+        "rmse": 883.125048408834,
+        "mae": 406.0510336926186
+      },
+      "validation": {
+        "r2": 0.11645300977725614,
+        "rmse": 970.0324172556872,
+        "mae": 464.87738779269273
+      },
+      "test": {
+        "r2": 0.3211176973574901,
+        "rmse": 1003.8213503357231,
+        "mae": 482.4034155617579
+      }
+    },
+    "hyperparameters": {
+      "n_estimators": 260,
+      "max_depth": 4,
+      "learning_rate": 0.04,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "min_child_weight": 12,
+      "reg_alpha": 0.4,
+      "reg_lambda": 4.0,
+      "random_state": 42,
+      "target_transform": "log1p"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion",
+      "seat_utilization",
+      "support_burden",
+      "growth_efficiency",
+      "champion_x_growth",
+      "expansion_capacity"
+    ]
+  },
+  {
+    "candidate_id": "rule-baseline",
+    "model_family": "rule_based",
+    "feature_set": "heuristic",
+    "objective_metric": "val_r2",
+    "objective_score": 0.026356035493289687,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Train-calibrated heuristic over growth, adoption, champion strength, and seat utilization.",
+    "metrics": {
+      "train": {
+        "r2": 0.04399721620609054,
+        "rmse": 1116.5060848577184,
+        "mae": 650.2223145152557
+      },
+      "validation": {
+        "r2": 0.026356035493289687,
+        "rmse": 1018.290073523657,
+        "mae": 623.1548931460464
+      },
+      "test": {
+        "r2": 0.046649696723085166,
+        "rmse": 1189.5574993693847,
+        "mae": 647.3811528600296
+      }
+    },
+    "hyperparameters": {
+      "weights": {
+        "usage_growth_90d": 0.24,
+        "feature_adoption_count": 0.16,
+        "champion_engagement_score": 0.18,
+        "seat_utilization": 0.2,
+        "has_exec_sponsor": 0.12,
+        "multi_product": 0.1
+      },
+      "calibration": {
+        "intercept": -151.18003035637767,
+        "slope": 1767.37872845601
+      }
+    },
+    "selected_features": [
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "seat_utilization",
+      "has_exec_sponsor",
+      "multi_product"
+    ]
+  },
+  {
+    "candidate_id": "ridge-scale-norm",
+    "model_family": "ridge_regression",
+    "feature_set": "base_normalized",
+    "objective_metric": "val_r2",
+    "objective_score": -0.1402601586659964,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "H2 \u2014 predicts expansion_rate = target / contract_value_t0, back-multiplied. Diagnostic for scale confound: if R\u00b2 drops significantly, raw R\u00b2 is mostly scale.",
+    "metrics": {
+      "train": {
+        "r2": -0.3640439686797945,
+        "rmse": 1333.661765485901,
+        "mae": 580.597831002803
+      },
+      "validation": {
+        "r2": -0.1402601586659964,
+        "rmse": 1101.9791999875183,
+        "mae": 524.3455928422059
+      },
+      "test": {
+        "r2": -0.23570216257479548,
+        "rmse": 1354.3037721406847,
+        "mae": 593.56636366181
+      }
+    },
+    "hyperparameters": {
+      "alpha": 2.0,
+      "target_transform": "rate_normalization",
+      "normalization_feature": "contract_value_t0"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "champion_engagement_score",
+      "support_tickets_90d",
+      "nps_score",
+      "contract_value_t0",
+      "renewal_window_days",
+      "previous_revenue_change_365d",
+      "marketing_touchpoints_90d",
+      "webinar_attendance_90d",
+      "region",
+      "industry",
+      "plan_tier",
+      "segment",
+      "has_exec_sponsor",
+      "multi_product",
+      "previous_expansion"
+    ]
+  }
+]

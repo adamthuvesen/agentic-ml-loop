@@ -1,0 +1,42 @@
+__pycache__/
+*.py[oc]
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+.DS_Store
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Runtime loop artifacts
+experiments/**/.loop.lock
+experiments/**/loop_state.json
+experiments/**/status.md
+experiments/**/cycles/
+experiments/**/__pycache__/
+
+# Note: experiments/<exp>/work/ is intentionally NOT gitignored. Intermediate
+# artefacts (profiles, per-method ranks, summaries) are reused across cycles
+# and form part of the reproducible research record. If a specific experiment
+# generates very large intermediate files, ignore them by name there.
+
+# Notebooks, YAML configs, CSVs, and dataset binaries in lib/ (local artifacts)
+lib/**/*.ipynb
+lib/**/*.yaml
+lib/**/*.csv
+lib/**/*.parquet
+experiments/**/*.ipynb
+experiments/**/*.csv
+experiments/**/*.parquet
+
+# Local-only agent configs
+# .cursor/.codex skills symlinks and settings are tracked; ignore hook/plugin runtime state
+.agents/
+.cursor/hooks/state/
+.claude/scheduled_tasks.lock
+openspec/

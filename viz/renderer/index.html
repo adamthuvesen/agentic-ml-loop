@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Experiment Replay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: radial-gradient(ellipse at center, #1a1535 0%, #0a0815 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: monospace;
+      color: #ecf0f1;
+    }
+    h1 {
+      font-size: 26px;
+      color: #f1c40f;
+      margin-bottom: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(241, 196, 15, 0.4), 0 0 30px rgba(241, 196, 15, 0.15), 0 0 60px rgba(100, 60, 180, 0.1);
+    }
+    #game {
+      border: 2px solid #3a3560;
+      cursor: pointer;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      box-shadow: 0 0 20px rgba(60, 40, 120, 0.4), 0 0 50px rgba(60, 40, 120, 0.15), inset 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+    .controls-hint {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #555;
+      text-shadow: 0 0 6px rgba(80, 60, 140, 0.2);
+    }
+    .controls-hint kbd {
+      background: #150f28;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid #3a3560;
+      color: #8580a5;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="title">Experiment Replay</h1>
+  <canvas id="game"></canvas>
+  <p class="controls-hint">
+    <kbd>Space</kbd> play/pause &nbsp;
+    <kbd>←</kbd><kbd>→</kbd> prev/next &nbsp;
+    <kbd>S</kbd> speed &nbsp;
+    <kbd>M</kbd> mute
+  </p>
+
+  <script id="script-data" type="application/json">null</script>
+
+  <script src="room.js"></script>
+  <script src="character.js"></script>
+  <script src="sound.js"></script>
+  <script src="ui.js"></script>
+  <script src="script.js"></script>
+  <script src="engine.js"></script>
+</body>
+</html>

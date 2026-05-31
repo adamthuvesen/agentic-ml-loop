@@ -1,0 +1,17 @@
+{
+  "width": 30,
+  "height": 20,
+  "tile_size": 16,
+  "stations": {
+    "desk":       { "x": 3,  "y": 3,  "w": 3, "h": 2, "stand": [4, 5],  "label": "Desk" },
+    "whiteboard": { "x": 12, "y": 1,  "w": 6, "h": 2, "stand": [15, 4], "label": "Whiteboard" },
+    "library":    { "x": 26, "y": 5,  "w": 3, "h": 5, "stand": [25, 7], "label": "Library" },
+    "lab":        { "x": 3,  "y": 14, "w": 4, "h": 3, "stand": [5, 13], "label": "Lab" },
+    "ladder":     { "x": 22, "y": 13, "w": 2, "h": 5, "stand": [21, 15], "label": "Progress" },
+    "center":     { "x": 14, "y": 10, "w": 2, "h": 2, "stand": [14, 10], "label": "" }
+  },
+  "walls": "border",
+  "floor_color": "#3a3a5c",
+  "wall_color": "#2a2a3e",
+  "accent_color": "#4a4a6e"
+}

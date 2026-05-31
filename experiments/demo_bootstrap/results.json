@@ -1,0 +1,271 @@
+[
+  {
+    "candidate_id": "logreg-poly",
+    "model_family": "logistic_regression",
+    "feature_set": "poly-interactions",
+    "objective_metric": "val_auc",
+    "objective_score": 0.6080362726704189,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Logreg with degree-2 polynomial features on sessions_7d + is_enterprise. Tests nonlinear session effect and enterprise interaction.",
+    "metrics": {
+      "train": {
+        "auc": 0.6593668652492182,
+        "log_loss": 0.6385679974601071,
+        "accuracy": 0.6645833333333333,
+        "precision": 0.7238805970149254,
+        "recall": 0.43891402714932126
+      },
+      "validation": {
+        "auc": 0.6080362726704189,
+        "log_loss": 0.6739131672783898,
+        "accuracy": 0.575,
+        "precision": 0.6521739130434783,
+        "recall": 0.36585365853658536
+      },
+      "test": {
+        "auc": 0.5825515947467166,
+        "log_loss": 0.7130699507366577,
+        "accuracy": 0.5125,
+        "precision": 0.5588235294117647,
+        "recall": 0.23170731707317074
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 500,
+      "random_state": 42,
+      "solver": "lbfgs",
+      "C": 1.0,
+      "poly_degree": 2
+    },
+    "selected_features": [
+      "sessions_7d",
+      "is_enterprise"
+    ]
+  },
+  {
+    "candidate_id": "lgbm-conservative",
+    "model_family": "lightgbm",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.6021732332707943,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "LightGBM with aggressive regularization (num_leaves=6, max_depth=3, min_child_samples=30). Same base features as logreg-tiny. Early stopped at 3 iterations.",
+    "metrics": {
+      "train": {
+        "auc": 0.6949108125578713,
+        "log_loss": 0.678488864632745,
+        "accuracy": 0.5395833333333333,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "validation": {
+        "auc": 0.6021732332707943,
+        "log_loss": 0.692834860014289,
+        "accuracy": 0.4875,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "test": {
+        "auc": 0.5363508442776735,
+        "log_loss": 0.6975165727397974,
+        "accuracy": 0.4875,
+        "precision": 0.0,
+        "recall": 0.0
+      }
+    },
+    "hyperparameters": {
+      "objective": "binary",
+      "metric": "auc",
+      "n_estimators": 150,
+      "num_leaves": 6,
+      "max_depth": 3,
+      "min_child_samples": 30,
+      "learning_rate": 0.05,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.5,
+      "reg_lambda": 5.0,
+      "random_state": 42,
+      "best_iteration": 3
+    },
+    "selected_features": [
+      "sessions_7d",
+      "pages_viewed",
+      "days_active",
+      "segment"
+    ]
+  },
+  {
+    "candidate_id": "logreg-minimal",
+    "model_family": "logistic_regression",
+    "feature_set": "minimal",
+    "objective_metric": "val_auc",
+    "objective_score": 0.6010006253908692,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Logreg on sessions_7d + is_enterprise only. Drops collinear pages_viewed and noise feature days_active for tighter generalization.",
+    "metrics": {
+      "train": {
+        "auc": 0.6605199252258076,
+        "log_loss": 0.6469546411253096,
+        "accuracy": 0.6645833333333333,
+        "precision": 0.7238805970149254,
+        "recall": 0.43891402714932126
+      },
+      "validation": {
+        "auc": 0.6010006253908692,
+        "log_loss": 0.6820515291635252,
+        "accuracy": 0.575,
+        "precision": 0.6521739130434783,
+        "recall": 0.36585365853658536
+      },
+      "test": {
+        "auc": 0.5817698561601,
+        "log_loss": 0.7065070251994602,
+        "accuracy": 0.5125,
+        "precision": 0.5588235294117647,
+        "recall": 0.23170731707317074
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 500,
+      "random_state": 42,
+      "solver": "lbfgs"
+    },
+    "selected_features": [
+      "sessions_7d",
+      "is_enterprise"
+    ]
+  },
+  {
+    "candidate_id": "logreg-engineered",
+    "model_family": "logistic_regression",
+    "feature_set": "engineered",
+    "objective_metric": "val_auc",
+    "objective_score": 0.596153846153846,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Logreg on sessions_7d + is_enterprise + sessions_high. Drops pages_viewed (collinear) and days_active (noise).",
+    "metrics": {
+      "train": {
+        "auc": 0.6625727213962509,
+        "log_loss": 0.6412259897526358,
+        "accuracy": 0.6645833333333333,
+        "precision": 0.7238805970149254,
+        "recall": 0.43891402714932126
+      },
+      "validation": {
+        "auc": 0.596153846153846,
+        "log_loss": 0.6911990355617884,
+        "accuracy": 0.575,
+        "precision": 0.6521739130434783,
+        "recall": 0.36585365853658536
+      },
+      "test": {
+        "auc": 0.5794246404002501,
+        "log_loss": 0.7182116366628009,
+        "accuracy": 0.5125,
+        "precision": 0.5588235294117647,
+        "recall": 0.23170731707317074
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 500,
+      "random_state": 42,
+      "solver": "lbfgs"
+    },
+    "selected_features": [
+      "sessions_7d",
+      "is_enterprise",
+      "sessions_high"
+    ]
+  },
+  {
+    "candidate_id": "logreg-tiny",
+    "model_family": "logistic_regression",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.5931050656660413,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Logistic regression on numeric + one-hot segment.",
+    "metrics": {
+      "train": {
+        "auc": 0.6685913450619333,
+        "log_loss": 0.6423809311039145,
+        "accuracy": 0.6520833333333333,
+        "precision": 0.6776315789473685,
+        "recall": 0.4660633484162896
+      },
+      "validation": {
+        "auc": 0.5931050656660413,
+        "log_loss": 0.6830835120334121,
+        "accuracy": 0.6,
+        "precision": 0.6875,
+        "recall": 0.4024390243902439
+      },
+      "test": {
+        "auc": 0.5895090681676047,
+        "log_loss": 0.7057814025816134,
+        "accuracy": 0.55,
+        "precision": 0.6190476190476191,
+        "recall": 0.3170731707317073
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 500,
+      "random_state": 42,
+      "solver": "lbfgs"
+    },
+    "selected_features": [
+      "sessions_7d",
+      "pages_viewed",
+      "days_active",
+      "segment"
+    ]
+  },
+  {
+    "candidate_id": "majority-baseline",
+    "model_family": "constant",
+    "feature_set": "none",
+    "objective_metric": "val_auc",
+    "objective_score": 0.5,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Predict P(y=1)=0.4604 for all rows (train prevalence).",
+    "metrics": {
+      "train": {
+        "auc": 0.5,
+        "log_loss": 0.6900102184527626,
+        "accuracy": 0.5395833333333333,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "validation": {
+        "auc": 0.5,
+        "log_loss": 0.6982740392955638,
+        "accuracy": 0.4875,
+        "precision": 0.0,
+        "recall": 0.0
+      },
+      "test": {
+        "auc": 0.5,
+        "log_loss": 0.6982740392955639,
+        "accuracy": 0.4875,
+        "precision": 0.0,
+        "recall": 0.0
+      }
+    },
+    "hyperparameters": {
+      "train_positive_rate": 0.46041666666666664
+    },
+    "selected_features": [
+      "sessions_7d",
+      "pages_viewed",
+      "days_active",
+      "segment"
+    ]
+  }
+]
