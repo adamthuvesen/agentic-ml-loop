@@ -1,14 +1,13 @@
 # Examples
 
-Worked artifacts that show what the loop produces, committed so you can see the
-payoff without running anything.
+Artifacts the loop produces, committed so you can look without running anything.
 
 ## `demo_bootstrap_replay.html`
 
 A self-contained replay of the `demo_bootstrap` experiment — open it in any
-browser (no server, no dependencies). It animates the five research cycles:
-hypothesis → research → training → scoreboard → journal → finale, with the
-leaderboard building up cycle by cycle.
+browser (no server, no dependencies). It walks through the five research cycles
+(hypothesis → research → training → scoreboard → journal), building up the
+leaderboard cycle by cycle.
 
 It is generated from the committed experiment artifacts:
 

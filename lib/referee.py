@@ -1,16 +1,14 @@
-"""Advisory research referee: grade a single cycle's scientific conduct.
+"""Advisory per-cycle scorecard for the research loop.
 
-The referee is deterministic and **advisory** — it never blocks the loop. It
+The referee is deterministic and advisory — it never blocks the loop. It
 aggregates the existing signal producers (:mod:`lib.signals`,
 :mod:`lib.evaluation_review`, :mod:`lib.diagnostics`) plus a few lightweight
-per-cycle checks into a transparent scorecard, so a human (or a benchmark
-comparing runners) can see whether the agent behaved like a scientist this
-cycle: framed a hypothesis, logged evidence, respected uncertainty, and didn't
-ignore leakage or skip error analysis.
+per-cycle checks into a small scorecard: was a hypothesis framed, was evidence
+logged, was uncertainty considered, are leakage/split clean, and was error
+analysis done before declaring a ceiling.
 
 The rubric is intentionally small. Per ``program.md``: "Add new process rules
-only when they prevent a real failure mode. A huge prompt full of unaudited
-rules is not discipline; it is fog with bullet points."
+only when they prevent a real failure mode."
 """
 
 from __future__ import annotations

@@ -1,10 +1,9 @@
 """Runner benchmark: run one experiment spec across multiple agent runners.
 
-Same spec, different researchers, scored on scientific conduct — not just the
-final leaderboard. Each runner gets an isolated copy of the experiment (the
-experiment.md spec plus fresh journal/sources/results), runs the loop to a
-shared cycle/time budget with the advisory referee on, and the outcomes are
-aggregated into a ranked comparison (Markdown + CSV).
+Each runner gets an isolated copy of the experiment (the experiment.md spec plus
+fresh journal/sources/results), runs the loop to a shared cycle/time budget with
+the advisory referee on, and the outcomes are aggregated into a ranked
+comparison (Markdown + CSV) ordered by referee score, then validation score.
 
 The loop invocation is injectable (``run_one``) so the aggregation and report
 logic can be tested without launching real agent subprocesses.

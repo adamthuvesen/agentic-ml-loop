@@ -6,35 +6,19 @@ hypothesis-test cycles while keeping a research journal and leaderboard.
 
 The repo ships with synthetic demos only. No external data source is required.
 
-## What makes this different
+A few things shape how the loop works:
 
-Autonomous ML-research loops are now a known category (Sakana's AI Scientist,
-Weco's AIDE, and the broader "agent runs experiments" pattern). Most of them
-optimize a leaderboard. This harness is built around a different question:
-**did the agent do honest science?** Three things make that concrete:
+- **The cycle contract is checked in code.** Each cycle must update the research
+  journal, leave `experiment.md` unchanged, emit one completion marker, and pass
+  result-schema and metric checks. Cycles that don't are rolled back and retried
+  ([`loop/cycle_attempt.py`](loop/cycle_attempt.py), [`loop/contracts.py`](loop/contracts.py)).
+- **Each cycle gets an advisory scorecard.** A small rubric grades hypothesis,
+  evidence, uncertainty, leakage/split, and error analysis. It's advisory and
+  never blocks the loop. See [Research referee](#research-referee).
+- **Runners are interchangeable.** The same spec can run under Claude, Codex, or
+  Cursor, and you can compare them. See [Benchmark](#benchmark).
 
-- **An enforced cycle contract, not just a prompt.** Every cycle is validated in
-  Python before it counts: the runner must update the research journal, must not
-  silently mutate `experiment.md`, must emit exactly one completion marker, and
-  must pass result-schema and metric-consistency checks. A cycle that doesn't is
-  rolled back to its clean state and retried — the discipline lives in code
-  ([`loop/cycle_attempt.py`](loop/cycle_attempt.py),
-  [`loop/contracts.py`](loop/contracts.py)), not in hopeful instructions.
-- **An advisory research referee.** Each cycle gets a deterministic scorecard
-  (0–100) grading scientific conduct — hypothesis framed, evidence logged,
-  uncertainty respected, leakage/split clean, error analysis when saturating. It
-  aggregates the existing leakage / split-drift / plateau detectors
-  ([`lib/evaluation_review.py`](lib/evaluation_review.py),
-  [`lib/signals.py`](lib/signals.py)) into one transparent grade. It never blocks
-  the loop — it makes conduct legible. See [Research referee](#research-referee).
-- **A runner benchmark.** Because runners are interchangeable behind the cycle
-  contract, you can run the *same spec* across Claude, Codex, and Cursor and
-  compare them on research quality — referee score first, leaderboard second.
-  See [Benchmark](#benchmark).
-
-Net: not "another agent that chases a metric," but a harness that mechanically
-keeps the agent honest and grades how it got there. See a worked run in
-[`examples/`](examples/).
+There's a worked example in [`examples/`](examples/).
 
 ## Setup
 
@@ -77,7 +61,7 @@ rubric:
 | --- | --- |
 | `journal_updated` | The cycle was actually recorded (evidence discipline) |
 | `hypothesis_framed` | A falsifiable hypothesis / expectation was stated |
-| `evidence_or_understanding` | New results were produced, or genuine understanding logged |
+| `evidence_or_understanding` | New results were produced, or understanding was logged |
 | `noise_awareness` | New candidates were judged against uncertainty (CI / bootstrap / significance) |
 | `leakage_split_clean` | No unaddressed leakage or split-reliability concern |
 | `analysis_when_saturating` | Error analysis happened before declaring a ceiling |
@@ -127,18 +111,17 @@ export AGENTIC_ML_LOOP_RUNNER_TIMEOUT=1800
 
 ## Benchmark
 
-Run the same experiment spec across several runners and compare them on research
-quality, not just final score:
+Run the same experiment spec across several runners and compare them:
 
 ```bash
 uv run python -m loop bench experiments/demo_bootstrap --runners claude,codex,cursor --max-cycles 6
 ```
 
-Each runner gets an isolated copy of the spec, runs the loop to the shared
-budget with the referee on, and the results are ranked into
-`bench/<id>-<timestamp>/comparison.md` and `comparison.csv` — ordered by mean
-referee score (scientific conduct) first, then best validation score. A runner
-that errors is recorded and never aborts the others.
+Each runner gets an isolated copy of the spec and runs the loop to the shared
+budget with the referee on. Results are written to
+`bench/<id>-<timestamp>/comparison.md` and `comparison.csv`, ordered by mean
+referee score, then best validation score. A runner that errors is recorded and
+doesn't stop the others.
 
 ## Examples
 
