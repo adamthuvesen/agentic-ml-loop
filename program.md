@@ -42,6 +42,22 @@ You're not following a checklist — you're doing science. Here's how to think a
 
 **Be honest about what you don't understand.** If a result surprises you and you can't explain why, say so. That gap in understanding is the next thing to investigate.
 
+## Train / Val / Test Contract
+
+Treat train, validation, and test as different instruments, not interchangeable
+piles of rows:
+
+- **Train** is where model parameters and learned preprocessing are fitted.
+- **Validation** is where you choose features, model families, hyperparameters,
+  thresholds, calibration, and stopping criteria.
+- **Test/holdout** is the final locked check. Use it only after the research
+  choices are frozen. Do not let test feedback steer the next candidate.
+
+If an experiment has no true test set, say that plainly and treat the validation
+set with extra skepticism. If you inspect test/holdout early, the clean answer is
+not "be careful"; it is to create a new untouched holdout before making final
+claims.
+
 ## Research Before Code
 
 **This is mandatory, not optional.** Before writing modeling code, do actual research.
@@ -50,6 +66,11 @@ papers, blog posts. Use context7 to look up library APIs before using unfamiliar
 parameters. Look at the data: distributions, correlations, missing patterns, class
 balance. A cycle spent only researching is valid and valuable. Running models without
 understanding the problem space is wasted compute.
+
+Prefer primary sources when they exist: library docs for APIs, papers for methods,
+and official guides for agent/tool behavior. Distill reusable lessons into
+`research_sources.md` so the next cycle starts from accumulated knowledge instead
+of rediscovering the same thing with different tabs open.
 
 ## Thinking Per Cycle
 
@@ -69,6 +90,50 @@ Not every cycle needs a new model. Understanding > throughput.
 
 **If you're testing more than 3 candidates in one cycle, you're cramming.** Split
 across cycles instead — each cycle should tell one clean, focused story in the journal.
+
+Use this cycle rhythm:
+
+1. **Observe**: read `experiment.md`, `research_journal.md`, `research_sources.md`,
+   `results.json`, and the relevant artifacts.
+2. **Hypothesize**: write the objective, expected direction, success criterion,
+   and what result would falsify the idea.
+3. **Act**: run the smallest code/research step that can answer the hypothesis.
+4. **Verify**: inspect outputs, check train/val/test separation, and compare
+   against the right baseline.
+5. **Reflect**: record what changed in your beliefs and what the next best
+   question is.
+
+This is not paperwork. It is the memory that keeps an autonomous loop from
+wandering.
+
+## Evidence Discipline
+
+Do not let conclusions live only in the chat transcript. The durable state is the
+repo: journal entries, source notes, scripts, `work/`, `outputs/`, and
+`results.json`.
+
+- Link claims to evidence: command, script, file path, source, metric, or row
+  count.
+- Keep negative results. A failed idea with a clear reason is useful research.
+- When a tool or script fails, record the failure mode before retrying. If the
+  same failure repeats, simplify the plan.
+- When a score jumps, verify the boring explanations first: leakage, split drift,
+  duplicate rows, target leakage through IDs, label imbalance, or an accidental
+  metric change.
+- When external research changes the plan, write the reusable takeaway to
+  `research_sources.md`.
+
+## Dataset And Model Documentation
+
+Think in lightweight data-card and model-card terms. You do not need a ceremonial
+template for every cycle, but final claims need enough context that a new
+researcher can understand what was evaluated and where it may fail.
+
+For the dataset, capture source files, row counts, target definition, split
+policy, collection window if relevant, exclusions, known missingness, and obvious
+biases. For the model, capture intended use, candidate lineage, metric contract,
+top-line and slice performance, calibration/threshold notes, limitations, and
+the exact artifacts needed to reproduce the result.
 
 ## ML Craft
 
@@ -122,11 +187,17 @@ Don't assume inherited feature sets are right for your problem. Features selecte
 ### Evaluation Rigor
 
 - **Overfitting detection**: track train/val/test metrics for every candidate. Flag large gaps between train and validation.
+- **Split-role discipline**: train fits, validation selects, test confirms once.
+  If test starts influencing choices, the test is no longer a test.
 - **Calibration**: report Brier score or ECE alongside discrimination metrics (AUC, F1). A well-calibrated model is often more useful than a slightly higher AUC.
 - **Significance testing**: use paired bootstrap or corrected resampled t-test before claiming one candidate beats another. Small differences on small datasets are noise.
 - **Preserve top-k**: keep the top-3 candidates on the leaderboard, not just the best.
 - **Distribution shift detection**: if train/test come from different time periods, run adversarial validation on key features.
 - **Cross-validation stability**: if using k-fold, report mean ± std. High variance across folds signals instability.
+- **Sanity baselines**: if performance looks unusually strong, run a shuffled-target
+  or dummy baseline and audit for ID leakage before celebrating.
+- **Slice metrics**: report performance across important cohorts, time periods,
+  classes, or regimes when aggregate metrics could hide failure.
 
 ### Validation Robustness
 
@@ -156,3 +227,21 @@ ML doesn't happen in a vacuum. The data comes from a business, and the predictio
 - **Think about feature semantics.** A domain expert would ask: "Does this feature make causal sense as a predictor?" If engagement metrics predict expansion, *why*?
 - **Consider how the model will be used.** A ranking model needs good discrimination. A scoring model used for thresholding needs good calibration. The use case shapes what "good" means.
 - **Name your assumptions.** Making assumptions explicit makes them testable.
+
+## Agent Loop Craft
+
+The loop is an agent using tools, not a magic optimizer. Good agent behavior looks
+like grounded action: reason from the current files, act through deterministic
+tools, inspect the result, and update durable state.
+
+- Keep tool use purposeful. Each command should answer a question or produce a
+  named artifact.
+- Trust the environment over your memory. If a file, metric, or run result
+  matters, read it.
+- Prefer simple, inspectable workflows before adding orchestration. More moving
+  parts means more places for quiet failure.
+- Use traces and cycle artifacts as eval data for the loop itself: did the agent
+  pick the right tool, respect train/val/test boundaries, update the journal, and
+  stop when the hypothesis was answered?
+- Add new process rules only when they prevent a real failure mode. A huge prompt
+  full of unaudited rules is not discipline; it is fog with bullet points.
