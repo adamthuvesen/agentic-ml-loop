@@ -30,7 +30,7 @@ Time split with 60% train, 20% validation, and 20% holdout test.
 
 ## Objective Metric
 
-Validation AUC for candidate ranking (`objective_score`), with holdout AUC reported separately for transparency.
+Validation AUC for candidate ranking (`val_auc`), with holdout AUC reported separately for transparency.
 
 ## Candidate Families
 

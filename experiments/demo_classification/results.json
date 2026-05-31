@@ -1,1 +1,336 @@
-[]
+[
+  {
+    "candidate_id": "logreg-basic",
+    "model_family": "logistic_regression",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.7301551112823215,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Logistic regression over the base feature set.",
+    "metrics": {
+      "train": {
+        "auc": 0.7364558406143915,
+        "log_loss": 0.5953046902212569,
+        "accuracy": 0.675,
+        "precision": 0.6905120481927711,
+        "recall": 0.7591059602649006
+      },
+      "validation": {
+        "auc": 0.7301551112823215,
+        "log_loss": 0.6010256947375995,
+        "accuracy": 0.6805555555555556,
+        "precision": 0.7096018735362998,
+        "recall": 0.7408312958435208
+      },
+      "test": {
+        "auc": 0.739198404785643,
+        "log_loss": 0.5875236787864967,
+        "accuracy": 0.6694444444444444,
+        "precision": 0.7110609480812641,
+        "recall": 0.7411764705882353
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 500,
+      "random_state": 42,
+      "solver": "lbfgs"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "support_tickets_90d",
+      "nps_score",
+      "region",
+      "industry",
+      "plan_tier",
+      "has_exec_sponsor",
+      "is_sales_touched",
+      "previous_expansion"
+    ]
+  },
+  {
+    "candidate_id": "logreg-engineered",
+    "model_family": "logistic_regression",
+    "feature_set": "engineered",
+    "objective_metric": "val_auc",
+    "objective_score": 0.7289758567284333,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Logistic regression with engineered utilization, support intensity, and momentum features.",
+    "metrics": {
+      "train": {
+        "auc": 0.737823647670989,
+        "log_loss": 0.5944166223220279,
+        "accuracy": 0.6759259259259259,
+        "precision": 0.6927162367223065,
+        "recall": 0.7557947019867549
+      },
+      "validation": {
+        "auc": 0.7289758567284333,
+        "log_loss": 0.6022311830470617,
+        "accuracy": 0.6805555555555556,
+        "precision": 0.7105882352941176,
+        "recall": 0.7383863080684596
+      },
+      "test": {
+        "auc": 0.7395972083748754,
+        "log_loss": 0.5873071293789137,
+        "accuracy": 0.6722222222222223,
+        "precision": 0.7133182844243793,
+        "recall": 0.7435294117647059
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 800,
+      "random_state": 42,
+      "solver": "lbfgs"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "support_tickets_90d",
+      "nps_score",
+      "region",
+      "industry",
+      "plan_tier",
+      "has_exec_sponsor",
+      "is_sales_touched",
+      "previous_expansion",
+      "seat_utilization",
+      "support_per_active_user",
+      "momentum_signal",
+      "interaction_exec_growth"
+    ]
+  },
+  {
+    "candidate_id": "xgb-basic",
+    "model_family": "xgboost",
+    "feature_set": "engineered",
+    "objective_metric": "val_auc",
+    "objective_score": 0.7089521144034151,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "XGBoost baseline over engineered features.",
+    "metrics": {
+      "train": {
+        "auc": 0.9009144220602148,
+        "log_loss": 0.4491744331978349,
+        "accuracy": 0.8074074074074075,
+        "precision": 0.8,
+        "recall": 0.8741721854304636
+      },
+      "validation": {
+        "auc": 0.7089521144034151,
+        "log_loss": 0.6281250619544281,
+        "accuracy": 0.6527777777777778,
+        "precision": 0.6844547563805105,
+        "recall": 0.7212713936430318
+      },
+      "test": {
+        "auc": 0.7190109670987039,
+        "log_loss": 0.6079642879512219,
+        "accuracy": 0.6777777777777778,
+        "precision": 0.7158836689038032,
+        "recall": 0.7529411764705882
+      }
+    },
+    "hyperparameters": {
+      "n_estimators": 180,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "subsample": 0.9,
+      "colsample_bytree": 0.9,
+      "random_state": 42,
+      "eval_metric": "logloss"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "support_tickets_90d",
+      "nps_score",
+      "region",
+      "industry",
+      "plan_tier",
+      "has_exec_sponsor",
+      "is_sales_touched",
+      "previous_expansion",
+      "seat_utilization",
+      "support_per_active_user",
+      "momentum_signal",
+      "interaction_exec_growth"
+    ]
+  },
+  {
+    "candidate_id": "xgb-tuned-light",
+    "model_family": "xgboost",
+    "feature_set": "engineered",
+    "objective_metric": "val_auc",
+    "objective_score": 0.7062712757175763,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Light manual sweep across four XGBoost configs, selecting by validation AUC.",
+    "metrics": {
+      "train": {
+        "auc": 0.8418135052034059,
+        "log_loss": 0.5049441009919092,
+        "accuracy": 0.7652777777777777,
+        "precision": 0.7645283018867924,
+        "recall": 0.8385761589403974
+      },
+      "validation": {
+        "auc": 0.7062712757175763,
+        "log_loss": 0.6260860925477025,
+        "accuracy": 0.6527777777777778,
+        "precision": 0.6802721088435374,
+        "recall": 0.7334963325183375
+      },
+      "test": {
+        "auc": 0.7313339980059821,
+        "log_loss": 0.598555187582138,
+        "accuracy": 0.6833333333333333,
+        "precision": 0.7223476297968398,
+        "recall": 0.7529411764705882
+      }
+    },
+    "hyperparameters": {
+      "n_estimators": 120,
+      "max_depth": 3,
+      "learning_rate": 0.08,
+      "subsample": 0.9,
+      "colsample_bytree": 0.9,
+      "random_state": 42,
+      "eval_metric": "logloss"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "support_tickets_90d",
+      "nps_score",
+      "region",
+      "industry",
+      "plan_tier",
+      "has_exec_sponsor",
+      "is_sales_touched",
+      "previous_expansion",
+      "seat_utilization",
+      "support_per_active_user",
+      "momentum_signal",
+      "interaction_exec_growth"
+    ]
+  },
+  {
+    "candidate_id": "xgb-base",
+    "model_family": "xgboost",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.7049033404350664,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "XGBoost on base features with conservative regularization for small dataset.",
+    "metrics": {
+      "train": {
+        "auc": 0.8385335508375535,
+        "log_loss": 0.509371851368468,
+        "accuracy": 0.7546296296296297,
+        "precision": 0.755656108597285,
+        "recall": 0.8294701986754967
+      },
+      "validation": {
+        "auc": 0.7049033404350664,
+        "log_loss": 0.6247597050979071,
+        "accuracy": 0.6625,
+        "precision": 0.6886363636363636,
+        "recall": 0.7408312958435208
+      },
+      "test": {
+        "auc": 0.7192502492522432,
+        "log_loss": 0.6050430402616134,
+        "accuracy": 0.6722222222222223,
+        "precision": 0.7114093959731543,
+        "recall": 0.7482352941176471
+      }
+    },
+    "hyperparameters": {
+      "n_estimators": 150,
+      "max_depth": 3,
+      "learning_rate": 0.08,
+      "subsample": 0.85,
+      "colsample_bytree": 0.85,
+      "min_child_weight": 5,
+      "reg_lambda": 2.0,
+      "reg_alpha": 0.1,
+      "random_state": 42,
+      "eval_metric": "logloss"
+    },
+    "selected_features": [
+      "account_age_days",
+      "seat_count",
+      "avg_weekly_active_users",
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "support_tickets_90d",
+      "nps_score",
+      "region",
+      "industry",
+      "plan_tier",
+      "has_exec_sponsor",
+      "is_sales_touched",
+      "previous_expansion"
+    ]
+  },
+  {
+    "candidate_id": "rule-baseline",
+    "model_family": "rule_based",
+    "feature_set": "heuristic",
+    "objective_metric": "val_auc",
+    "objective_score": 0.6577056423399554,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Thresholded heuristic over usage growth, feature adoption, and sponsor signals.",
+    "metrics": {
+      "train": {
+        "auc": 0.6546195879013857,
+        "log_loss": 0.7735756287046951,
+        "accuracy": 0.5745370370370371,
+        "precision": 0.7275590551181103,
+        "recall": 0.3824503311258278
+      },
+      "validation": {
+        "auc": 0.6577056423399554,
+        "log_loss": 0.7714024591575764,
+        "accuracy": 0.575,
+        "precision": 0.764102564102564,
+        "recall": 0.3643031784841076
+      },
+      "test": {
+        "auc": 0.6691326021934197,
+        "log_loss": 0.7774628895916466,
+        "accuracy": 0.5833333333333334,
+        "precision": 0.7828054298642534,
+        "recall": 0.40705882352941175
+      }
+    },
+    "hyperparameters": {},
+    "selected_features": [
+      "usage_growth_90d",
+      "feature_adoption_count",
+      "seat_utilization",
+      "has_exec_sponsor",
+      "previous_expansion",
+      "plan_tier"
+    ]
+  }
+]

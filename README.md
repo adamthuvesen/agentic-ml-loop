@@ -6,6 +6,36 @@ hypothesis-test cycles while keeping a research journal and leaderboard.
 
 The repo ships with synthetic demos only. No external data source is required.
 
+## What makes this different
+
+Autonomous ML-research loops are now a known category (Sakana's AI Scientist,
+Weco's AIDE, and the broader "agent runs experiments" pattern). Most of them
+optimize a leaderboard. This harness is built around a different question:
+**did the agent do honest science?** Three things make that concrete:
+
+- **An enforced cycle contract, not just a prompt.** Every cycle is validated in
+  Python before it counts: the runner must update the research journal, must not
+  silently mutate `experiment.md`, must emit exactly one completion marker, and
+  must pass result-schema and metric-consistency checks. A cycle that doesn't is
+  rolled back to its clean state and retried — the discipline lives in code
+  ([`loop/cycle_attempt.py`](loop/cycle_attempt.py),
+  [`loop/contracts.py`](loop/contracts.py)), not in hopeful instructions.
+- **An advisory research referee.** Each cycle gets a deterministic scorecard
+  (0–100) grading scientific conduct — hypothesis framed, evidence logged,
+  uncertainty respected, leakage/split clean, error analysis when saturating. It
+  aggregates the existing leakage / split-drift / plateau detectors
+  ([`lib/evaluation_review.py`](lib/evaluation_review.py),
+  [`lib/signals.py`](lib/signals.py)) into one transparent grade. It never blocks
+  the loop — it makes conduct legible. See [Research referee](#research-referee).
+- **A runner benchmark.** Because runners are interchangeable behind the cycle
+  contract, you can run the *same spec* across Claude, Codex, and Cursor and
+  compare them on research quality — referee score first, leaderboard second.
+  See [Benchmark](#benchmark).
+
+Net: not "another agent that chases a metric," but a harness that mechanically
+keeps the agent honest and grades how it got there. See a worked run in
+[`examples/`](examples/).
+
 ## Setup
 
 Requires Python 3.12+ and `uv`.
@@ -36,6 +66,25 @@ runner receives the cycle prompt on stdin and must end with exactly one marker:
 
 - `<promise>CYCLE_DONE</promise>`
 - `<promise>EXPERIMENT_COMPLETE</promise>`
+
+## Research referee
+
+After each cycle the loop computes an advisory scorecard
+([`lib/referee.py`](lib/referee.py)) grading the cycle on a small, transparent
+rubric:
+
+| Criterion | What it checks |
+| --- | --- |
+| `journal_updated` | The cycle was actually recorded (evidence discipline) |
+| `hypothesis_framed` | A falsifiable hypothesis / expectation was stated |
+| `evidence_or_understanding` | New results were produced, or genuine understanding logged |
+| `noise_awareness` | New candidates were judged against uncertainty (CI / bootstrap / significance) |
+| `leakage_split_clean` | No unaddressed leakage or split-reliability concern |
+| `analysis_when_saturating` | Error analysis happened before declaring a ceiling |
+
+The scorecard is written to `cycles/<id>/scorecard.json`, the latest grade shows
+up in `status.md`, and it is **advisory only** — it never blocks a cycle. Turn
+it off with `--no-referee` or `AGENTIC_ML_LOOP_REFEREE=0`.
 
 ## Runners
 
@@ -75,6 +124,30 @@ export AGENTIC_ML_LOOP_RUNNER_MODEL=claude-sonnet-4-5
 export AGENTIC_ML_LOOP_RUNNER_EFFORT=high
 export AGENTIC_ML_LOOP_RUNNER_TIMEOUT=1800
 ```
+
+## Benchmark
+
+Run the same experiment spec across several runners and compare them on research
+quality, not just final score:
+
+```bash
+uv run python -m loop bench experiments/demo_bootstrap --runners claude,codex,cursor --max-cycles 6
+```
+
+Each runner gets an isolated copy of the spec, runs the loop to the shared
+budget with the referee on, and the results are ranked into
+`bench/<id>-<timestamp>/comparison.md` and `comparison.csv` — ordered by mean
+referee score (scientific conduct) first, then best validation score. A runner
+that errors is recorded and never aborts the others.
+
+## Examples
+
+[`examples/demo_bootstrap_replay.html`](examples/demo_bootstrap_replay.html) is a
+self-contained replay of the `demo_bootstrap` experiment — open it in a browser
+to walk through all five research cycles (hypothesis → research → training →
+scoreboard → journal) with no server or dependencies. It is generated from the
+committed [`research_journal.md`](experiments/demo_bootstrap/research_journal.md)
+and [`results.json`](experiments/demo_bootstrap/results.json) via `viz/`.
 
 ## Demos
 
