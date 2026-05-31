@@ -40,14 +40,31 @@ runner receives the cycle prompt on stdin and must end with exactly one marker:
 ## Runners
 
 The loop has built-in runner presets for Claude, Codex, and Cursor, plus a fully
-custom command escape hatch.
+custom command escape hatch. Each runner receives the cycle prompt on stdin and
+must print a final response containing the completion marker.
 
 ```bash
 uv run python -m loop start experiments/demo_bootstrap --runner claude
 uv run python -m loop start experiments/demo_bootstrap --runner codex
 uv run python -m loop start experiments/demo_bootstrap --runner cursor
+uv run python -m loop start experiments/demo_bootstrap --runner codex --runner-model gpt-5.5-high --runner-effort high
 uv run python -m loop start experiments/demo_bootstrap --runner-command "claude --print --verbose --output-format stream-json"
 ```
+
+Built-in command presets:
+
+| Runner | Command |
+| --- | --- |
+| Claude | `claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model claude-opus-4-8-high` |
+| Codex | `codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high` |
+| Cursor | `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5` |
+
+The built-in presets run without approval prompts and with full workspace
+permissions. If no model is specified, Claude defaults to
+`claude-opus-4-8-high`, Codex defaults to `gpt-5.5-high`, and Cursor defaults to
+`composer-2.5`. Claude receives effort through `--effort`; Codex receives effort
+through `-c model_reasoning_effort=<effort>`. Cursor does not expose a separate
+effort flag, so choose a Cursor model id that already encodes the desired effort.
 
 Useful environment defaults:
 
@@ -55,6 +72,7 @@ Useful environment defaults:
 export AGENTIC_ML_LOOP_RUNNER=claude
 export AGENTIC_ML_LOOP_RUNNER_COMMAND="claude --print --verbose --output-format stream-json"
 export AGENTIC_ML_LOOP_RUNNER_MODEL=claude-sonnet-4-5
+export AGENTIC_ML_LOOP_RUNNER_EFFORT=high
 export AGENTIC_ML_LOOP_RUNNER_TIMEOUT=1800
 ```
 

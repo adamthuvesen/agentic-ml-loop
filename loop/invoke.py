@@ -11,14 +11,50 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+RUNNER_TIMEOUT = 1800
 ROOT = Path(__file__).resolve().parent.parent
 
-BUILTIN_RUNNER_COMMANDS = {
-    "claude": ["claude", "--print", "--verbose", "--output-format", "stream-json"],
-    "codex": ["codex", "exec"],
-    "cursor": ["cursor-agent", "--print"],
+
+@dataclass(frozen=True)
+class RunnerPreset:
+    """Built-in CLI command shape."""
+
+    command: tuple[str, ...]
+    default_model: str
+
+
+BUILTIN_RUNNER_PRESETS = {
+    "claude": RunnerPreset(
+        command=(
+            "claude",
+            "--print",
+            "--verbose",
+            "--output-format",
+            "stream-json",
+            "--permission-mode",
+            "bypassPermissions",
+        ),
+        default_model="claude-opus-4-8-high",
+    ),
+    "codex": RunnerPreset(
+        command=("codex", "exec", "--dangerously-bypass-approvals-and-sandbox"),
+        default_model="gpt-5.5-high",
+    ),
+    "cursor": RunnerPreset(
+        command=(
+            "cursor-agent",
+            "--print",
+            "--trust",
+            "--force",
+            "--sandbox",
+            "disabled",
+        ),
+        default_model="composer-2.5",
+    ),
 }
-RUNNER_TIMEOUT = 1800
+BUILTIN_RUNNER_COMMANDS = {
+    name: list(preset.command) for name, preset in BUILTIN_RUNNER_PRESETS.items()
+}
 
 
 @dataclass(frozen=True)
@@ -60,20 +96,23 @@ def build_runner_config(
         command = shlex.split(runner_command)
         if not command:
             raise ValueError("--runner-command cannot be empty")
-        name = runner or command[0]
+        name = _runner_name_from_command(command[0])
     else:
-        if runner not in BUILTIN_RUNNER_COMMANDS:
-            supported = ", ".join(sorted(BUILTIN_RUNNER_COMMANDS))
+        if runner not in BUILTIN_RUNNER_PRESETS:
+            supported = ", ".join(sorted(BUILTIN_RUNNER_PRESETS))
             raise ValueError(
                 f"Unsupported runner {runner!r}; expected one of {supported}."
             )
-        command = list(BUILTIN_RUNNER_COMMANDS[runner])
+        preset = BUILTIN_RUNNER_PRESETS[runner]
+        command = list(preset.command)
         name = runner
-        if runner == "claude":
-            if runner_model:
-                command.extend(["--model", runner_model])
-            if runner_effort:
-                command.extend(["--effort", runner_effort])
+        runner_model = runner_model or preset.default_model
+        _append_builtin_runner_options(
+            runner=runner,
+            command=command,
+            runner_model=runner_model,
+            runner_effort=runner_effort,
+        )
 
     return RunnerConfig(
         name=name,
@@ -100,12 +139,12 @@ def add_runner_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--runner-model",
         default=os.environ.get("AGENTIC_ML_LOOP_RUNNER_MODEL"),
-        help="Optional model metadata; appended to built-in Claude commands.",
+        help="Optional model name appended to built-in runners that support --model.",
     )
     parser.add_argument(
         "--runner-effort",
         default=os.environ.get("AGENTIC_ML_LOOP_RUNNER_EFFORT"),
-        help="Optional effort metadata; appended to built-in Claude commands.",
+        help="Optional effort level passed through each built-in runner's mechanism.",
     )
     parser.add_argument(
         "--runner-timeout",
@@ -115,12 +154,12 @@ def add_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def extract_agent_text_from_stream_json(raw: str) -> str:
-    """Extract all assistant text from stream-json output.
+def extract_agent_text_from_jsonl(raw: str) -> str:
+    """Extract assistant text from known JSONL output formats.
 
-    stream-json emits newline-delimited JSON events. Assistant text lives in
-    events with type "assistant" that contain content blocks of type "text".
-    The final "result" event also has a .result field with the last text.
+    Claude stream-json emits assistant message content blocks and result events.
+    Other runners may emit JSONL events with plain string message/result fields.
+    Unknown JSONL falls back to raw stdout so text-mode Codex/Cursor still works.
 
     We collect ALL assistant text blocks across the entire session so the
     completion marker is captured even if the agent does tool calls after it.
@@ -136,24 +175,35 @@ def extract_agent_text_from_stream_json(raw: str) -> str:
             continue
 
         if event.get("type") == "assistant" and "message" in event:
-            for block in event["message"].get("content", []):
-                if block.get("type") == "text" and block.get("text"):
-                    text_parts.append(block["text"])
+            message = event["message"]
+            if isinstance(message, str):
+                text_parts.append(message)
+            elif isinstance(message, dict):
+                for block in message.get("content", []):
+                    if block.get("type") == "text" and block.get("text"):
+                        text_parts.append(block["text"])
         elif event.get("type") == "result" and isinstance(event.get("result"), str):
             text_parts.append(event["result"])
+        elif event.get("type") in {"agent_message", "assistant_message"}:
+            message = event.get("message")
+            if isinstance(message, str):
+                text_parts.append(message)
 
     return "\n".join(text_parts) if text_parts else raw.strip()
 
 
+extract_agent_text_from_stream_json = extract_agent_text_from_jsonl
+
+
 def extract_agent_text(stdout_path: Path) -> str:
-    """Extract agent text from stdout (always stream-json format)."""
+    """Extract agent text from stdout JSONL, or return plain text stdout."""
     try:
         raw = stdout_path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return ""
     if not raw.strip():
         return ""
-    return extract_agent_text_from_stream_json(raw)
+    return extract_agent_text_from_jsonl(raw)
 
 
 def invoke_runner(
@@ -211,7 +261,7 @@ def invoke_runner(
                 "timeout": True,
             }
 
-    # Assistant text lives in NDJSON on stdout; extract for <promise> marker parsing.
+    # Extract assistant text for <promise> marker parsing.
     if not agent_message_path.exists():
         agent_text = extract_agent_text(stdout_path)
         if agent_text.strip():
@@ -233,6 +283,38 @@ def _arg_after(argv: list[str], flag: str) -> str | None:
     except ValueError:
         return None
     return argv[idx + 1] if idx + 1 < len(argv) else None
+
+
+def _runner_name_from_command(executable: str) -> str:
+    name = Path(executable).name
+    if name == "cursor-agent":
+        return "cursor"
+    if name in BUILTIN_RUNNER_PRESETS:
+        return name
+    return name
+
+
+def _append_builtin_runner_options(
+    *,
+    runner: str,
+    command: list[str],
+    runner_model: str | None,
+    runner_effort: str | None,
+) -> None:
+    if runner == "cursor":
+        if runner_effort:
+            raise ValueError(
+                "--runner-effort is not available for cursor; choose a Cursor "
+                "model id that already encodes the desired effort."
+            )
+        command.extend(["--model", runner_model])
+        return
+
+    command.extend(["--model", runner_model])
+    if runner == "claude" and runner_effort:
+        command.extend(["--effort", runner_effort])
+    elif runner == "codex" and runner_effort:
+        command.extend(["-c", f"model_reasoning_effort={runner_effort}"])
 
 
 def _env_int(name: str, default: int) -> int:

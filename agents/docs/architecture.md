@@ -40,6 +40,15 @@ provided with `--runner-command`; it receives the cycle prompt on stdin and may
 return stream JSON or plain text. The resolved command and timeout are persisted
 in loop state and attempt metadata for reproducibility.
 
+The built-in presets use
+`claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model claude-opus-4-8-high`,
+`codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high`,
+and `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5`.
+Model names are persisted in loop state and can be overridden with
+`--runner-model`. Effort maps to `--effort` for Claude and `-c
+model_reasoning_effort=<effort>` for Codex. Cursor has no separate effort flag;
+use a Cursor model id that already encodes effort when needed.
+
 ## Experiment Structure
 
 ```text
