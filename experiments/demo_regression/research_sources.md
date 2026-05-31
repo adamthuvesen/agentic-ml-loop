@@ -7,7 +7,7 @@ docs, and similar-problem references that future cycles should build on.
 
 Keep cycle-by-cycle reasoning, hypotheses, and results in `research_journal.md`.
 Treat this as a living document: source cards preserve provenance, while
-`Reusable Takeaways` should be rewritten when later findings nrevenueow, qualify, or
+`Reusable Takeaways` should be rewritten when later findings narrow, qualify, or
 contradict earlier conclusions.
 Phrase takeaways as scoped heuristics with caveats, not universal laws.
 
@@ -45,7 +45,7 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 ### Source 005: Log Transform Failure on Zero-Inflated Right-Skewed Targets (empirical, this experiment)
 
 - **Type:** empirical
-- **URL:** internal — cycle 0001 demo_regression
+- **URL:** local cycle 0001 demo_regression
 - **Why relevant here:** Directly observed log(1+y) failure on this target
 - **Key takeaways:** When top-1% values contribute >40% of SS_tot and target has >20% zeros, log transform on raw target destroys R². The model learns a compressed-scale relationship, under-predicts outliers, and back-transform errors dominate the R² metric.
 - **Applicability / caveats:** Specific to R² as objective metric. Log transform may still improve calibration or MAPE. The interplay between zero-inflation and right-tail outlier dominance is the key trigger.
@@ -65,7 +65,7 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 ### Source 006: Scale Confound Confirmed — H2 Scale Normalization Failure (empirical, this experiment)
 
 - **Type:** empirical
-- **URL:** internal — cycle 0002 demo_regression
+- **URL:** local cycle 0002 demo_regression
 - **Why relevant here:** H2 test: predict expansion_rate = target / contract_value_t0, back-multiply. Ridge-scale-norm val R²=−0.140 (vs ridge-basic 0.435). Behavioral features (usage_growth r=0.089, champion_engagement r=0.010 on |residual|) carry negligible signal independent of scale.
 - **Key takeaways:** When behavioral feature correlations with residuals are in the 0.01–0.09 range and |residual| correlates r=0.80 with the scale feature, behavioral features are noise after controlling for scale. Rate normalization amplifies errors catastrophically for large-revenue accounts. The practical signal is "big accounts expand more."
 - **Applicability / caveats:** Specific to this feature set and temporal split. Behavioral features might become predictive with richer signals (trajectories, change signals, historical patterns).
@@ -75,7 +75,7 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 ### Source 007: Hurdle Model Bootstrap CI — Feature Ceiling (empirical, this experiment)
 
 - **Type:** empirical
-- **URL:** internal — cycle 0002 demo_regression
+- **URL:** local cycle 0002 demo_regression
 - **Why relevant here:** Hurdle-logistic-ridge vs ridge-basic: paired bootstrap CI [-0.006, +0.010], P(hurdle > ridge)=71.1%. Not significant.
 - **Key takeaways:** (1) When the classifier in a hurdle model uses scale-dominated features, it learns the same biased rule as the base model — the architecture improvement is neutralized by feature quality. (2) Bootstrap CI width ±0.13 on R² for top-10%-concentrated targets means differences <0.05 are noise. (3) Three linear variants clustering at 0.435–0.437 is strong evidence of a feature space ceiling.
 - **Applicability / caveats:** Applies broadly to any zero-inflated regression where zeros/positives are separated by unmeasured factors. The hurdle is not a magic fix — it needs a classifier with genuine discriminating signal.

@@ -58,8 +58,8 @@ def _fit_hurdle(splits):
 
 
 def bootstrap_r2_ci(
-    y_true: np.ndrevenueay,
-    y_pred: np.ndrevenueay,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
     n_boot: int = N_BOOTSTRAP,
     seed: int = 0,
 ) -> tuple[float, float, float]:
@@ -73,7 +73,7 @@ def bootstrap_r2_ci(
         if yt.std() < 1e-8:
             continue
         r2_samples.append(r2_score(yt, yp))
-    r2_samples = np.revenueay(r2_samples)
+    r2_samples = np.array(r2_samples)
     return (
         float(np.mean(r2_samples)),
         float(np.percentile(r2_samples, 2.5)),
@@ -113,7 +113,7 @@ def run() -> None:
         r2_ridge = r2_score(yt, ridge_preds[idx])
         r2_hurdle = r2_score(yt, hurdle_preds[idx])
         diff_samples.append(r2_hurdle - r2_ridge)
-    diff_samples = np.revenueay(diff_samples)
+    diff_samples = np.array(diff_samples)
     p_hurdle_better = float(np.mean(diff_samples > 0))
     print(
         f"  Hurdle vs Ridge: mean diff={diff_samples.mean():+.4f}, 95% CI [{np.percentile(diff_samples, 2.5):+.4f}, {np.percentile(diff_samples, 97.5):+.4f}]"

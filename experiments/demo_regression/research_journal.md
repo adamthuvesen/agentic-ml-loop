@@ -128,6 +128,6 @@ Bootstrap CIs (n=2000):
 
 ### Surprise
 
-The hurdle failing to improve despite 89% false-positive rate on zeros is initially counterintuitive, but makes sense once you see the classifier using the same scale-dominated features. The classifier learned the same rule as ridge: "large revenue → positive." The structural brevenueier is the *features*, not the model. More sophisticated architectures can't escape this.
+The hurdle failing to improve despite 89% false-positive rate on zeros is initially counterintuitive, but makes sense once you see the classifier using the same scale-dominated features. The classifier learned the same rule as ridge: "large revenue -> positive." The structural barrier is the *features*, not the model. More sophisticated architectures can't escape this.
 
 Bootstrap CI also revealed how wide the R² uncertainty is: 95% CI [0.27, 0.54] for a model with a point estimate of 0.435. The extreme top-decile concentration (81.8% of SS_tot) means R² bounces sharply depending on which high-value accounts land in the bootstrap sample. Any claimed R² improvement < ~0.05 is noise on this dataset.

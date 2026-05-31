@@ -15,6 +15,7 @@ dist/
 
 # Runtime loop artifacts
 experiments/**/.loop.lock
+experiments/**/*.lock
 experiments/**/loop_state.json
 experiments/**/status.md
 experiments/**/cycles/

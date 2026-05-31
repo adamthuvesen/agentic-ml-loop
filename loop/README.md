@@ -1,6 +1,6 @@
 # Autonomous loop (`loop/`)
 
-Supervisor that runs **repeatable cycles** on an experiment: each cycle builds a prompt from the experiment’s files, invokes the **runner** (Claude CLI in batch mode), then updates persisted state and terminal/`status.md` output.
+Supervisor that runs **repeatable cycles** on an experiment: each cycle builds a prompt from the experiment's files, invokes the configured **runner** CLI, then updates persisted state and terminal/`status.md` output.
 
 ## How it works
 
