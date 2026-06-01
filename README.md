@@ -109,6 +109,23 @@ export AGENTIC_ML_LOOP_RUNNER_EFFORT=high
 export AGENTIC_ML_LOOP_RUNNER_TIMEOUT=1800
 ```
 
+### Troubleshooting runners
+
+The built-in presets shell out to the `claude`, `codex`, or `cursor-agent`
+binaries, so each must be installed and on your `PATH`. If a runner exits
+immediately or the loop reports it could not start, check that the CLI runs on
+its own first:
+
+```bash
+claude --version    # or: codex --version / cursor-agent --version
+which claude         # confirm it resolves on PATH
+```
+
+If the CLI lives outside `PATH`, point at it with an absolute path via
+`--runner-command` (or `AGENTIC_ML_LOOP_RUNNER_COMMAND`). The cross-experiment
+learnings step also calls `claude`; when it is absent that step is skipped
+silently rather than failing the loop.
+
 ## Benchmark
 
 Run the same experiment spec across several runners and compare them:
