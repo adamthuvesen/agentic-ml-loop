@@ -74,6 +74,12 @@ class LearningsExcerpt:
 
 
 def build_experiment_profile(experiment_dir: Path) -> ExperimentProfile:
+    """Derive a tag profile for an experiment from its ``experiment.md``.
+
+    Infers tags (problem type, split strategy, model family, data-size buckets,
+    etc.) from the spec's key sections. These tags drive cross-experiment
+    learnings retrieval. Returns an empty-tag profile when the spec is missing.
+    """
     experiment_path = experiment_dir / "experiment.md"
     if not experiment_path.exists():
         return ExperimentProfile(experiment_id=experiment_dir.name, tags=())
@@ -112,10 +118,17 @@ def build_experiment_profile(experiment_dir: Path) -> ExperimentProfile:
 
 
 def learnings_profile_tags(experiment_dir: Path) -> list[str]:
+    """Return the inferred profile tags for an experiment as a list."""
     return list(build_experiment_profile(experiment_dir).tags)
 
 
 def build_cross_experiment_learnings_context(experiment_dir: Path) -> str | None:
+    """Build the markdown "Warm-Start Note" block injected into cycle prompts.
+
+    Retrieves learnings from past experiments whose tags overlap this one's
+    profile, then renders advisory priors and relevant excerpts. Returns ``None``
+    when there is no ``learnings.md`` or nothing relevant enough to surface.
+    """
     learnings_path = learnings_file()
     if not learnings_path.exists():
         return None
@@ -157,6 +170,13 @@ def retrieve_relevant_learnings(
     learnings_text: str | None = None,
     limit: int = MAX_RETRIEVED_EXCERPTS,
 ) -> list[LearningsExcerpt]:
+    """Score and return learnings sections relevant to this experiment's profile.
+
+    Each ``## `` section in ``learnings.md`` is scored by how many of its explicit
+    and inferred tags overlap the experiment's profile tags (explicit matches
+    weighted higher). Sections below ``MIN_RELEVANCE_SCORE`` are dropped; the rest
+    are returned best-first, capped at *limit*.
+    """
     learnings_text = learnings_text or _read_learnings_text()
     if not learnings_text:
         return []
