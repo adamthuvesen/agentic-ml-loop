@@ -20,6 +20,12 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def experiment_dir_from_arg(value: str) -> Path:
+    """Resolve a CLI ``--experiment`` argument to an absolute path.
+
+    Accepts either a path that already exists (used as-is) or a value relative to
+    the repo root, so both ``experiments/demo_classification`` and an absolute path
+    work from any working directory.
+    """
     path = Path(value)
     if path.exists():
         return path.resolve()
@@ -55,6 +61,18 @@ def save_candidate_result(
     splits_loader: Callable[[], Any],
     candidate_runners: dict[str, Callable],
 ) -> dict[str, Any]:
+    """Run one candidate and merge its validated result into ``results.json``.
+
+    Loads splits lazily via *splits_loader*, runs the runner registered under
+    *candidate_id*, validates the result payload, then writes it under an
+    exclusive file lock so concurrent runners cannot corrupt ``results.json``.
+    A prior result for the same candidate is replaced, and entries are kept
+    sorted by ``objective_score`` (descending).
+
+    Returns the saved result payload. Raises ``ValueError`` for an unknown
+    candidate or an invalid result, and ``FileNotFoundError`` if the experiment
+    directory is missing.
+    """
     if not experiment_dir.is_dir():
         raise FileNotFoundError(f"Experiment directory does not exist: {experiment_dir}")
     if candidate_id not in candidate_runners:
@@ -149,6 +167,13 @@ def build_runner_parser(
     candidate_choices: list[str],
     retired_candidate_choices: list[str] | None = None,
 ) -> argparse.ArgumentParser:
+    """Build the argparse parser shared by every demo runner entrypoint.
+
+    Wires up the ``list-candidates``, ``run-candidate``, and ``init-demo``
+    subcommands. When *retired_candidate_choices* is non-empty, the matching
+    ``list-retired-candidates`` / ``run-retired-candidate`` subcommands are added
+    so archived candidates stay runnable for reproducibility.
+    """
     retired_candidate_choices = retired_candidate_choices or []
     parser = argparse.ArgumentParser(description=f"{experiment_id} runner for agentic-ml-loop")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -204,6 +229,12 @@ def run_runner_main(
     research_sources_template_path: Path | None = None,
     retired_candidate_runners: dict[str, Callable] | None = None,
 ) -> int:
+    """Parse argv and dispatch a demo runner subcommand. Returns a process exit code.
+
+    Shared ``main`` for the ``runners/<id>_runner.py`` entrypoints: lists
+    candidates, initializes the experiment directory, or runs a (possibly retired)
+    candidate and prints its objective score as JSON.
+    """
     retired_candidate_runners = retired_candidate_runners or {}
     parser = build_runner_parser(
         experiment_id,

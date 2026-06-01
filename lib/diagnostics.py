@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from itertools import combinations
 from pathlib import Path
 from typing import Any
@@ -22,15 +23,26 @@ from lib.utils import (
 
 
 def get_diagnostics_observations(experiment_dir: Path) -> list[tuple[int, str]]:
-    """Extract priority-scored one-line observations from diagnostics/report.json."""
+    """Extract priority-scored one-line observations from diagnostics/report.json.
+
+    A missing report is normal (returns no observations). A report that exists but
+    cannot be parsed is a real problem, so it is reported loudly: a high-priority
+    observation surfaces it in the cycle prompt and a warning is emitted to stderr,
+    rather than being silently treated as "no diagnostics".
+    """
     report_path = diagnostics_report_path(experiment_dir)
     if not report_path.exists():
         return []
     try:
         with report_path.open(encoding="utf-8") as f:
             report = json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return []
+    except (json.JSONDecodeError, OSError) as error:
+        message = (
+            f"Diagnostics report at `{report_path}` exists but could not be read "
+            f"({type(error).__name__}: {error}). Regenerate it before relying on diagnostics."
+        )
+        warnings.warn(message, stacklevel=2)
+        return [(95, message)]
 
     observations: list[tuple[int, str]] = []
 
