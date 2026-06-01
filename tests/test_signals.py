@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from lib.diagnostics import get_diagnostics_observations
 from lib.evaluation_review import get_evaluation_observations
 from lib.observations import dedup_observations
@@ -133,12 +135,18 @@ class TestGetDiagnosticsObservations:
         assert len(obs) == 1
         assert obs[0][0] == 50
 
-    def test_handles_corrupt_json(self, tmp_path: Path) -> None:
+    def test_corrupt_json_is_reported_loudly(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         diag_dir = d / "diagnostics"
         diag_dir.mkdir()
         (diag_dir / "report.json").write_text("{bad json")
-        assert get_diagnostics_observations(d) == []
+        with pytest.warns(UserWarning, match="could not be read"):
+            obs = get_diagnostics_observations(d)
+        assert len(obs) == 1
+        priority, message = obs[0]
+        assert priority == 95
+        assert "could not be read" in message
+        assert "report.json" in message
 
 
 class TestGetEvaluationObservations:
