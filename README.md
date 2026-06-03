@@ -2,7 +2,8 @@
 
 Agentic ML Loop is a local, offline harness for agent-driven model search.
 Define an experiment, point a runner at it, and let the loop run bounded
-hypothesis-test cycles while keeping a research journal and leaderboard.
+hypothesis-test cycles while keeping a research journal and leaderboard (inspired by autoresearch).
+
 
 The repo ships with synthetic demos only. No external data source is required.
 
@@ -104,7 +105,7 @@ Useful environment defaults:
 ```bash
 export AGENTIC_ML_LOOP_RUNNER=claude
 export AGENTIC_ML_LOOP_RUNNER_COMMAND="claude --print --verbose --output-format stream-json"
-export AGENTIC_ML_LOOP_RUNNER_MODEL=claude-sonnet-4-5
+export AGENTIC_ML_LOOP_RUNNER_MODEL=claude-opus-4-8
 export AGENTIC_ML_LOOP_RUNNER_EFFORT=high
 export AGENTIC_ML_LOOP_RUNNER_TIMEOUT=1800
 ```
