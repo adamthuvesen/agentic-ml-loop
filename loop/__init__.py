@@ -1,6 +1,6 @@
 """Long-running model-search loop."""
 
-from lib.signals import build_research_signals, journal_mentions_error_analysis  # noqa: F401
+from lib.signals import journal_mentions_error_analysis, research_signals  # noqa: F401
 
 from .artifacts import (  # noqa: F401
     artifact_snapshot,
@@ -24,7 +24,7 @@ from .hooks import (  # noqa: F401
 from .prompts import (  # noqa: F401
     RESEARCHER_FRAMING,
     CyclePrompt,
-    build_cycle_prompt,
+    cycle_prompt,
     latest_hypothesis,
     load_researcher_identity,
 )

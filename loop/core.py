@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from experiment import journal_path
-from lib.utils import load_json, read_text, utc_now, write_json, write_text
+from lib.io import load_json, read_text, utc_now, write_json, write_text
 
 from .artifacts import (
     artifact_snapshot,
@@ -40,12 +40,12 @@ from .hooks import CycleHooks, DefaultCycleHooks, RefereeCycleHooks
 from .invoke import (
     RunnerConfig,
     add_runner_arguments,
-    build_runner_config,
     default_runner_config,
+    runner_config_from_args,
 )
 from .loop_state import LoopState, load_state, write_state_file
 from .prompts import latest_hypothesis
-from .status import build_status_markdown
+from .status import status_markdown
 from .stop_policy import should_stop
 from .ui import (
     _LiveTimer,
@@ -68,8 +68,7 @@ STATUS_PATH_NAME = "status.md"
 logger = logging.getLogger(__name__)
 
 
-def ensure_experiment_directory(experiment_dir: Path) -> None:
-    """Raise if ``experiment_dir`` is missing required experiment files."""
+def require_experiment_directory(experiment_dir: Path) -> None:
     if not experiment_dir.exists() or not experiment_dir.is_dir():
         raise FileNotFoundError(f"Experiment directory does not exist: {experiment_dir}")
     if not (experiment_dir / "experiment.md").exists():
@@ -79,7 +78,6 @@ def ensure_experiment_directory(experiment_dir: Path) -> None:
 
 
 def active_lock_pid(lock_path: Path) -> int | None:
-    """Return the PID from the lock file if that process is still alive, else ``None``."""
     if not lock_path.exists():
         return None
     try:
@@ -176,7 +174,7 @@ def write_status_markdown(experiment_dir: Path, state: LoopState | dict[str, Any
     )
     write_text(
         experiment_dir / STATUS_PATH_NAME,
-        build_status_markdown(
+        status_markdown(
             experiment_dir,
             state,
             has_active_lock=has_active_lock,
@@ -251,7 +249,7 @@ def _hooks_from_args(args: argparse.Namespace) -> CycleHooks:
 
 
 def _runner_config_from_args(args: argparse.Namespace) -> RunnerConfig:
-    return build_runner_config(
+    return runner_config_from_args(
         runner=getattr(args, "runner", "claude"),
         runner_command=getattr(args, "runner_command", None),
         runner_model=getattr(args, "runner_model", None),
@@ -477,7 +475,7 @@ def print_status(experiment_dir: Path) -> int:
     return 1
 
 
-def build_parser() -> argparse.ArgumentParser:
+def cli_parser() -> argparse.ArgumentParser:
     """CLI: ``start``, ``resume``, and ``status`` subcommands."""
     parser = argparse.ArgumentParser(description="Long-running model-search loop")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -524,7 +522,7 @@ def bench_command(args: argparse.Namespace) -> int:
     from .bench import BenchmarkBudget, run_benchmark
 
     experiment_dir = Path(args.experiment_path).resolve()
-    ensure_experiment_directory(experiment_dir)
+    require_experiment_directory(experiment_dir)
 
     runner_names = [name.strip() for name in args.runners.split(",") if name.strip()]
     if not runner_names:
@@ -552,7 +550,7 @@ def bench_command(args: argparse.Namespace) -> int:
 def start_command(args: argparse.Namespace) -> int:
     """Begin a new loop run (requires no existing ``loop_state.json``)."""
     experiment_dir = Path(args.experiment_path).resolve()
-    ensure_experiment_directory(experiment_dir)
+    require_experiment_directory(experiment_dir)
 
     sp = experiment_dir / STATE_PATH_NAME
     if sp.exists():
@@ -583,7 +581,7 @@ def start_command(args: argparse.Namespace) -> int:
     try:
         run_loop(experiment_dir, state, hooks=_hooks_from_args(args))
     finally:
-        release_lock(lock_path)  # always clear lock when run_loop returns or raises
+        release_lock(lock_path)
 
     print(read_text(experiment_dir / STATUS_PATH_NAME))
     return 0
@@ -592,7 +590,7 @@ def start_command(args: argparse.Namespace) -> int:
 def resume_command(args: argparse.Namespace) -> int:
     """Continue an existing loop from ``loop_state.json``."""
     experiment_dir = Path(args.experiment_path).resolve()
-    ensure_experiment_directory(experiment_dir)
+    require_experiment_directory(experiment_dir)
 
     sp = experiment_dir / STATE_PATH_NAME
     if not sp.exists():
@@ -650,7 +648,7 @@ def resume_command(args: argparse.Namespace) -> int:
     try:
         run_loop(experiment_dir, state, hooks=_hooks_from_args(args))
     finally:
-        release_lock(lock_path)  # always clear lock when run_loop returns or raises
+        release_lock(lock_path)
 
     print(read_text(experiment_dir / STATUS_PATH_NAME))
     return 0
@@ -659,7 +657,7 @@ def resume_command(args: argparse.Namespace) -> int:
 def main() -> int:
     """Entry point: dispatch ``start`` / ``resume`` / ``status``."""
     signal.signal(signal.SIGTERM, signal.default_int_handler)  # align SIGTERM with Ctrl+C
-    args = build_parser().parse_args()
+    args = cli_parser().parse_args()
     if args.command == "start":
         return start_command(args)
     if args.command == "resume":

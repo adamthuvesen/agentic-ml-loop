@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from lib.notebook_codegen import _build_notebook_cells
+from lib.notebook_codegen import _notebook_cells
 from lib.notebook_recipe import load_recipe
 from lib.paths import outputs_dir
 
@@ -14,7 +14,7 @@ __all__ = ["generate_notebook", "load_recipe"]
 def generate_notebook(experiment_dir: Path, *, include_sensitive: bool = False) -> Path:
     experiment_dir = Path(experiment_dir).resolve()
     recipe = load_recipe(experiment_dir)
-    cells = _build_notebook_cells(recipe, include_sensitive=include_sensitive)
+    cells = _notebook_cells(recipe, include_sensitive=include_sensitive)
     notebook = {
         "cells": cells,
         "metadata": {

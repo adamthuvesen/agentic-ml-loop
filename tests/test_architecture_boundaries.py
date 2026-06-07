@@ -8,6 +8,7 @@ FORBIDDEN_IMPORT_PREFIXES = (
     "lib.demo_bootstrap",
     "lib.demo_classification",
     "lib.demo_regression",
+    "lib.demo_deep",
     "runners.",
 )
 BOUNDARY_PATHS = [
@@ -54,17 +55,17 @@ def test_framework_modules_do_not_import_concrete_experiments() -> None:
     assert violations == []
 
 
-def test_modules_do_not_reach_into_private_lib_utils_helpers() -> None:
+def test_modules_do_not_reach_into_private_lib_io_helpers() -> None:
     violations: list[str] = []
     for path in sorted((ROOT / "lib").glob("*.py")) + sorted((ROOT / "loop").glob("*.py")):
-        if path.name == "utils.py":
+        if path.name == "io.py":
             continue
         private_imports = [
-            name for name in _imported_names_from_module(path, "lib.utils") if name.startswith("_")
+            name for name in _imported_names_from_module(path, "lib.io") if name.startswith("_")
         ]
         if private_imports:
             violations.append(
-                f"{path.relative_to(ROOT)} imports private lib.utils names: "
+                f"{path.relative_to(ROOT)} imports private lib.io names: "
                 f"{', '.join(private_imports)}"
             )
 

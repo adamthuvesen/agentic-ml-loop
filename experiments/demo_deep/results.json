@@ -1,0 +1,205 @@
+[
+  {
+    "candidate_id": "mlp-deep",
+    "model_family": "pytorch_mlp",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.701931216931217,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Two hidden layers with dropout. Targets the nonlinear ring + wave boundary.",
+    "metrics": {
+      "train": {
+        "auc": 0.7651434075342466,
+        "log_loss": 0.5366336812566831,
+        "accuracy": 0.7372222222222222,
+        "precision": 0.7423352902804957,
+        "recall": 0.9358552631578947
+      },
+      "validation": {
+        "auc": 0.701931216931217,
+        "log_loss": 0.5619323769089856,
+        "accuracy": 0.7,
+        "precision": 0.7380952380952381,
+        "recall": 0.8857142857142857
+      },
+      "test": {
+        "auc": 0.6730989658777442,
+        "log_loss": 0.5954320454974711,
+        "accuracy": 0.6866666666666666,
+        "precision": 0.7071290944123314,
+        "recall": 0.9106699751861043
+      }
+    },
+    "hyperparameters": {
+      "hidden_dims": [
+        64,
+        32
+      ],
+      "dropout": 0.2,
+      "learning_rate": 0.001,
+      "batch_size": 128,
+      "max_epochs": 120,
+      "patience": 12,
+      "best_epoch": 80,
+      "random_state": 42
+    },
+    "selected_features": [
+      "signal_a",
+      "signal_b",
+      "signal_c",
+      "signal_d",
+      "channel"
+    ]
+  },
+  {
+    "candidate_id": "mlp-wide",
+    "model_family": "pytorch_mlp",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.6961904761904762,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Wider MLP for extra capacity on the interaction terms.",
+    "metrics": {
+      "train": {
+        "auc": 0.8084712396359048,
+        "log_loss": 0.4960685533681073,
+        "accuracy": 0.7588888888888888,
+        "precision": 0.7689133425034388,
+        "recall": 0.9194078947368421
+      },
+      "validation": {
+        "auc": 0.6961904761904762,
+        "log_loss": 0.5790920717811916,
+        "accuracy": 0.6983333333333334,
+        "precision": 0.7474120082815735,
+        "recall": 0.8595238095238096
+      },
+      "test": {
+        "auc": 0.6837298938166796,
+        "log_loss": 0.6082411447602647,
+        "accuracy": 0.695,
+        "precision": 0.72,
+        "recall": 0.8933002481389578
+      }
+    },
+    "hyperparameters": {
+      "hidden_dims": [
+        128,
+        64
+      ],
+      "dropout": 0.1,
+      "learning_rate": 0.001,
+      "batch_size": 128,
+      "max_epochs": 120,
+      "patience": 12,
+      "best_epoch": 77,
+      "random_state": 42
+    },
+    "selected_features": [
+      "signal_a",
+      "signal_b",
+      "signal_c",
+      "signal_d",
+      "channel"
+    ]
+  },
+  {
+    "candidate_id": "mlp-shallow",
+    "model_family": "pytorch_mlp",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.5939417989417989,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Single hidden layer (32 units). Early stopping on validation AUC.",
+    "metrics": {
+      "train": {
+        "auc": 0.6485163572458543,
+        "log_loss": 0.6053744307377104,
+        "accuracy": 0.6844444444444444,
+        "precision": 0.684931506849315,
+        "recall": 0.9868421052631579
+      },
+      "validation": {
+        "auc": 0.5939417989417989,
+        "log_loss": 0.5972925317132739,
+        "accuracy": 0.71,
+        "precision": 0.7106164383561644,
+        "recall": 0.9880952380952381
+      },
+      "test": {
+        "auc": 0.6332329861067376,
+        "log_loss": 0.6137605470357866,
+        "accuracy": 0.6683333333333333,
+        "precision": 0.6746575342465754,
+        "recall": 0.9776674937965261
+      }
+    },
+    "hyperparameters": {
+      "hidden_dims": [
+        32
+      ],
+      "dropout": 0.0,
+      "learning_rate": 0.001,
+      "batch_size": 128,
+      "max_epochs": 120,
+      "patience": 12,
+      "best_epoch": 91,
+      "random_state": 42
+    },
+    "selected_features": [
+      "signal_a",
+      "signal_b",
+      "signal_c",
+      "signal_d",
+      "channel"
+    ]
+  },
+  {
+    "candidate_id": "logreg-baseline",
+    "model_family": "logistic_regression",
+    "feature_set": "base",
+    "objective_metric": "val_auc",
+    "objective_score": 0.4938227513227514,
+    "split_strategy": "time_split_60_20_20",
+    "status": "completed",
+    "notes": "Linear baseline on scaled numeric features and one-hot channel.",
+    "metrics": {
+      "train": {
+        "auc": 0.5367460684030281,
+        "log_loss": 0.6282884947670234,
+        "accuracy": 0.6755555555555556,
+        "precision": 0.6755555555555556,
+        "recall": 1.0
+      },
+      "validation": {
+        "auc": 0.4938227513227514,
+        "log_loss": 0.6146190992334182,
+        "accuracy": 0.7,
+        "precision": 0.7,
+        "recall": 1.0
+      },
+      "test": {
+        "auc": 0.5417490647554508,
+        "log_loss": 0.6301239054093897,
+        "accuracy": 0.6716666666666666,
+        "precision": 0.6716666666666666,
+        "recall": 1.0
+      }
+    },
+    "hyperparameters": {
+      "max_iter": 500,
+      "random_state": 42,
+      "solver": "lbfgs"
+    },
+    "selected_features": [
+      "signal_a",
+      "signal_b",
+      "signal_c",
+      "signal_d",
+      "channel"
+    ]
+  }
+]

@@ -10,8 +10,8 @@ from lib.evaluation_review import get_evaluation_observations
 from lib.observations import dedup_observations
 from lib.signals import (
     _count_external_sources,
-    build_advisory_signals,
-    build_research_signals,
+    advisory_signals,
+    research_signals,
 )
 
 
@@ -260,7 +260,7 @@ class TestBuildAdvisorySignals:
         (d / "research_sources.md").write_text(
             "# Research Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        assert build_advisory_signals(d) == []
+        assert advisory_signals(d) == []
 
     def test_returns_only_research_signals_when_no_other_sources(self, tmp_path: Path) -> None:
         d = _make_experiment(
@@ -281,7 +281,7 @@ class TestBuildAdvisorySignals:
             ],
             journal="# Journal\n\n## Cycle 0001: compare\n\nDone.\n",
         )
-        signals = build_advisory_signals(d)
+        signals = advisory_signals(d)
         assert len(signals) >= 1
         assert any("plateau" in s.lower() or "clustered" in s.lower() for _, s in signals)
 
@@ -330,7 +330,7 @@ class TestBuildAdvisorySignals:
         }
         (d / "evaluation_review.json").write_text(json.dumps(eval_review))
 
-        signals = build_advisory_signals(d)
+        signals = advisory_signals(d)
         assert len(signals) >= 3
         texts = [s for _, s in signals]
         # Should contain observations from all three sources
@@ -390,7 +390,7 @@ class TestBuildAdvisorySignals:
         }
         (diag_dir / "report.json").write_text(json.dumps(diag_report))
 
-        signals = build_advisory_signals(d)
+        signals = advisory_signals(d)
         assert len(signals) <= 8
 
     def test_dedup_split_drift_overlap(self, tmp_path: Path) -> None:
@@ -427,7 +427,7 @@ class TestBuildAdvisorySignals:
         }
         (d / "evaluation_review.json").write_text(json.dumps(eval_review))
 
-        signals = build_advisory_signals(d)
+        signals = advisory_signals(d)
         # Both flag split-related issues; dedup should keep only one
         split_signals = [s for _, s in signals if "split" in s.lower()]
         assert len(split_signals) == 1
@@ -456,7 +456,7 @@ class TestBuildAdvisorySignals:
         }
         (diag_dir / "report.json").write_text(json.dumps(diag_report))
 
-        signals = build_advisory_signals(d)
+        signals = advisory_signals(d)
         priorities = [p for p, _ in signals]
         assert priorities == sorted(priorities, reverse=True)
 
@@ -487,7 +487,7 @@ class TestDedupObservations:
 
 
 class TestBuildResearchSignalsBackwardCompat:
-    """Ensure build_research_signals still returns list[str] (no priority scores)."""
+    """Ensure research_signals still returns list[str] (no priority scores)."""
 
     def test_returns_list_of_strings(self, tmp_path: Path) -> None:
         d = _make_experiment(
@@ -508,7 +508,7 @@ class TestBuildResearchSignalsBackwardCompat:
             ],
             journal="# Journal\n\n## Cycle 0001: compare\n\nDone.\n",
         )
-        signals = build_research_signals(d)
+        signals = research_signals(d)
         assert isinstance(signals, list)
         for signal in signals:
             assert isinstance(signal, str)

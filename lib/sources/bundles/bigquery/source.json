@@ -1,0 +1,12 @@
+{
+  "source_type": "bigquery",
+  "display_name": "Google BigQuery",
+  "extra": "bigquery",
+  "package": "adbc-driver-bigquery",
+  "driver": "adbc",
+  "time_travel": true,
+  "description": "BigQuery via ADBC (experimental); FOR SYSTEM_TIME AS OF for as-of. Native fallback: google-cloud-bigquery.",
+  "read_only_grant": "roles/bigquery.jobUser + roles/bigquery.dataViewer (never dataEditor).",
+  "auth_modes": ["ADC (gcloud auth application-default login)", "impersonation", "service-account key"],
+  "credentials_via": "Application Default Credentials (keyless) / env"
+}

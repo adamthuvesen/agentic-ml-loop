@@ -1,0 +1,12 @@
+{
+  "source_type": "databricks",
+  "display_name": "Databricks",
+  "extra": "databricks",
+  "package": "databricks-sql-connector",
+  "driver": "databricks-sql-connector",
+  "time_travel": true,
+  "description": "Databricks SQL warehouse (native client); Delta VERSION AS OF for a reproducible as-of.",
+  "read_only_grant": "Unity Catalog SELECT on the table + CAN USE on the warehouse (no MODIFY).",
+  "auth_modes": ["OAuth U2M (browser, keyless)", "OAuth M2M (service principal)", ".databrickscfg", "PAT"],
+  "credentials_via": ".databrickscfg profile / env"
+}

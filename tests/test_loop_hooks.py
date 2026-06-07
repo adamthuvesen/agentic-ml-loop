@@ -5,20 +5,20 @@ from unittest.mock import patch
 from loop import (
     DefaultCycleHooks,
     artifact_snapshot,
-    build_cycle_prompt,
+    cycle_prompt,
     journal_mentions_error_analysis,
 )
 from tests.loop.conftest import _make_experiment
 
 
 class TestDefaultCycleHooks:
-    def test_pre_cycle_matches_build_cycle_prompt(self, tmp_path: Path) -> None:
+    def test_pre_cycle_matches_cycle_prompt(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         hooks = DefaultCycleHooks()
 
         result = hooks.pre_cycle(d, "0001", {"cycle_count": 0})
 
-        assert result.prompt_text == build_cycle_prompt(d, "0001").assemble()
+        assert result.prompt_text == cycle_prompt(d, "0001").assemble()
         assert result.prompt_text == result.cycle_prompt.assemble()
 
     def test_post_cycle_computes_progress_from_snapshots(self, tmp_path: Path) -> None:

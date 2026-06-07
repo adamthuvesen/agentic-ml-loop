@@ -12,7 +12,7 @@ from .prompts import latest_hypothesis, top_results_lines
 from .ui import format_elapsed, format_runner_label, iso_to_datetime
 
 
-def build_status_markdown(
+def status_markdown(
     experiment_dir: Path,
     state: LoopState,
     *,

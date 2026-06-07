@@ -305,7 +305,7 @@ def _validation_total_for_experiment(experiment_dir: Path, metric: str) -> float
     return float(splits.validation[total_column].sum())
 
 
-def build_scenes(
+def replay_scenes(
     experiment_dir: Path,
     experiment: dict,
     cycles: list[dict],
@@ -531,7 +531,7 @@ def generate(experiment_dir: str) -> None:
     candidates = parse_results_json(exp_path / "results.json")
     cycles = parse_journal_cycles(exp_path / "research_journal.md")
 
-    scenes = build_scenes(exp_path, experiment, cycles, candidates)
+    scenes = replay_scenes(exp_path, experiment, cycles, candidates)
 
     script = {
         "experiment": {

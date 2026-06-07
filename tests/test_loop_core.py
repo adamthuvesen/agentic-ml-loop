@@ -16,7 +16,7 @@ from loop import (
     resume_command,
 )
 from loop.core import (
-    build_parser,
+    cli_parser,
     initial_state,
     run_loop,
     should_stop,
@@ -110,19 +110,19 @@ class TestAcquireLock:
 
 class TestBuildParser:
     def test_rejects_non_positive_cycle_budget(self) -> None:
-        parser = build_parser()
+        parser = cli_parser()
 
         with pytest.raises(SystemExit):
             parser.parse_args(["start", "experiments/demo", "--max-cycles", "0"])
 
     def test_rejects_non_positive_hour_budget(self) -> None:
-        parser = build_parser()
+        parser = cli_parser()
 
         with pytest.raises(SystemExit):
             parser.parse_args(["resume", "experiments/demo", "--max-hours", "-1"])
 
     def test_accepts_positive_budgets(self) -> None:
-        parser = build_parser()
+        parser = cli_parser()
 
         args = parser.parse_args(
             ["start", "experiments/demo", "--max-cycles", "2", "--max-hours", "0.5"]

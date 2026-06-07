@@ -1,0 +1,12 @@
+{
+  "source_type": "duckdb",
+  "display_name": "DuckDB",
+  "extra": "models",
+  "package": "duckdb",
+  "driver": "duckdb",
+  "time_travel": false,
+  "description": "Local analytical SQL over a file or .duckdb database (zero-setup, creds-free).",
+  "read_only_grant": "Opened read-only (read_only=True); no grant needed for local files.",
+  "auth_modes": ["none (local file)"],
+  "credentials_via": "n/a - local file path"
+}

@@ -1,0 +1,12 @@
+{
+  "source_type": "redshift",
+  "display_name": "Amazon Redshift",
+  "extra": "redshift",
+  "package": "redshift-connector",
+  "driver": "redshift-connector",
+  "time_travel": false,
+  "description": "Amazon Redshift (native client). No time travel - model as-of via a time predicate.",
+  "read_only_grant": "SELECT-only DB role + read-scoped IAM (no default_transaction_read_only on Redshift).",
+  "auth_modes": ["IAM via AWS SSO profile", "IAM GetClusterCredentials", "Secrets Manager"],
+  "credentials_via": "AWS profile / IAM (keyless) - never inline"
+}

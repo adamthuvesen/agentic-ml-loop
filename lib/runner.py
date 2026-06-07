@@ -13,8 +13,8 @@ from experiment import (
     LOOP_MANAGED_FILES,
     research_sources_template,
 )
+from lib.io import load_json, write_json
 from lib.result_schema import validate_result_entry
-from lib.utils import load_json, write_json
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -162,7 +162,7 @@ def init_experiment_dir(
     return experiment_dir
 
 
-def build_runner_parser(
+def runner_cli(
     experiment_id: str,
     candidate_choices: list[str],
     retired_candidate_choices: list[str] | None = None,
@@ -236,7 +236,7 @@ def run_runner_main(
     candidate and prints its objective score as JSON.
     """
     retired_candidate_runners = retired_candidate_runners or {}
-    parser = build_runner_parser(
+    parser = runner_cli(
         experiment_id,
         list(candidate_runners.keys()),
         list(retired_candidate_runners.keys()),

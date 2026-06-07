@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -8,8 +9,8 @@ from unittest.mock import patch
 import pytest
 
 from lib.runner import (
-    build_runner_parser,
     init_experiment_dir,
+    runner_cli,
 )
 from lib.runner import (
     save_candidate_result as shared_save,
@@ -20,11 +21,14 @@ _RUNNER_MODULES = [
     "runners.demo_classification_runner",
     "runners.demo_regression_runner",
     "runners.demo_bootstrap_runner",
+    "runners.demo_deep_runner",
 ]
 
 
 @pytest.mark.parametrize("runner_module", _RUNNER_MODULES)
 def test_creates_expected_files(runner_module: str, tmp_path: Path) -> None:
+    if runner_module == "runners.demo_deep_runner" and importlib.util.find_spec("torch") is None:
+        pytest.skip("torch not installed (needs the deep extra)")
     mod = importlib.import_module(runner_module)
     with patch("lib.runner.ROOT", tmp_path):
         d = mod.init_demo()
@@ -85,7 +89,7 @@ def test_saves_rule_baseline(
 
 
 def test_runner_parser_exposes_retired_candidate_commands() -> None:
-    parser = build_runner_parser("demo", ["active"], ["old"])
+    parser = runner_cli("demo", ["active"], ["old"])
 
     list_args = parser.parse_args(["list-retired-candidates"])
     assert list_args.command == "list-retired-candidates"

@@ -1,0 +1,15 @@
+# Creds-free local Postgres for the warehouse-ingestion demo.
+# trust auth => no password anywhere. Do NOT use this config for anything real.
+# `demo` is the bootstrap owner; seed.sql creates the SELECT-only `demo_ro` role
+# that the pull connects as.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_DB: demo
+      POSTGRES_USER: demo
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro

@@ -12,7 +12,8 @@ from lib.learnings import extract_and_append_learnings
 from lib.referee import CycleScorecard, grade_cycle, write_scorecard
 
 from .artifacts import compute_progress
-from .prompts import CyclePrompt, build_cycle_prompt
+from .prompts import CyclePrompt
+from .prompts import cycle_prompt as make_cycle_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,10 @@ class DefaultCycleHooks:
         cycle_id: str,
         state: dict[str, Any],
     ) -> PreCycleResult:
-        cycle_prompt = build_cycle_prompt(experiment_dir, cycle_id)
+        prompt = make_cycle_prompt(experiment_dir, cycle_id)
         return PreCycleResult(
-            prompt_text=cycle_prompt.assemble(),
-            cycle_prompt=cycle_prompt,
+            prompt_text=prompt.assemble(),
+            cycle_prompt=prompt,
         )
 
     def post_cycle(

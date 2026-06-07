@@ -12,11 +12,11 @@ from experiment import (
     research_sources_path,
     results_file,
 )
-from lib.analysis_utils import ranked_results
+from lib.analysis import ranked_results
 from lib.diagnostics import get_diagnostics_observations
 from lib.evaluation_review import get_evaluation_observations
+from lib.io import load_json
 from lib.observations import merge_observations
-from lib.utils import load_json
 
 DEFAULT_SIGNAL_LIMIT = 3
 ADVISORY_SIGNAL_CAP = 8
@@ -238,7 +238,7 @@ def _baseline_signal(results: list[dict[str, Any]]) -> str | None:
     )
 
 
-def build_research_signals(
+def research_signals(
     experiment_dir: Path,
     *,
     results: list[dict[str, Any]] | None = None,
@@ -311,7 +311,7 @@ def _get_research_signal_observations(
     return candidates
 
 
-def build_advisory_signals(
+def advisory_signals(
     experiment_dir: Path,
     *,
     results: list[dict[str, Any]] | None = None,

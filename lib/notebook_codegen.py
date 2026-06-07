@@ -6,9 +6,7 @@ from typing import Any
 from lib.notebook_recipe import NotebookRecipe, NotebookRecipeError
 
 
-def _build_notebook_cells(
-    recipe: NotebookRecipe, *, include_sensitive: bool
-) -> list[dict[str, Any]]:
+def _notebook_cells(recipe: NotebookRecipe, *, include_sensitive: bool) -> list[dict[str, Any]]:
     cells = [
         _markdown_cell(
             f"# {recipe.title}\n\nPortable notebook export for `{recipe.experiment_id}`."

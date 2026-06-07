@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 
 from experiment import evaluation_review_path, evaluation_review_report_path
-from lib.analysis_utils import ranked_results, series_is_binary, top_feature_drift
-from lib.utils import (
+from lib.analysis import ranked_results, series_is_binary, top_feature_drift
+from lib.io import (
     utc_now,
     write_json,
     write_text,
@@ -72,7 +72,7 @@ def generate_evaluation_review(
     if not frames:
         raise ValueError("Evaluation review requires at least one non-empty split frame.")
 
-    report = build_evaluation_review_report(
+    report = evaluation_review_report(
         frames,
         target_column=target_column,
         results=results or [],
@@ -82,7 +82,7 @@ def generate_evaluation_review(
     return report
 
 
-def build_evaluation_review_report(
+def evaluation_review_report(
     frames_by_split: dict[str, pd.DataFrame],
     *,
     target_column: str | None = None,

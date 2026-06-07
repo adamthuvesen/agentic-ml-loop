@@ -89,7 +89,7 @@ class RunnerConfig:
 
 def default_runner_config() -> RunnerConfig:
     """Resolve runner config from environment variables or built-in defaults."""
-    return build_runner_config(
+    return runner_config_from_args(
         runner=os.environ.get("AGENTIC_ML_LOOP_RUNNER", "claude"),
         runner_command=os.environ.get("AGENTIC_ML_LOOP_RUNNER_COMMAND"),
         runner_model=os.environ.get("AGENTIC_ML_LOOP_RUNNER_MODEL"),
@@ -98,7 +98,7 @@ def default_runner_config() -> RunnerConfig:
     )
 
 
-def build_runner_config(
+def runner_config_from_args(
     *,
     runner: str,
     runner_command: str | None = None,

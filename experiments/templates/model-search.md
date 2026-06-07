@@ -20,6 +20,19 @@ Describe the current baseline, for example:
 
 Where does the dataset come from? Include any local paths or table names.
 
+## Data Source
+
+If this experiment is backed by a warehouse snapshot, record its provenance here.
+The loop only ever reads the frozen snapshot, never the live warehouse.
+
+- **Source**: _local_ (or: snowflake | bigquery | redshift | databricks | postgres | duckdb)
+- **Query / table**: _n/a_
+- **As-of**: _n/a_ (time-travel point, or the modeled time predicate)
+- **Materialized snapshot**: _n/a_ (e.g. `data/snapshot.parquet`, frozen via `python -m lib.sources pull`)
+
+Provenance is captured in `data/dataset_manifest.json`; `experiment.py validate`
+checks the snapshot against it.
+
 ## Data Profile
 
 Fill in after the data audit slice:
@@ -96,7 +109,7 @@ Keep detailed, reusable outside research in `research_sources.md`. Use this
 spec for the concise problem framing and research direction.
 When new evidence changes the story, rewrite the top synthesis in
 `research_sources.md` instead of leaving contradictory takeaways unresolved.
-Treat the top synthesis as authoritative; source cards are supporting provenance.
+Source cards are supporting provenance; `Reusable Takeaways` is what future cycles follow.
 
 ## Research Hypotheses
 

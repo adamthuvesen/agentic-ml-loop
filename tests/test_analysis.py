@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from lib.analysis_utils import (
+from lib.analysis import (
     ranked_results,
     series_is_binary,
     series_is_numeric,

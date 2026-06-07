@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from experiment import journal_path, learnings_file
-from lib.utils import read_text, write_text
+from lib.io import read_text, write_text
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -73,7 +73,7 @@ class LearningsExcerpt:
     score: float
 
 
-def build_experiment_profile(experiment_dir: Path) -> ExperimentProfile:
+def experiment_profile(experiment_dir: Path) -> ExperimentProfile:
     """Derive a tag profile for an experiment from its ``experiment.md``.
 
     Infers tags (problem type, split strategy, model family, data-size buckets,
@@ -119,10 +119,10 @@ def build_experiment_profile(experiment_dir: Path) -> ExperimentProfile:
 
 def learnings_profile_tags(experiment_dir: Path) -> list[str]:
     """Return the inferred profile tags for an experiment as a list."""
-    return list(build_experiment_profile(experiment_dir).tags)
+    return list(experiment_profile(experiment_dir).tags)
 
 
-def build_cross_experiment_learnings_context(experiment_dir: Path) -> str | None:
+def cross_experiment_learnings_context(experiment_dir: Path) -> str | None:
     """Build the markdown "Warm-Start Note" block injected into cycle prompts.
 
     Retrieves learnings from past experiments whose tags overlap this one's
@@ -141,7 +141,7 @@ def build_cross_experiment_learnings_context(experiment_dir: Path) -> str | None
     if not retrieved:
         return None
 
-    profile = build_experiment_profile(experiment_dir)
+    profile = experiment_profile(experiment_dir)
     warm_start_lines = _warm_start_lines(profile, retrieved)
     lines = [
         "### Warm-Start Note",
@@ -181,7 +181,7 @@ def retrieve_relevant_learnings(
     if not learnings_text:
         return []
 
-    profile = build_experiment_profile(experiment_dir)
+    profile = experiment_profile(experiment_dir)
     if not profile.tags:
         return []
 

@@ -28,7 +28,8 @@ Requires Python 3.12+ and `uv`.
 ```bash
 uv sync
 uv sync --extra models
-uv sync --extra models --group dev
+uv sync --extra deep
+uv sync --extra models --extra deep --group dev
 uv run pre-commit install
 ```
 
@@ -152,15 +153,19 @@ and [`results.json`](experiments/demo_bootstrap/results.json) via `viz/`.
 
 ## Demos
 
-Three deterministic demos exercise the framework:
+Four deterministic demos exercise the framework:
 
 - `demo_bootstrap` — tiny classification smoke test
 - `demo_classification` — synthetic binary classification
 - `demo_regression` — synthetic zero-inflated revenue regression
+- `demo_deep` — synthetic nonlinear tabular classification with PyTorch MLPs
 
 ```bash
 uv run --extra models python runners/demo_bootstrap_runner.py init-demo --force
-uv run --extra models python runners/demo_bootstrap_runner.py list-candidates
+uv run --extra deep python runners/demo_deep_runner.py init-demo --force
+uv run --extra deep python runners/demo_deep_runner.py list-candidates
+uv run --extra deep python runners/demo_deep_runner.py run-candidate \
+  --experiment experiments/demo_deep --candidate mlp-deep
 uv run python experiment.py validate experiments/demo_bootstrap
 uv run python -m loop status experiments/demo_bootstrap
 ```
@@ -179,6 +184,47 @@ uv run python -m lib.notebook_export experiments/<id>
 
 Generated notebooks are written under `experiments/<id>/outputs/` and are
 ignored by git unless you intentionally choose to keep them.
+
+## Warehouse ingestion (optional)
+
+By default the loop is fully offline and reads local files. You can also pull a
+frozen snapshot from a warehouse — Snowflake, BigQuery, Redshift, Databricks, or
+Postgres — and then run the loop offline against that snapshot. The warehouse is
+touched only once, at the edge; cycles never query it, so reproducibility and
+cross-runner comparison hold. Warehouse clients are optional extras; the default
+install stays `numpy` + `pandas`.
+
+```bash
+uv sync --extra postgres              # or: snowflake | bigquery | databricks | redshift
+python -m lib.sources sources list    # see available sources + setup docs
+python -m lib.sources pull \
+  --experiment experiments/<id> --source duckdb \
+  --database path/to.duckdb --query "SELECT * FROM events ORDER BY id"
+```
+
+A pull writes `experiments/<id>/data/snapshot.parquet` plus a
+`dataset_manifest.json` (source, query, as-of, row count, schema hash);
+`experiment.py validate` checks the parquet against the manifest. The
+experiment's `data.py` then loads it offline:
+
+```python
+from lib.sources import read_snapshot
+
+def load_dataset():
+    return read_snapshot(EXPERIMENT_DIR)  # verifies integrity, returns a DataFrame
+```
+
+Each source has a `SETUP.md` (keyless auth + the read-only grant it needs) under
+[`lib/sources/bundles/`](lib/sources/bundles/); see
+[`examples/warehouse/postgres/`](examples/warehouse/postgres/) for a creds-free
+local Postgres demo. Reproducible as-of uses each warehouse's time travel
+(Snowflake/BigQuery/Databricks) or a modeled time predicate (Redshift/Postgres).
+
+The creds-free DuckDB and local-Postgres paths are tested end to end; the four
+proprietary connectors are verified structurally (mocked clients), not against
+live warehouses. Live credentialed verification and an `experiment-spec`
+discovery step (profile via a read-only MCP, then emit the frozen SQL) are
+follow-ups.
 
 ## Tests
 

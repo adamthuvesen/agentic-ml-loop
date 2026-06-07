@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from lib.learnings import (
-    build_experiment_profile,
+    experiment_profile,
     replace_or_append_learnings,
     retrieve_relevant_learnings,
 )
@@ -70,7 +70,7 @@ class TestLearningsRetrieval:
             extra="## Known Risks\n\n- Class imbalance is high.\n",
         )
 
-        profile = build_experiment_profile(experiment_dir)
+        profile = experiment_profile(experiment_dir)
         assert "classification" in profile.tags
         assert "auc" in profile.tags
         assert "temporal-split" in profile.tags
