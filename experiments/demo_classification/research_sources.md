@@ -14,9 +14,8 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 ## Reusable Takeaways
 
 Rewrite these bullets as your understanding evolves. Do not leave contradictions
-unresolved here; keep this section as the current best synthesis and the
-authoritative summary for future cycles. If a source card and a takeaway ever
-pull in different directions, trust the takeaway and revise the card context only
+unresolved here; this section is the current summary for future cycles. If a
+source card and a takeaway conflict, trust the takeaway and revise the card only
 if needed for clarity.
 
 - _none yet_
@@ -24,8 +23,7 @@ if needed for clarity.
 ## Source Cards
 
 Source cards are provenance, not final truth. They preserve what each source said
-and why it mattered, but the top `Reusable Takeaways` section is the authoritative
-synthesis future agents should follow.
+and why it mattered; `Reusable Takeaways` is what future cycles should follow.
 
 ### Source 001: <title>
 

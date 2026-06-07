@@ -4,7 +4,7 @@ from unittest.mock import patch
 from loop import (
     LOCK_PATH_NAME,
     RESEARCHER_FRAMING,
-    build_cycle_prompt,
+    cycle_prompt,
     format_elapsed,
     latest_hypothesis,
     load_researcher_identity,
@@ -169,7 +169,7 @@ class TestLoadResearcherIdentity:
             "Research first.\n"
         )
         with patch("loop.prompts.PROGRAM_MD_PATH", program):
-            prompt = build_cycle_prompt(d, "0001").assemble()
+            prompt = cycle_prompt(d, "0001").assemble()
         assert "You are a rigorous scientist." in prompt
         assert "ML researcher running an autonomous experiment" not in prompt
 
@@ -201,6 +201,6 @@ class TestSummarizeGuidelines:
 
     def test_prompt_includes_guidelines_summary(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "## Guidelines" in prompt
         assert "objective_score" in prompt

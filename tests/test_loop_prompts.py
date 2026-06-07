@@ -2,14 +2,14 @@ import json
 from pathlib import Path
 from unittest.mock import call, patch
 
-from loop import CyclePrompt, build_cycle_prompt
+from loop import CyclePrompt, cycle_prompt
 from tests.loop.conftest import _make_experiment
 
 
 class TestBuildCyclePrompt:
     def test_returns_cycle_prompt_object(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001")
+        prompt = cycle_prompt(d, "0001")
         assert isinstance(prompt, CyclePrompt)
         assert prompt.static_sections
         assert prompt.dynamic_sections
@@ -20,17 +20,17 @@ class TestBuildCyclePrompt:
             results=[{"candidate_id": "baseline", "objective_score": 0.6}],
             journal="# Journal\n\n## Cycle 0001: baseline\n\nDone.\n",
         )
-        prompt_a = build_cycle_prompt(d, "0002")
-        prompt_b = build_cycle_prompt(d, "0003")
+        prompt_a = cycle_prompt(d, "0002")
+        prompt_b = cycle_prompt(d, "0003")
         assert prompt_a.static_sections == prompt_b.static_sections
 
     def test_dynamic_sections_change_with_results(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt_before = build_cycle_prompt(d, "0001")
+        prompt_before = cycle_prompt(d, "0001")
         (d / "results.json").write_text(
             json.dumps([{"candidate_id": "model-a", "objective_score": 0.75}]) + "\n"
         )
-        prompt_after = build_cycle_prompt(d, "0001")
+        prompt_after = cycle_prompt(d, "0001")
         assert prompt_before.dynamic_sections != prompt_after.dynamic_sections
 
     def test_includes_minimum_cycles_contract_when_specified(self, tmp_path: Path) -> None:
@@ -38,13 +38,13 @@ class TestBuildCyclePrompt:
         (d / "experiment.md").write_text(
             "Minimum loop cycles before EXPERIMENT_COMPLETE: 6\n\n# Experiment\n"
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "Minimum cycles contract" in prompt
         assert "**6** completed journal cycles" in prompt
 
     def test_workspace_has_paths(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "## Your Workspace" in prompt
         assert f"- Experiment: `{d.resolve()}`" in prompt
         assert "- One-shot cycle scripts:" in prompt
@@ -53,7 +53,7 @@ class TestBuildCyclePrompt:
 
     def test_includes_output_paths_section(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "## Output paths" in prompt
         assert "outputs/" in prompt
         assert "work/" in prompt
@@ -70,7 +70,7 @@ class TestBuildCyclePrompt:
         monkeypatch.setattr(prompts_module, "PROGRAM_MD_PATH", fake_program)
 
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "## Output paths" in prompt
         # Fallback content names the helper API
         assert "outputs_dir" in prompt
@@ -78,14 +78,14 @@ class TestBuildCyclePrompt:
 
     def test_includes_conditional_sources_update_nudge(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "update `research_sources.md`" in prompt
         assert "Reusable Takeaways" in prompt
-        assert "authoritative synthesis" in prompt
+        assert "current — rewrite" in prompt
 
     def test_first_cycle_includes_research_text(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Research Phase Required" in prompt
 
     def test_includes_advisory_signals_when_diagnostics_report_exists(self, tmp_path: Path) -> None:
@@ -106,7 +106,7 @@ class TestBuildCyclePrompt:
             "interaction_candidates": [],
         }
         (diagnostics_dir / "report.json").write_text(json.dumps(report))
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Advisory Signals" in prompt
         assert "age" in prompt
 
@@ -125,14 +125,14 @@ class TestBuildCyclePrompt:
             ]
         }
         (d / "evaluation_review.json").write_text(json.dumps(review))
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Advisory Signals" in prompt
         assert "Noisy leaderboard" in prompt
 
     def test_includes_retrieved_learnings_warm_start(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         with patch(
-            "loop.prompts.build_cross_experiment_learnings_context",
+            "loop.prompts.cross_experiment_learnings_context",
             return_value=(
                 "### Warm-Start Note\n\n"
                 "- Prior: Start with a simple baseline.\n\n"
@@ -141,7 +141,7 @@ class TestBuildCyclePrompt:
                 "- Example prior.\n"
             ),
         ):
-            prompt = build_cycle_prompt(d, "0001").assemble()
+            prompt = cycle_prompt(d, "0001").assemble()
         assert "Cross-Experiment Learnings" in prompt
         assert "Warm-Start Note" in prompt
         assert "Start with a simple baseline." in prompt
@@ -151,26 +151,26 @@ class TestBuildCyclePrompt:
         (d / "research_sources.md").write_text(
             "# Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Advisory Signals" not in prompt
 
     def test_omits_learnings_when_no_relevant_match(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         with patch(
-            "loop.prompts.build_cross_experiment_learnings_context",
+            "loop.prompts.cross_experiment_learnings_context",
             return_value=None,
         ):
-            prompt = build_cycle_prompt(d, "0001").assemble()
+            prompt = cycle_prompt(d, "0001").assemble()
         assert "Cross-Experiment Learnings" not in prompt
 
     def test_cross_learnings_opt_out_skips_warm_start(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         (d / "experiment.md").write_text("cross_learnings: false\n# Experiment\n")
         with patch(
-            "loop.prompts.build_cross_experiment_learnings_context",
+            "loop.prompts.cross_experiment_learnings_context",
             return_value="### Warm-Start Note\n\n- Prior: Should not appear.\n",
         ):
-            prompt = build_cycle_prompt(d, "0001").assemble()
+            prompt = cycle_prompt(d, "0001").assemble()
         assert "Cross-Experiment Learnings" not in prompt
 
     def test_existing_results_omits_research_text(self, tmp_path: Path) -> None:
@@ -179,7 +179,7 @@ class TestBuildCyclePrompt:
             results=[{"candidate_id": "a", "objective_score": 0.5}],
             journal="# Journal\n\n## Cycle 0001: baseline\n\nDone.\n",
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "Research Phase Required" not in prompt
 
     def test_stall_warning_includes_research_mandate(self, tmp_path: Path) -> None:
@@ -198,7 +198,7 @@ class TestBuildCyclePrompt:
             "last_successful_cycle_id": None,
         }
         (d / "loop_state.json").write_text(json.dumps(state) + "\n")
-        prompt = build_cycle_prompt(d, "0004").assemble()
+        prompt = cycle_prompt(d, "0004").assemble()
         assert "Stall Warning" in prompt
         assert "Change Your Approach" in prompt
         assert "Kaggle" in prompt
@@ -215,7 +215,7 @@ class TestBuildCyclePrompt:
             "# Research Sources\n\n## Reusable Takeaways\n\n- none\n\n"
             "## Source Cards\n\n### Source 001: <title>\n\n- placeholder\n"
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "Advisory Signals" in prompt
         assert "No external research is recorded" in prompt
 
@@ -236,7 +236,7 @@ class TestBuildCyclePrompt:
             "# Research Sources\n\n## Source Cards\n\n"
             "### Source 001: Kaggle solution\n\n- real research\n"
         )
-        prompt = build_cycle_prompt(d, "0005").assemble()
+        prompt = cycle_prompt(d, "0005").assemble()
         assert "Advisory Signals" in prompt
         assert "External research looks thin" in prompt
 
@@ -252,7 +252,7 @@ class TestBuildCyclePrompt:
             "### Source 001: Seed\n\n- seeded\n\n"
             "### Source 002: Kaggle\n\n- real\n"
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "Before You Choose What To Do" in prompt
         assert "Analyze results" in prompt
         assert "Consult external knowledge" in prompt
@@ -261,7 +261,7 @@ class TestBuildCyclePrompt:
     def test_analysis_protocol_not_on_first_cycle(self, tmp_path: Path) -> None:
         """First cycle has no prior results to analyze — skip the protocol."""
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Before You Choose What To Do" not in prompt
 
     def test_first_cycle_research_fires_with_preseeded_results(self, tmp_path: Path) -> None:
@@ -271,7 +271,7 @@ class TestBuildCyclePrompt:
             results=[{"candidate_id": "rule-baseline", "objective_score": 0.70}],
             journal="# Journal\n",  # No cycle entries
         )
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Research Phase Required" in prompt
 
 
@@ -293,7 +293,7 @@ class TestErrorAnalysisNudge:
         (d / "research_sources.md").write_text(
             "# Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0003").assemble()
+        prompt = cycle_prompt(d, "0003").assemble()
         assert "Advisory Signals" in prompt
         assert "neither error analysis nor diagnostics are recorded yet" in prompt
 
@@ -313,7 +313,7 @@ class TestErrorAnalysisNudge:
         (d / "research_sources.md").write_text(
             "# Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0003").assemble()
+        prompt = cycle_prompt(d, "0003").assemble()
         assert "neither error analysis nor diagnostics are recorded yet" not in prompt
 
     def test_nudge_does_not_fire_with_few_candidates(self, tmp_path: Path) -> None:
@@ -327,7 +327,7 @@ class TestErrorAnalysisNudge:
         (d / "research_sources.md").write_text(
             "# Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0003").assemble()
+        prompt = cycle_prompt(d, "0003").assemble()
         assert "neither error analysis nor diagnostics are recorded yet" not in prompt
 
 
@@ -341,13 +341,13 @@ class TestCompletionRigorCheck:
         (d / "research_sources.md").write_text(
             "# Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "Before Declaring EXPERIMENT_COMPLETE" in prompt
         assert "meaningfully different model families" in prompt
 
     def test_absent_on_first_cycle(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "Before Declaring EXPERIMENT_COMPLETE" not in prompt
 
 
@@ -433,12 +433,12 @@ class TestCyclePrompt:
 
         with (
             patch(
-                "loop.prompts.build_cross_experiment_learnings_context",
+                "loop.prompts.cross_experiment_learnings_context",
                 return_value="Warm start:\n" + ("prior " * 300),
             ),
             patch("builtins.print") as mock_print,
         ):
-            prompt = build_cycle_prompt(d, "0004", max_tokens=500)
+            prompt = cycle_prompt(d, "0004", max_tokens=500)
 
         assembled = prompt.assemble()
         assert "## Cycle 0001:" not in assembled
@@ -458,7 +458,7 @@ class TestCyclePrompt:
 class TestDomainAndRigorInPrompt:
     def test_first_cycle_includes_domain_reasoning(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
-        prompt = build_cycle_prompt(d, "0001").assemble()
+        prompt = cycle_prompt(d, "0001").assemble()
         assert "business context" in prompt
 
     def test_analysis_protocol_includes_calibration(self, tmp_path: Path) -> None:
@@ -470,7 +470,7 @@ class TestDomainAndRigorInPrompt:
         (d / "research_sources.md").write_text(
             "# Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "Calibration" in prompt
         assert "Significance" in prompt
 
@@ -536,7 +536,7 @@ class TestPromptLineBudget:
         )
 
         with patch(
-            "loop.prompts.build_cross_experiment_learnings_context",
+            "loop.prompts.cross_experiment_learnings_context",
             return_value=(
                 "### Warm-Start Note\n\n"
                 "- Prior: Start with a simple baseline.\n\n"
@@ -545,7 +545,7 @@ class TestPromptLineBudget:
                 "- Example prior.\n"
             ),
         ):
-            prompt = build_cycle_prompt(d, "0006").assemble()
+            prompt = cycle_prompt(d, "0006").assemble()
 
         line_count = len(prompt.splitlines())
         assert line_count <= 350, (
@@ -556,7 +556,7 @@ class TestPromptLineBudget:
         """First cycle with minimal context should be shorter than the mature case."""
         (tmp_path / "first").mkdir()
         d_first = _make_experiment(tmp_path / "first")
-        prompt_first = build_cycle_prompt(d_first, "0001").assemble()
+        prompt_first = cycle_prompt(d_first, "0001").assemble()
 
         (tmp_path / "mature").mkdir()
         d_mature = _make_experiment(
@@ -564,7 +564,7 @@ class TestPromptLineBudget:
             results=[{"candidate_id": "a", "objective_score": 0.7}],
             journal="# Journal\n\n## Cycle 0001: baseline\n\nDone.\n",
         )
-        prompt_mature = build_cycle_prompt(d_mature, "0002").assemble()
+        prompt_mature = cycle_prompt(d_mature, "0002").assemble()
 
         assert len(prompt_first.splitlines()) < len(prompt_mature.splitlines())
 
@@ -589,7 +589,7 @@ class TestAdvisorySignalsInPrompt:
             ],
             journal="# Journal\n\n## Cycle 0001: compare\n\nDone.\n",
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "## Advisory Signals" in prompt
         assert "Advisory only" in prompt
 
@@ -602,5 +602,5 @@ class TestAdvisorySignalsInPrompt:
         (d / "research_sources.md").write_text(
             "# Research Sources\n\n### Source 001: Seed\n\n- s\n\n### Source 002: Real\n\n- r\n"
         )
-        prompt = build_cycle_prompt(d, "0002").assemble()
+        prompt = cycle_prompt(d, "0002").assemble()
         assert "## Advisory Signals" not in prompt

@@ -20,12 +20,12 @@ from lib.sources import (
     NonDeterministicQueryError,
     SnapshotIntegrityError,
     apply_as_of,
-    build_manifest,
-    ensure_deterministic,
+    dataset_manifest_from_table,
     freeze_snapshot,
     get_extractor,
     list_bundles,
     read_snapshot,
+    require_deterministic_query,
     verify_snapshot,
 )
 from lib.sources.adapters import DatabricksExtractor, RedshiftExtractor, _to_adbc_db_kwargs
@@ -50,7 +50,7 @@ _HAS_ADBC = importlib.util.find_spec("adbc_driver_manager") is not None
 )
 def test_nondeterministic_query_rejected(query: str) -> None:
     with pytest.raises(NonDeterministicQueryError):
-        ensure_deterministic(query)
+        require_deterministic_query(query)
 
 
 @pytest.mark.parametrize(
@@ -62,11 +62,11 @@ def test_nondeterministic_query_rejected(query: str) -> None:
     ],
 )
 def test_deterministic_query_accepted(query: str) -> None:
-    ensure_deterministic(query)  # must not raise
+    require_deterministic_query(query)  # must not raise
 
 
 def test_determinism_escape_hatch() -> None:
-    ensure_deterministic("SELECT * FROM t LIMIT 10", allow_nondeterministic=True)
+    require_deterministic_query("SELECT * FROM t LIMIT 10", allow_nondeterministic=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -132,7 +132,7 @@ def _sample_table() -> pa.Table:
 
 
 def test_manifest_roundtrip(tmp_path) -> None:
-    manifest = build_manifest(
+    manifest = dataset_manifest_from_table(
         _sample_table(),
         source_type="duckdb",
         driver="duckdb",
@@ -149,7 +149,7 @@ def test_manifest_roundtrip(tmp_path) -> None:
 
 
 def test_manifest_load_rejects_unknown_keys(tmp_path) -> None:
-    manifest = build_manifest(
+    manifest = dataset_manifest_from_table(
         _sample_table(),
         source_type="duckdb",
         driver="duckdb",
@@ -172,7 +172,7 @@ def test_verify_snapshot_detects_row_and_schema_drift(tmp_path) -> None:
     table = _sample_table()
     snapshot = tmp_path / "snapshot.parquet"
     pq.write_table(table, snapshot)
-    manifest = build_manifest(
+    manifest = dataset_manifest_from_table(
         table,
         source_type="duckdb",
         driver="duckdb",
@@ -436,17 +436,17 @@ def test_as_of_version_form_is_databricks_only() -> None:
 )
 def test_rowcap_clauses_rejected(query: str) -> None:
     with pytest.raises(NonDeterministicQueryError):
-        ensure_deterministic(query)
+        require_deterministic_query(query)
 
 
 def test_identifiers_named_like_clauses_are_accepted() -> None:
     # Columns containing 'limit'/'sample' must not trip the guard.
-    ensure_deterministic("SELECT credit_limit, sample_id FROM t ORDER BY id")
+    require_deterministic_query("SELECT credit_limit, sample_id FROM t ORDER BY id")
 
 
 def test_moving_time_predicate_warns_without_raising() -> None:
     with pytest.warns(UserWarning, match="moving-time"):
-        ensure_deterministic("SELECT * FROM t WHERE created_at > current_date - 7")
+        require_deterministic_query("SELECT * FROM t WHERE created_at > current_date - 7")
 
 
 # --------------------------------------------------------------------------- #

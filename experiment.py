@@ -5,9 +5,9 @@ import json
 import re
 from pathlib import Path
 
+from lib.io import load_json, read_text
 from lib.paths import DATA_DIRNAME
 from lib.result_schema import validate_result_entries
-from lib.utils import load_json, read_text
 
 ROOT = Path(__file__).resolve().parent
 EXPERIMENTS_DIR = ROOT / "experiments"
@@ -198,9 +198,8 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 ## Reusable Takeaways
 
 Rewrite these bullets as your understanding evolves. Do not leave contradictions
-unresolved here; keep this section as the current best synthesis and the
-authoritative summary for future cycles. If a source card and a takeaway ever
-pull in different directions, trust the takeaway and revise the card context only
+unresolved here; this section is the current summary for future cycles. If a
+source card and a takeaway conflict, trust the takeaway and revise the card only
 if needed for clarity.
 
 - _none yet_
@@ -208,8 +207,7 @@ if needed for clarity.
 ## Source Cards
 
 Source cards are provenance, not final truth. They preserve what each source said
-and why it mattered, but the top `Reusable Takeaways` section is the authoritative
-synthesis future agents should follow.
+and why it mattered; `Reusable Takeaways` is what future cycles should follow.
 
 ### Source 001: <title>
 
@@ -361,7 +359,7 @@ def validate_experiment(experiment_dir: Path, strict_completion: bool = False) -
     return errors
 
 
-def build_parser() -> argparse.ArgumentParser:
+def cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Model-search experiment helpers")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -376,7 +374,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    args = cli_parser().parse_args()
 
     if args.command == "validate":
         messages = validate_experiment(

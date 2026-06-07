@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from lib.utils import write_json
+from lib.io import write_json
 
 
 class TestWriteJson:

@@ -13,7 +13,7 @@ from experiment import (
     journal_path,
     validate_experiment,
 )
-from lib.utils import read_text, utc_now, write_json
+from lib.io import read_text, utc_now, write_json
 
 from .artifacts import sha256_text
 from .contracts import (
@@ -37,12 +37,7 @@ class CycleSummary(TypedDict):
 
 
 class AttemptRecord(TypedDict, total=False):
-    """Failure record persisted per attempt and surfaced in the cycle summary.
-
-    Heterogeneous by design: a runner-invocation error carries
-    ``error_message`` while a contract failure carries ``contract_errors`` and
-    the validation breakdown. ``total=False`` documents the union of keys.
-    """
+    """Failure record persisted per attempt (keys vary by failure kind)."""
 
     attempt: int
     returncode: int

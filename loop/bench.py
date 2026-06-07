@@ -18,10 +18,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from experiment import research_journal_template, research_sources_template
-from lib.analysis_utils import ranked_results
-from lib.utils import load_json, write_json, write_text
+from lib.analysis import ranked_results
+from lib.io import load_json, write_json, write_text
 
-from .invoke import RunnerConfig, build_runner_config
+from .invoke import RunnerConfig, runner_config_from_args
 from .loop_state import load_state
 
 RunOne = Callable[[Path, RunnerConfig, "BenchmarkBudget"], None]
@@ -225,7 +225,7 @@ def run_benchmark(
     A failing runner is recorded with its error and never aborts the others.
     """
     run_one = run_one or _default_run_one
-    runner_config_for = runner_config_for or (lambda name: build_runner_config(runner=name))
+    runner_config_for = runner_config_for or (lambda name: runner_config_from_args(runner=name))
 
     report = BenchmarkReport(
         experiment_id=source_experiment_dir.name,

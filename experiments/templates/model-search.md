@@ -109,7 +109,7 @@ Keep detailed, reusable outside research in `research_sources.md`. Use this
 spec for the concise problem framing and research direction.
 When new evidence changes the story, rewrite the top synthesis in
 `research_sources.md` instead of leaving contradictory takeaways unresolved.
-Treat the top synthesis as authoritative; source cards are supporting provenance.
+Source cards are supporting provenance; `Reusable Takeaways` is what future cycles follow.
 
 ## Research Hypotheses
 

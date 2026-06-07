@@ -117,7 +117,7 @@ def apply_as_of(query: str, source_type: str, as_of: str | None) -> tuple[str, s
     return query, as_of
 
 
-def ensure_deterministic(query: str, *, allow_nondeterministic: bool = False) -> None:
+def require_deterministic_query(query: str, *, allow_nondeterministic: bool = False) -> None:
     """Guard a pull query's reproducibility.
 
     Raises :class:`NonDeterministicQueryError` for hard non-determinism (random

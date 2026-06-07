@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from experiment import journal_path, research_sources_path, results_file
-from lib.utils import read_text, write_text
+from lib.io import read_text, write_text
 
 logger = logging.getLogger(__name__)
 

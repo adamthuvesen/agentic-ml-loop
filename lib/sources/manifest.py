@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from lib.io import load_json, utc_now, write_json
 from lib.sources.errors import SnapshotIntegrityError
-from lib.utils import load_json, utc_now, write_json
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -72,7 +72,7 @@ def schema_fingerprint(schema: pa.Schema) -> str:
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 
-def build_manifest(
+def dataset_manifest_from_table(
     table: pa.Table,
     *,
     source_type: str,

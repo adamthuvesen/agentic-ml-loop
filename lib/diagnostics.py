@@ -10,12 +10,12 @@ import numpy as np
 import pandas as pd
 
 from experiment import diagnostics_report_path, diagnostics_summary_path
-from lib.analysis_utils import (
+from lib.analysis import (
     series_is_binary,
     series_is_numeric,
     top_feature_drift,
 )
-from lib.utils import (
+from lib.io import (
     utc_now,
     write_json,
     write_text,
@@ -104,9 +104,8 @@ def generate_experiment_diagnostics(
 ) -> dict[str, Any]:
     """Generate lightweight experiment-local diagnostics artifacts.
 
-    The helper is intentionally simple: callers pass split DataFrames and optional
-    target / prediction columns. Diagnostics are written to the experiment's
-    ``diagnostics/`` directory without touching ``results.json``.
+    Callers pass split DataFrames and optional target / prediction columns.
+    Writes to ``diagnostics/`` without touching ``results.json``.
     """
     frames = {
         name: frame.copy()
@@ -116,7 +115,7 @@ def generate_experiment_diagnostics(
     if not frames:
         raise ValueError("Diagnostics require at least one non-empty split frame.")
 
-    report = build_diagnostics_report(
+    report = diagnostics_report(
         frames,
         target_column=target_column,
         prediction_column=prediction_column,
@@ -126,7 +125,7 @@ def generate_experiment_diagnostics(
     return report
 
 
-def build_diagnostics_report(
+def diagnostics_report(
     frames_by_split: dict[str, pd.DataFrame],
     *,
     target_column: str | None = None,

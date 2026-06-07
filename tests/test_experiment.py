@@ -43,9 +43,8 @@ class TestResearchSourcesTemplate:
         normalized = " ".join(template.split())
         assert "living document" in template
         assert "Reusable Takeaways" in template
-        assert "current best synthesis" in normalized
+        assert "current summary for future cycles" in normalized
         assert "contradictions unresolved" in normalized
-        assert "authoritative summary" in normalized
         assert "provenance, not final truth" in normalized
 
 

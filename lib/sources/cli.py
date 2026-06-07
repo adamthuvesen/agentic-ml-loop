@@ -12,7 +12,7 @@ from pathlib import Path
 from lib.paths import DATA_DIRNAME
 from lib.sources.adapters import SUPPORTED_SOURCE_TYPES
 from lib.sources.errors import SourceError
-from lib.sources.query import apply_as_of, ensure_deterministic
+from lib.sources.query import apply_as_of, require_deterministic_query
 from lib.sources.registry import enable_source, get_bundle, is_enabled, list_bundles
 from lib.sources.snapshot import MANIFEST_FILENAME, SNAPSHOT_FILENAME, freeze_snapshot
 
@@ -30,7 +30,7 @@ def _read_query(value: str) -> str:
     return value
 
 
-def _build_config(args: argparse.Namespace) -> dict[str, object]:
+def _pull_config(args: argparse.Namespace) -> dict[str, object]:
     config: dict[str, object] = {}
     if args.uri:
         config["uri"] = args.uri
@@ -54,7 +54,7 @@ def _cmd_pull(args: argparse.Namespace) -> int:
     data_dir = experiment_dir / DATA_DIRNAME
 
     if args.dry_run:
-        ensure_deterministic(query, allow_nondeterministic=args.allow_nondeterministic)
+        require_deterministic_query(query, allow_nondeterministic=args.allow_nondeterministic)
         rewritten, recorded = apply_as_of(query, args.source, args.as_of)
         print(f"[dry-run] source={args.source} experiment={experiment_dir.name} as_of={recorded}")
         print(f"[dry-run] would write {data_dir / SNAPSHOT_FILENAME}")
@@ -65,7 +65,7 @@ def _cmd_pull(args: argparse.Namespace) -> int:
         source_type=args.source,
         query=query,
         out_dir=data_dir,
-        config=_build_config(args),
+        config=_pull_config(args),
         as_of=args.as_of,
         sample_seed=args.sample_seed,
         allow_nondeterministic=args.allow_nondeterministic,
@@ -100,7 +100,7 @@ def _cmd_sources_enable(args: argparse.Namespace) -> int:
     return 0
 
 
-def build_parser() -> argparse.ArgumentParser:
+def cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m lib.sources",
         description="Pull a read-only warehouse query into a frozen experiment snapshot.",
@@ -147,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    args = cli_parser().parse_args(argv)
     try:
         return args.func(args)
     except (SourceError, ValueError) as exc:

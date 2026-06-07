@@ -13,12 +13,14 @@ from experiment import (
     journal_path,
     results_file,
 )
-from lib.learnings import build_cross_experiment_learnings_context
+from lib.io import load_json
+from lib.learnings import cross_experiment_learnings_context
 from lib.signals import (
-    build_advisory_signals,
+    advisory_signals as collect_advisory_signals,
+)
+from lib.signals import (
     results_snapshot,
 )
-from lib.utils import load_json
 
 from .constants import ROOT, STATE_PATH_NAME
 
@@ -28,9 +30,8 @@ CYCLE_DONE_MARKER = "<promise>CYCLE_DONE</promise>"
 EXPERIMENT_COMPLETE_MARKER = "<promise>EXPERIMENT_COMPLETE</promise>"
 
 RESEARCHER_FRAMING = (
-    "You are an ML researcher running an autonomous experiment. Your job is to make\n"
-    "meaningful progress each cycle — not to do everything, but to do the next smart\n"
-    "thing well.\n"
+    "You are an ML researcher running an autonomous experiment. Make meaningful\n"
+    "progress each cycle — one clear objective, done well.\n"
     "\n"
     "- Research before code — search for prior work before writing any model\n"
     "- Form a working theory and actively try to break it\n"
@@ -350,7 +351,7 @@ def _assemble_cycle_prompt(
                 "",
                 "- Update your research journal with a new `## Cycle NNNN: <title>` entry for the current cycle.",
                 "- If you used outside research, update `research_sources.md` with reusable findings. "
-                "Keep `Reusable Takeaways` as the authoritative synthesis — rewrite it when new evidence changes the story.",
+                "Keep `Reusable Takeaways` current — rewrite when new evidence changes the story.",
                 "- If you tested models, add entries to `results.json` (each entry needs at least "
                 "`candidate_id` and `objective_score`).",
                 "- Save one-shot cycle scripts under `experiments/<exp>/scripts/` (use "
@@ -368,7 +369,7 @@ def _assemble_cycle_prompt(
 
     # Cross-experiment learnings
     if include_cross_learnings and get_cross_learnings_enabled(experiment_dir):
-        learnings_context = build_cross_experiment_learnings_context(experiment_dir)
+        learnings_context = cross_experiment_learnings_context(experiment_dir)
         if learnings_context:
             dynamic_sections.append(
                 "\n".join(
@@ -384,15 +385,15 @@ def _assemble_cycle_prompt(
 
     # Advisory signals
     if include_advisory:
-        advisory_signals = build_advisory_signals(experiment_dir, results=results)
-        if advisory_signals:
+        signal_items = collect_advisory_signals(experiment_dir, results=results)
+        if signal_items:
             lines = [
                 "## Advisory Signals",
                 "",
                 "Observations from current artifacts. Advisory only — use judgment.",
                 "",
             ]
-            lines.extend(f"- {signal}" for _, signal in advisory_signals)
+            lines.extend(f"- {signal}" for _, signal in signal_items)
             dynamic_sections.append("\n".join(lines))
 
     # Min-cycles contract
@@ -451,7 +452,7 @@ def _assemble_cycle_prompt(
     return CyclePrompt(static_sections=static_sections, dynamic_sections=dynamic_sections)
 
 
-def build_cycle_prompt(
+def cycle_prompt(
     experiment_dir: Path,
     cycle_id: str,
     *,

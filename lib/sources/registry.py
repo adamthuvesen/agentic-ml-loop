@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from lib.utils import load_json, write_json
+from lib.io import load_json, write_json
 
 BUNDLES_DIR = Path(__file__).resolve().parent / "bundles"
 _CONFIG_PATH = Path.home() / ".config" / "agentic-ml-loop" / "sources.json"

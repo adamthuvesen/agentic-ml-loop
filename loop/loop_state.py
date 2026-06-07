@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-from lib.utils import load_json, write_json
+from lib.io import load_json, write_json
 
 from .constants import STATE_PATH_NAME
 from .enums import CycleResult, LoopStatus, StopReason

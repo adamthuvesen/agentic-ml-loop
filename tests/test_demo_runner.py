@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 
 from lib.runner import (
-    build_runner_parser,
     init_experiment_dir,
+    runner_cli,
 )
 from lib.runner import (
     save_candidate_result as shared_save,
@@ -85,7 +85,7 @@ def test_saves_rule_baseline(
 
 
 def test_runner_parser_exposes_retired_candidate_commands() -> None:
-    parser = build_runner_parser("demo", ["active"], ["old"])
+    parser = runner_cli("demo", ["active"], ["old"])
 
     list_args = parser.parse_args(["list-retired-candidates"])
     assert list_args.command == "list-retired-candidates"

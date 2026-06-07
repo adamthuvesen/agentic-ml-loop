@@ -208,7 +208,7 @@ Follow the exact pattern from `runners/demo_classification_runner.py`:
 - Import from `lib.{module}.data` and `lib.{module}.modeling`
 - `save_candidate_result()` with file locking (fcntl)
 - `list_candidates()` function
-- `build_parser()` with subcommands: `list-candidates`, `run-candidate`, `init-demo`
+- `cli_parser()` with subcommands: `list-candidates`, `run-candidate`, `init-demo`
 - `init_demo(force)` function that creates/refreshes the experiment directory
 - `EXPERIMENT_MD` string constant (copy of the generated experiment.md content)
 

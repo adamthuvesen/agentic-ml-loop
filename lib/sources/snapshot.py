@@ -17,10 +17,10 @@ from lib.sources.manifest import (
     MANIFEST_FILENAME,
     SNAPSHOT_FILENAME,
     DatasetManifest,
-    build_manifest,
+    dataset_manifest_from_table,
     verify_snapshot,
 )
-from lib.sources.query import apply_as_of, ensure_deterministic
+from lib.sources.query import apply_as_of, require_deterministic_query
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -45,7 +45,7 @@ def freeze_snapshot(
     pre-built or fake adapter (used in tests); otherwise one is built from
     *source_type* and *config*.
     """
-    ensure_deterministic(query, allow_nondeterministic=allow_nondeterministic)
+    require_deterministic_query(query, allow_nondeterministic=allow_nondeterministic)
     rewritten_query, recorded_as_of = apply_as_of(query, source_type, as_of)
 
     extractor = extractor or get_extractor(source_type, config)
@@ -55,7 +55,7 @@ def freeze_snapshot(
     out_dir.mkdir(parents=True, exist_ok=True)
     _write_parquet(table, out_dir / SNAPSHOT_FILENAME)
 
-    manifest = build_manifest(
+    manifest = dataset_manifest_from_table(
         table,
         source_type=source_type,
         driver=extractor.driver,

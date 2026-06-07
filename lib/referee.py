@@ -19,11 +19,11 @@ from pathlib import Path
 from typing import Any
 
 from experiment import journal_path
+from lib.io import write_json
 from lib.signals import (
-    build_advisory_signals,
+    advisory_signals,
     journal_mentions_error_analysis,
 )
-from lib.utils import write_json
 
 # Keyword sets for the lightweight journal/narrative checks.
 _HYPOTHESIS_TERMS = (
@@ -143,7 +143,7 @@ def grade_cycle(
     )
 
     narrative = f"{output_text}\n{current_cycle_journal(experiment_dir, cycle_id)}".lower()
-    advisory = build_advisory_signals(experiment_dir)
+    advisory = advisory_signals(experiment_dir)
     signal_texts = [text for _, text in advisory]
     signals_blob = " ".join(signal_texts).lower()
 
@@ -260,7 +260,7 @@ def latest_scorecard_line(experiment_dir: Path) -> str | None:
     scorecards = sorted(cycles_dir.glob("*/scorecard.json"))
     if not scorecards:
         return None
-    from lib.utils import load_json
+    from lib.io import load_json
 
     try:
         data = load_json(scorecards[-1])

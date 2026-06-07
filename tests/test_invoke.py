@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 
 from loop.invoke import (
-    build_runner_config,
     extract_agent_text,
     extract_agent_text_from_jsonl,
     extract_agent_text_from_stream_json,
+    runner_config_from_args,
 )
 
 
@@ -120,47 +120,47 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
         ),
     ],
 )
-def test_build_runner_config_uses_builtin_runner_presets(
+def test_runner_config_from_args_uses_builtin_runner_presets(
     runner: str,
     expected_command: list[str],
 ) -> None:
-    config = build_runner_config(runner=runner)
+    config = runner_config_from_args(runner=runner)
 
     assert config.name == runner
     assert config.command == expected_command
 
 
 @pytest.mark.parametrize("runner", ["claude", "codex", "cursor"])
-def test_build_runner_config_appends_model_for_builtin_runners(runner: str) -> None:
-    config = build_runner_config(runner=runner, runner_model="test-model")
+def test_runner_config_from_args_appends_model_for_builtin_runners(runner: str) -> None:
+    config = runner_config_from_args(runner=runner, runner_model="test-model")
 
     assert config.model == "test-model"
     assert config.command[-2:] == ["--model", "test-model"]
 
 
-def test_build_runner_config_appends_effort_for_claude() -> None:
-    config = build_runner_config(runner="claude", runner_effort="high")
+def test_runner_config_from_args_appends_effort_for_claude() -> None:
+    config = runner_config_from_args(runner="claude", runner_effort="high")
 
     assert config.model == "claude-opus-4-8-high"
     assert config.effort == "high"
     assert config.command[-2:] == ["--effort", "high"]
 
 
-def test_build_runner_config_passes_effort_to_codex_config() -> None:
-    config = build_runner_config(runner="codex", runner_effort="high")
+def test_runner_config_from_args_passes_effort_to_codex_config() -> None:
+    config = runner_config_from_args(runner="codex", runner_effort="high")
 
     assert config.model == "gpt-5.5-high"
     assert config.effort == "high"
     assert config.command[-2:] == ["-c", "model_reasoning_effort=high"]
 
 
-def test_build_runner_config_rejects_cursor_effort() -> None:
+def test_runner_config_from_args_rejects_cursor_effort() -> None:
     with pytest.raises(ValueError, match="not available for cursor"):
-        build_runner_config(runner="cursor", runner_effort="high")
+        runner_config_from_args(runner="cursor", runner_effort="high")
 
 
-def test_build_runner_config_uses_custom_command() -> None:
-    config = build_runner_config(
+def test_runner_config_from_args_uses_custom_command() -> None:
+    config = runner_config_from_args(
         runner="codex",
         runner_command="codex exec --model gpt-5",
         runner_timeout=42,
@@ -172,8 +172,8 @@ def test_build_runner_config_uses_custom_command() -> None:
     assert config.timeout_seconds == 42
 
 
-def test_build_runner_config_infers_custom_runner_name_from_command() -> None:
-    config = build_runner_config(
+def test_runner_config_from_args_infers_custom_runner_name_from_command() -> None:
+    config = runner_config_from_args(
         runner="claude",
         runner_command="cursor-agent --print --model gpt-5",
     )

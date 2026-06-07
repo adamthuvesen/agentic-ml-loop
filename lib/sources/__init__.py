@@ -20,10 +20,10 @@ from lib.sources.manifest import (
     MANIFEST_FILENAME,
     SNAPSHOT_FILENAME,
     DatasetManifest,
-    build_manifest,
+    dataset_manifest_from_table,
     verify_snapshot,
 )
-from lib.sources.query import apply_as_of, ensure_deterministic
+from lib.sources.query import apply_as_of, require_deterministic_query
 from lib.sources.registry import Bundle, get_bundle, list_bundles
 from lib.sources.snapshot import freeze_snapshot, read_snapshot
 
@@ -40,8 +40,8 @@ __all__ = [
     "SourceError",
     "WarehouseExtractor",
     "apply_as_of",
-    "build_manifest",
-    "ensure_deterministic",
+    "dataset_manifest_from_table",
+    "require_deterministic_query",
     "freeze_snapshot",
     "get_bundle",
     "get_extractor",
