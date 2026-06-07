@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -20,11 +21,14 @@ _RUNNER_MODULES = [
     "runners.demo_classification_runner",
     "runners.demo_regression_runner",
     "runners.demo_bootstrap_runner",
+    "runners.demo_deep_runner",
 ]
 
 
 @pytest.mark.parametrize("runner_module", _RUNNER_MODULES)
 def test_creates_expected_files(runner_module: str, tmp_path: Path) -> None:
+    if runner_module == "runners.demo_deep_runner" and importlib.util.find_spec("torch") is None:
+        pytest.skip("torch not installed (needs the deep extra)")
     mod = importlib.import_module(runner_module)
     with patch("lib.runner.ROOT", tmp_path):
         d = mod.init_demo()

@@ -69,6 +69,10 @@ redshift = [
     "redshift-connector>=2.1",
 ]
 viz = []
+deep = [
+    "agentic-ml-loop[models]",
+    "torch>=2.2.0",
+]
 
 [dependency-groups]
 dev = ["pre-commit>=4.0.0", "pytest>=8.0", "ruff>=0.11"]

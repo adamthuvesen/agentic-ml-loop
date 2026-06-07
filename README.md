@@ -28,7 +28,8 @@ Requires Python 3.12+ and `uv`.
 ```bash
 uv sync
 uv sync --extra models
-uv sync --extra models --group dev
+uv sync --extra deep
+uv sync --extra models --extra deep --group dev
 uv run pre-commit install
 ```
 
@@ -152,15 +153,19 @@ and [`results.json`](experiments/demo_bootstrap/results.json) via `viz/`.
 
 ## Demos
 
-Three deterministic demos exercise the framework:
+Four deterministic demos exercise the framework:
 
 - `demo_bootstrap` — tiny classification smoke test
 - `demo_classification` — synthetic binary classification
 - `demo_regression` — synthetic zero-inflated revenue regression
+- `demo_deep` — synthetic nonlinear tabular classification with PyTorch MLPs
 
 ```bash
 uv run --extra models python runners/demo_bootstrap_runner.py init-demo --force
-uv run --extra models python runners/demo_bootstrap_runner.py list-candidates
+uv run --extra deep python runners/demo_deep_runner.py init-demo --force
+uv run --extra deep python runners/demo_deep_runner.py list-candidates
+uv run --extra deep python runners/demo_deep_runner.py run-candidate \
+  --experiment experiments/demo_deep --candidate mlp-deep
 uv run python experiment.py validate experiments/demo_bootstrap
 uv run python -m loop status experiments/demo_bootstrap
 ```

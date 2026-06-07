@@ -18,10 +18,10 @@ jobs:
 
       - uses: astral-sh/setup-uv@v8.1.0
 
-      - run: uv sync --extra models --group dev
+      - run: uv sync --extra models --extra deep --group dev
 
       - run: uv run ruff check .
 
       - run: uv run ruff format --check .
 
-      - run: uv run --extra models pytest
+      - run: uv run --extra models --extra deep pytest

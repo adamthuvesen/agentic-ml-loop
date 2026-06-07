@@ -8,6 +8,7 @@ FORBIDDEN_IMPORT_PREFIXES = (
     "lib.demo_bootstrap",
     "lib.demo_classification",
     "lib.demo_regression",
+    "lib.demo_deep",
     "runners.",
 )
 BOUNDARY_PATHS = [

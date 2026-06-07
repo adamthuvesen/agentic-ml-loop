@@ -90,3 +90,4 @@ Before using the loop on real data, prove the setup against a bundled demo:
 - `experiments/demo_bootstrap/`
 - `experiments/demo_classification/`
 - `experiments/demo_regression/`
+- `experiments/demo_deep/` (requires `--extra deep`)
