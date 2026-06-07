@@ -20,6 +20,19 @@ Describe the current baseline, for example:
 
 Where does the dataset come from? Include any local paths or table names.
 
+## Data Source
+
+If this experiment is backed by a warehouse snapshot, record its provenance here.
+The loop only ever reads the frozen snapshot, never the live warehouse.
+
+- **Source**: _local_ (or: snowflake | bigquery | redshift | databricks | postgres | duckdb)
+- **Query / table**: _n/a_
+- **As-of**: _n/a_ (time-travel point, or the modeled time predicate)
+- **Materialized snapshot**: _n/a_ (e.g. `data/snapshot.parquet`, frozen via `python -m lib.sources pull`)
+
+Provenance is captured in `data/dataset_manifest.json`; `experiment.py validate`
+checks the snapshot against it.
+
 ## Data Profile
 
 Fill in after the data audit slice:

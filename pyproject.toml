@@ -39,6 +39,35 @@ models = [
     "tqdm>=4.66.0",
     "xgboost>=3.0.4",
 ]
+# Warehouse ingestion (optional, opt-in per warehouse). The default install
+# stays numpy + pandas only; these pull in only when a user installs the extra.
+# `sources` is the shared Arrow base; each warehouse extra is self-contained.
+sources = [
+    "pyarrow>=21.0.0",
+]
+postgres = [
+    "agentic-ml-loop[sources]",
+    "adbc-driver-manager>=1.11.0",
+    "adbc-driver-postgresql>=1.11.0",
+]
+snowflake = [
+    "agentic-ml-loop[sources]",
+    "adbc-driver-manager>=1.11.0",
+    "adbc-driver-snowflake>=1.10.0",
+]
+bigquery = [
+    "agentic-ml-loop[sources]",
+    "adbc-driver-manager>=1.11.0",
+    "adbc-driver-bigquery>=1.10.0",
+]
+databricks = [
+    "agentic-ml-loop[sources]",
+    "databricks-sql-connector[pyarrow]>=4.0",
+]
+redshift = [
+    "agentic-ml-loop[sources]",
+    "redshift-connector>=2.1",
+]
 viz = []
 
 [dependency-groups]

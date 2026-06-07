@@ -1,0 +1,12 @@
+{
+  "source_type": "postgres",
+  "display_name": "PostgreSQL",
+  "extra": "postgres",
+  "package": "adbc-driver-postgresql",
+  "driver": "adbc",
+  "time_travel": false,
+  "description": "PostgreSQL via ADBC (Arrow-native). The creds-free default for a real-server demo.",
+  "read_only_grant": "SELECT-only login role; optionally SET default_transaction_read_only=on.",
+  "auth_modes": ["trust/peer (local)", ".pgpass", "PG* env vars", "URI via op read"],
+  "credentials_via": "connection URI (env / op read); never inline"
+}

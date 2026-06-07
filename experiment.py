@@ -5,6 +5,7 @@ import json
 import re
 from pathlib import Path
 
+from lib.paths import DATA_DIRNAME
 from lib.result_schema import validate_result_entries
 from lib.utils import load_json, read_text
 
@@ -52,10 +53,16 @@ LOOP_MANAGED_DIRECTORIES: frozenset[str] = frozenset(
     }
 )
 
-# Files and directories the loop or runners manage in the experiment root.
-# Anything else surfaces as a soft "stray files" warning so the agent steers
-# new artefacts into outputs/, work/, or scripts/.
-EXPERIMENT_ROOT_ALLOWLIST: frozenset[str] = LOOP_MANAGED_FILES | LOOP_MANAGED_DIRECTORIES
+# Materialized input data (a warehouse snapshot + its manifest) lives in
+# ``data/`` (lib.paths.DATA_DIRNAME). It is allowed in the experiment root but
+# deliberately NOT loop-managed: a force re-init must never delete an expensive
+# pulled snapshot.
+#
+# Anything outside this allowlist surfaces as a soft "stray files" warning so the
+# agent steers new artefacts into outputs/, work/, or scripts/.
+EXPERIMENT_ROOT_ALLOWLIST: frozenset[str] = (
+    LOOP_MANAGED_FILES | LOOP_MANAGED_DIRECTORIES | {DATA_DIRNAME}
+)
 
 
 def journal_path(experiment_dir: Path) -> Path:
@@ -260,6 +267,37 @@ def stray_root_entries(experiment_dir: Path) -> list[str]:
     return stray
 
 
+def _snapshot_validation_errors(experiment_dir: Path) -> list[str]:
+    """Check a materialized warehouse snapshot against its manifest, if present.
+
+    Returns an empty list when the experiment has no ``dataset_manifest.json``
+    (local/CSV experiments are unaffected), a soft warning when pyarrow or
+    ``lib.sources`` is unavailable, and an error when the parquet has drifted
+    from its manifest. Never raises — a validator must not crash on bad input.
+    """
+    manifest_path = experiment_dir / DATA_DIRNAME / "dataset_manifest.json"
+    if not manifest_path.exists():
+        return []
+    snapshot_path = experiment_dir / DATA_DIRNAME / "snapshot.parquet"
+    if not snapshot_path.exists():
+        return [f"manifest present but snapshot missing: {snapshot_path}"]
+    try:
+        from lib.sources.manifest import DatasetManifest, verify_snapshot
+    except ImportError:
+        return ["warning: lib.sources unavailable; snapshot integrity not checked"]
+    try:
+        manifest = DatasetManifest.load(manifest_path)
+    except (ValueError, json.JSONDecodeError) as exc:
+        return [f"invalid dataset_manifest.json: {exc}"]
+    try:
+        verify_snapshot(snapshot_path, manifest)
+    except ModuleNotFoundError:
+        return ["warning: pyarrow not installed; snapshot integrity not checked"]
+    except Exception as exc:  # report any drift/corruption without crashing validate
+        return [f"snapshot integrity check failed: {exc}"]
+    return []
+
+
 def validate_experiment(experiment_dir: Path, strict_completion: bool = False) -> list[str]:
     errors: list[str] = []
     if not experiment_dir.exists() or not experiment_dir.is_dir():
@@ -317,6 +355,8 @@ def validate_experiment(experiment_dir: Path, strict_completion: bool = False) -
                     f"but experiment declares '{declared_metric}'"
                 )
                 errors.append(msg if strict_completion else f"warning: {msg}")
+
+    errors.extend(_snapshot_validation_errors(experiment_dir))
 
     return errors
 

@@ -1,0 +1,12 @@
+{
+  "source_type": "snowflake",
+  "display_name": "Snowflake",
+  "extra": "snowflake",
+  "package": "adbc-driver-snowflake",
+  "driver": "adbc",
+  "time_travel": true,
+  "description": "Snowflake via ADBC; Time Travel AT(TIMESTAMP=>...) for a reproducible as-of.",
+  "read_only_grant": "Dedicated SELECT-only role (Snowflake has no read-only session flag).",
+  "auth_modes": ["externalbrowser SSO (keyless)", "key-pair", "oauth"],
+  "credentials_via": "named connection ~/.snowflake/connections.toml / env"
+}
