@@ -151,13 +151,7 @@ def _validate_output_filename(value: str) -> str:
     if not value.endswith(".ipynb"):
         raise NotebookRecipeError("output_filename must end with .ipynb.")
     path = Path(value)
-    if (
-        not value
-        or path.is_absolute()
-        or path.name != value
-        or ".." in path.parts
-        or "\\" in value
-    ):
+    if not value or path.is_absolute() or path.name != value or ".." in path.parts or "\\" in value:
         raise NotebookRecipeError(
             f"output_filename must be a simple notebook filename, got {value!r}."
         )
