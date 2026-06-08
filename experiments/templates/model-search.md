@@ -62,7 +62,11 @@ How should train, validation, and test be defined?
 
 ## Objective Metric
 
-What metric determines "better"?
+What metric determines "better"? Name it with a parenthesized, validation-scoped token —
+`val_<name>` or `validation_<name>` (e.g. `(val_auc)`, `(val_r2)`). `experiment.py` extracts
+this token and checks every `results.json` candidate's `objective_metric` against it, so it
+must be the validation metric each candidate reports. Keep the bare name (`auc`) as the key
+inside each candidate's `metrics["validation"]`.
 
 ## Candidate Families
 
@@ -126,6 +130,10 @@ What would make the loop useful?
 - a trustworthy baseline
 - a leaderboard with comparable candidates
 - clear next moves
+
+Optionally floor the loop's effort with a line like
+`Minimum loop cycles before EXPERIMENT_COMPLETE: 4` — the loop will not accept
+`EXPERIMENT_COMPLETE` until that many `## Cycle NNNN:` journal entries exist.
 
 ## Deliverables
 
