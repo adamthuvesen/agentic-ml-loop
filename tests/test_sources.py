@@ -114,6 +114,11 @@ def test_unknown_source_type_raises() -> None:
         get_extractor("oracle")
 
 
+def test_postgres_requires_uri_config() -> None:
+    with pytest.raises(ValueError, match="postgres.*--uri"):
+        get_extractor("postgres")
+
+
 @pytest.mark.skipif(_HAS_ADBC, reason="adbc installed; missing-extra path not exercised")
 def test_missing_extra_is_actionable() -> None:
     extractor = get_extractor("snowflake")
@@ -403,6 +408,27 @@ def test_cli_pull_reports_clean_error_on_nondeterministic_query(tmp_path) -> Non
         ]
     )
     assert exit_code == 2  # clean non-zero exit, not a traceback
+
+
+def test_cli_pull_reports_clean_error_on_missing_postgres_uri(tmp_path) -> None:
+    from lib.sources.cli import main
+
+    experiment_dir = tmp_path / "exp"
+    experiment_dir.mkdir()
+
+    exit_code = main(
+        [
+            "pull",
+            "--experiment",
+            str(experiment_dir),
+            "--source",
+            "postgres",
+            "--query",
+            "SELECT 1",
+        ]
+    )
+
+    assert exit_code == 2
 
 
 # --------------------------------------------------------------------------- #

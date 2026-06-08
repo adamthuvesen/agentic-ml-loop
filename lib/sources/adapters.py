@@ -116,6 +116,8 @@ class AdbcExtractor:
             raise ValueError(f"ADBC does not back source type {source_type!r}")
         self.source_type = source_type
         config = dict(config)
+        if source_type == "postgres" and not config.get("uri"):
+            raise ValueError("postgres source requires --uri.")
         # Control keys that are not connection kwargs:
         self._max_bytes_billed = config.pop("max_bytes_billed", None)
         self._config = config
