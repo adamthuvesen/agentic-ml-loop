@@ -314,27 +314,29 @@ def run_cycle(
 
             timer = _LiveTimer("Running")
             timer.start()
-            outcome = run_cycle_attempt(
-                experiment_dir=experiment_dir,
-                cycle_id=cycle_id,
-                attempt=attempt,
-                prompt_text=prompt_text,
-                baselines_journal_hash=before_snapshot["journal_hash"],
-                experiment_md_backup=baselines.experiment_md_backup,
-                attempt_stdout=attempt_stdout,
-                attempt_stderr=attempt_stderr,
-                attempt_meta=attempt_meta,
-                attempt_result_path=attempt_result_path,
-                agent_message_path=agent_message_path,
-                runner_config=RunnerConfig(
-                    name=state.runner_name,
-                    command=state.runner_command,
-                    timeout_seconds=state.runner_timeout_seconds,
-                    model=state.runner_model,
-                    effort=state.runner_effort,
-                ),
-            )
-            timer.stop()
+            try:
+                outcome = run_cycle_attempt(
+                    experiment_dir=experiment_dir,
+                    cycle_id=cycle_id,
+                    attempt=attempt,
+                    prompt_text=prompt_text,
+                    baselines_journal_hash=before_snapshot["journal_hash"],
+                    experiment_md_backup=baselines.experiment_md_backup,
+                    attempt_stdout=attempt_stdout,
+                    attempt_stderr=attempt_stderr,
+                    attempt_meta=attempt_meta,
+                    attempt_result_path=attempt_result_path,
+                    agent_message_path=agent_message_path,
+                    runner_config=RunnerConfig(
+                        name=state.runner_name,
+                        command=state.runner_command,
+                        timeout_seconds=state.runner_timeout_seconds,
+                        model=state.runner_model,
+                        effort=state.runner_effort,
+                    ),
+                )
+            finally:
+                timer.stop()
 
             if not outcome.success:
                 attempt_records.append(outcome.attempt_record)
@@ -379,7 +381,9 @@ def run_cycle(
 
     except BaseException as exc:
         logger.warning("Cycle %s aborted by %s; rolling back", cycle_id, type(exc).__name__)
+        restore_cycle_baselines(experiment_dir, baselines)
         _clear_active_state(state, AttemptOutcomeKind.EXCEPTION)
+        write_state(experiment_dir, state)
         raise
 
     restore_cycle_baselines(experiment_dir, baselines)

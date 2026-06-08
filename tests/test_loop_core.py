@@ -18,6 +18,7 @@ from loop import (
 from loop.core import (
     cli_parser,
     initial_state,
+    run_cycle,
     run_loop,
     should_stop,
 )
@@ -398,3 +399,32 @@ class TestRunLoopHooks:
             run_loop(d, state, hooks=hooks)
 
         assert captured_hooks == [hooks]
+
+
+class TestRunCycleRollback:
+    def test_unexpected_exception_restores_artifacts_and_persists_cleared_state(
+        self, tmp_path: Path
+    ) -> None:
+        d = _make_experiment(tmp_path)
+        original_journal = (d / "research_journal.md").read_text()
+        state = initial_state(d, max_cycles=1, max_hours=None)
+
+        def crash_after_mutation(**_kwargs: object) -> object:
+            (d / "research_journal.md").write_text("partial attempt edit\n")
+            raise RuntimeError("post-mutation crash")
+
+        with (
+            patch("loop.core.run_cycle_attempt", side_effect=crash_after_mutation),
+            patch("loop.core.emit_cycle_start"),
+            patch("loop.core.emit_attempt_start"),
+            pytest.raises(RuntimeError, match="post-mutation crash"),
+        ):
+            run_cycle(d, state)
+
+        assert (d / "research_journal.md").read_text() == original_journal
+        persisted = json.loads((d / "loop_state.json").read_text())
+        assert persisted["active_cycle_id"] is None
+        assert persisted["active_started_at"] is None
+        assert persisted["active_objective"] is None
+        assert persisted["active_attempt"] is None
+        assert persisted["last_attempt_outcome"] == "exception"

@@ -66,9 +66,9 @@ class NotebookRecipe:
                 f"Unsupported recipe_type {recipe_type!r}; expected one of {supported}."
             )
 
-        output_filename = str(data.get("output_filename") or f"{experiment_id}_portable.ipynb")
-        if not output_filename.endswith(".ipynb"):
-            raise NotebookRecipeError("output_filename must end with .ipynb.")
+        output_filename = _validate_output_filename(
+            str(data.get("output_filename") or f"{experiment_id}_portable.ipynb")
+        )
 
         recipe = cls(
             experiment_id=experiment_id,
@@ -145,6 +145,23 @@ def load_recipe(experiment_dir: Path) -> NotebookRecipe:
         raise NotebookRecipeError(f"Notebook recipe not found at {recipe_path}.")
     data = _parse_simple_yaml(recipe_path.read_text(encoding="utf-8"))
     return NotebookRecipe.from_mapping(data, experiment_dir.name)
+
+
+def _validate_output_filename(value: str) -> str:
+    if not value.endswith(".ipynb"):
+        raise NotebookRecipeError("output_filename must end with .ipynb.")
+    path = Path(value)
+    if (
+        not value
+        or path.is_absolute()
+        or path.name != value
+        or ".." in path.parts
+        or "\\" in value
+    ):
+        raise NotebookRecipeError(
+            f"output_filename must be a simple notebook filename, got {value!r}."
+        )
+    return value
 
 
 def _parse_simple_yaml(text: str) -> dict[str, Any]:
