@@ -5,7 +5,10 @@ description: Export an agentic-ml-loop experiment into a portable runnable Jupyt
 
 # Experiment Notebook
 
-Export a portable notebook for an experiment directory.
+Export an experiment into a **portable** Jupyter notebook — one that runs from a single
+parquet via `DATA_PATH` with **no repo-local imports** (`lib.*`, `experiments.*`), so it can
+be shared and run outside this repo. The `notebook.yaml` recipe is the source of truth; the
+exporter renders the successful start-to-end path, not the full loop history.
 
 ## Workflow
 
@@ -48,6 +51,7 @@ PY
 
 ## Notes
 
-- The generated notebook is meant to run with `DATA_PATH` pointed at the source parquet.
-- Default exports exclude recipe-declared sensitive outputs.
-- Keep generated notebooks focused on the successful start-to-end path, not every loop cycle or failed candidate branch.
+- The notebook runs with `DATA_PATH` pointed at the source parquet — confirm that's the only input it needs.
+- Default exports exclude recipe-declared sensitive outputs; pass `--include-sensitive` only on explicit request.
+- Generated notebooks land in `experiments/<id>/outputs/` and are gitignored unless intentionally kept.
+- Keep them focused on the successful start-to-end path, not every loop cycle or failed candidate branch.
