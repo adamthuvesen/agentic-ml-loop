@@ -44,8 +44,7 @@ experiments/**/*.csv
 experiments/**/*.parquet
 
 # Local-only agent configs
-# .cursor/.codex skills symlinks and settings are tracked; ignore hook/plugin runtime state
 .agents/
-.cursor/hooks/state/
+.cursor/
 .claude/scheduled_tasks.lock
 openspec/
