@@ -17,7 +17,7 @@ symlink to `AGENTS.md`.
 - `lib/paths.py` — helpers for `outputs/`, `work/`, and `scripts/`.
 - `loop/` — long-running supervisor and runner invocation.
 - `runners/` — demo runner entrypoints.
-- `agents/skills/` — portable local skills for experiment setup and notebooks.
+- `.agents/skills/` — portable local skills for experiment setup and notebooks.
 
 ## Operating Principles
 
