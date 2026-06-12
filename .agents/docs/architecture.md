@@ -135,7 +135,7 @@ loop/                  Supervisor, prompts, state, status, runner invocation
 lib/                   Shared framework helpers and demo experiment packages
 runners/               Runner CLIs for bundled demos
 experiments/           Experiment specs, journals, results, outputs, work
-agents/skills/         Portable skills for creating experiments and notebooks
+.agents/skills/        Portable skills for creating experiments and notebooks
 viz/                   Optional replay generation and renderer
 tests/                 Framework and demo tests
 ```
