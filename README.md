@@ -1,15 +1,17 @@
 # Agentic ML Loop
 
-A local, offline harness for agent-driven model search (inspired by
-autoresearch). Define an experiment, point a runner at it, and the loop runs
-bounded hypothesis-test cycles, keeping a research journal and leaderboard.
-The cycle contract is enforced in code ([`loop/cycle_attempt.py`](loop/cycle_attempt.py),
-[`loop/contracts.py`](loop/contracts.py)): each cycle must update the journal,
-leave `experiment.md` unchanged, emit one completion marker, and pass
-result-schema and metric checks — or it is rolled back and retried.
+`agentic-ml-loop` runs local, repeatable ML experiment cycles. You write a spec,
+choose a runner, and the loop asks for one bounded hypothesis test at a time
+while maintaining a journal and leaderboard.
 
-Ships with synthetic demos only; no external data source required. Worked
-example in [`examples/`](examples/). Internals:
+Cycles are checked in code ([`loop/cycle_attempt.py`](loop/cycle_attempt.py),
+[`loop/contracts.py`](loop/contracts.py)): the journal must be updated,
+`experiment.md` must stay unchanged, exactly one completion marker must appear,
+and results must match the expected schema and metrics. Failed cycles roll back
+and retry.
+
+The repo ships with deterministic synthetic demos only; no external data source
+is required. Worked example in [`examples/`](examples/). Internals:
 [`.agents/docs/architecture.md`](.agents/docs/architecture.md).
 
 ## Setup
@@ -35,14 +37,14 @@ Each experiment lives under `experiments/<experiment_id>/`:
 | `work/` | Intermediate artifacts reused by later cycles |
 | `scripts/` | One-shot scripts written during cycles |
 
-The supervisor in `loop/` starts a fresh runner process per cycle. The runner
-receives the cycle prompt on stdin and must end with exactly one marker:
+`loop/` starts a fresh runner process per cycle. The runner receives the cycle
+prompt on stdin and must end with exactly one marker:
 `<promise>CYCLE_DONE</promise>` or `<promise>EXPERIMENT_COMPLETE</promise>`.
 
 ## Runners
 
-Built-in presets for Claude, Codex, and Cursor, plus a custom command escape
-hatch. Presets run without approval prompts and with full workspace permissions.
+Presets cover Claude, Codex, and Cursor; custom commands work too. The presets
+run unattended, without approval prompts, and with full workspace permissions.
 
 ```bash
 uv run python -m loop start experiments/demo_bootstrap --runner claude
@@ -62,16 +64,15 @@ pick a model id that encodes it. Environment defaults: `AGENTIC_ML_LOOP_RUNNER`,
 `AGENTIC_ML_LOOP_RUNNER_COMMAND`, `AGENTIC_ML_LOOP_RUNNER_MODEL`,
 `AGENTIC_ML_LOOP_RUNNER_EFFORT`, `AGENTIC_ML_LOOP_RUNNER_TIMEOUT` (seconds).
 
-Troubleshooting: presets shell out to the `claude` / `codex` / `cursor-agent`
-binaries, which must be on `PATH` — check with `claude --version` and
-`which claude`. Otherwise pass an absolute path via `--runner-command` (or
-`AGENTIC_ML_LOOP_RUNNER_COMMAND`). The cross-experiment learnings step also
-calls `claude`; when absent it is skipped silently rather than failing the loop.
+Troubleshooting: presets shell out to `claude`, `codex`, or `cursor-agent`,
+which must be on `PATH`. Otherwise pass an absolute path via `--runner-command`
+or `AGENTIC_ML_LOOP_RUNNER_COMMAND`. The cross-experiment learnings step also
+calls `claude`; when absent, it is skipped rather than failing the loop.
 
 ## Research referee
 
-After each cycle the loop computes an advisory scorecard
-([`lib/referee.py`](lib/referee.py)) — it never blocks a cycle:
+After each cycle the loop writes an advisory scorecard
+([`lib/referee.py`](lib/referee.py)); it never blocks a cycle:
 
 | Criterion | What it checks |
 | --- | --- |
@@ -87,16 +88,16 @@ Scorecards land in `cycles/<id>/scorecard.json`; the latest grade shows in
 
 ## Benchmark
 
-Run the same spec across several runners and compare:
+Run the same spec across several runners:
 
 ```bash
 uv run python -m loop bench experiments/demo_bootstrap --runners claude,codex,cursor --max-cycles 6
 ```
 
-Each runner gets an isolated copy of the spec and runs to the shared budget with
+Each runner gets an isolated copy of the spec and the same cycle budget, with
 the referee on. Results go to `bench/<id>-<timestamp>/comparison.md` and
 `comparison.csv`, ordered by mean referee score, then best validation score. A
-runner that errors is recorded and doesn't stop the others.
+runner error is recorded and does not stop the others.
 
 ## Demos
 
@@ -117,7 +118,7 @@ uv run python experiment.py validate experiments/demo_bootstrap
 uv run python -m loop status experiments/demo_bootstrap
 ```
 
-Synthetic datasets are generated in memory when missing; generator scripts can
+Synthetic datasets are generated in memory when missing. Generator scripts can
 materialize local CSVs, which git ignores.
 
 [`examples/demo_bootstrap_replay.html`](examples/demo_bootstrap_replay.html) is
@@ -134,15 +135,14 @@ Experiments can declare a notebook recipe in `experiments/<id>/notebook.yaml`:
 uv run python -m lib.notebook_export experiments/<id>
 ```
 
-Generated notebooks land in `experiments/<id>/outputs/`, ignored by git.
+Generated notebooks land in `experiments/<id>/outputs/`, which git ignores.
 
 ## Warehouse ingestion (optional)
 
 Pull a frozen snapshot from Snowflake, BigQuery, Redshift, Databricks, or
-Postgres, then run the loop offline against it. The warehouse is touched once,
-at the edge; cycles never query it, so reproducibility and cross-runner
-comparison hold. Clients are optional extras; the default install stays
-`numpy` + `pandas`.
+Postgres, then run the loop offline. The warehouse is touched once; cycles never
+query it. Clients are optional extras, and the default install stays `numpy` +
+`pandas`.
 
 ```bash
 uv sync --extra postgres              # or: snowflake | bigquery | databricks | redshift
