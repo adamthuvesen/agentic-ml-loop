@@ -23,6 +23,26 @@ uv sync --extra models --extra deep   # extras optional; dev group installs by d
 uv run pre-commit install
 ```
 
+## Fastest demo
+
+Use `demo_bootstrap` for the quickest trust check. It is a tiny synthetic
+classification experiment with committed results.
+
+```bash
+uv run --extra models python runners/demo_bootstrap_runner.py list-candidates
+uv run python experiment.py validate experiments/demo_bootstrap
+```
+
+Expected output includes six candidate ids, ending with `lgbm-conservative`,
+then `Validation passed: experiments/demo_bootstrap`. In this checkout, both
+commands finished in under 10 seconds after dependencies were present. The first
+`uv` run may take longer while it prepares the environment.
+
+Open [`examples/demo_bootstrap_replay.html`](examples/demo_bootstrap_replay.html)
+in a browser to replay the five committed research cycles. It is generated from
+[`experiments/demo_bootstrap/research_journal.md`](experiments/demo_bootstrap/research_journal.md)
+and [`experiments/demo_bootstrap/results.json`](experiments/demo_bootstrap/results.json).
+
 ## Experiment layout
 
 Each experiment lives under `experiments/<experiment_id>/`:
@@ -121,11 +141,8 @@ uv run python -m loop status experiments/demo_bootstrap
 Synthetic datasets are generated in memory when missing. Generator scripts can
 materialize local CSVs, which git ignores.
 
-[`examples/demo_bootstrap_replay.html`](examples/demo_bootstrap_replay.html) is
-a self-contained browser replay of all five `demo_bootstrap` research cycles,
-generated from the committed
-[`research_journal.md`](experiments/demo_bootstrap/research_journal.md) and
-[`results.json`](experiments/demo_bootstrap/results.json) via `viz/`.
+`loop status` needs an initialized loop state; before a loop run it reports
+`No loop state found`.
 
 ## Portable notebooks
 
