@@ -189,7 +189,11 @@ def _load_snapshot(repo: Path, data_dir: Path | None) -> tuple[pd.DataFrame, pd.
     if len(X) != len(y):
         raise ValueError(f"X/y length mismatch: {len(X)} vs {len(y)}")
     keep = (X[BUDGET_COLUMN] / y - IMPUTE_RATIO).abs() >= IMPUTE_TOL
-    return X.loc[keep].reset_index(drop=True), y.loc[keep].reset_index(drop=True), int((~keep).sum())
+    return (
+        X.loc[keep].reset_index(drop=True),
+        y.loc[keep].reset_index(drop=True),
+        int((~keep).sum()),
+    )
 
 
 def _safe_features(X: pd.DataFrame, requested: list[str]) -> list[str]:

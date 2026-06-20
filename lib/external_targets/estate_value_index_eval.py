@@ -154,7 +154,9 @@ def _engineer_splits(raw_frame: pd.DataFrame, *, include_test: bool) -> dict[str
     return frames
 
 
-def _load_feature_subset(repo: Path, feature_set: str | None) -> tuple[list[str] | None, list[str] | None]:
+def _load_feature_subset(
+    repo: Path, feature_set: str | None
+) -> tuple[list[str] | None, list[str] | None]:
     if feature_set in (None, "full"):
         return None, None
     config = yaml.safe_load((repo / "config" / "feature_subsets.yaml").read_text()) or {}
@@ -202,7 +204,10 @@ def _target_values(frame: pd.DataFrame, candidate: dict[str, Any]) -> pd.Series:
     if mode == "log_price":
         return np.log1p(frame[TARGET_COLUMN])
     if mode == "log_ratio_to_listing":
-        return np.log((frame[TARGET_COLUMN].astype(float) + 1.0) / (frame["listing_price"].astype(float) + 1.0))
+        return np.log(
+            (frame[TARGET_COLUMN].astype(float) + 1.0)
+            / (frame["listing_price"].astype(float) + 1.0)
+        )
     if mode == "residual_to_listing":
         return frame[TARGET_COLUMN].astype(float) - frame["listing_price"].astype(float)
     raise ValueError(f"Unsupported estate target_mode {mode!r}")
@@ -215,7 +220,9 @@ def _inverse_target_values(
     if mode == "log_price":
         return np.expm1(raw_predictions)
     if mode == "log_ratio_to_listing":
-        return (frame["listing_price"].astype(float).to_numpy() + 1.0) * np.exp(raw_predictions) - 1.0
+        return (frame["listing_price"].astype(float).to_numpy() + 1.0) * np.exp(
+            raw_predictions
+        ) - 1.0
     if mode == "residual_to_listing":
         return frame["listing_price"].astype(float).to_numpy() + raw_predictions
     raise ValueError(f"Unsupported estate target_mode {mode!r}")
@@ -238,10 +245,7 @@ def _evaluate_predictions(
     frames: dict[str, pd.DataFrame],
     predictions: dict[str, np.ndarray],
 ) -> dict[str, dict[str, float]]:
-    return {
-        split: _metrics(frames[split][TARGET_COLUMN], predictions[split])
-        for split in frames
-    }
+    return {split: _metrics(frames[split][TARGET_COLUMN], predictions[split]) for split in frames}
 
 
 def _run_baseline(
@@ -249,16 +253,12 @@ def _run_baseline(
 ) -> dict[str, Any]:
     if candidate["mode"] == "listing_price":
         predictions = {
-            split: frames[split]["listing_price"].astype(float).to_numpy()
-            for split in frames
+            split: frames[split]["listing_price"].astype(float).to_numpy() for split in frames
         }
     else:
         model = DummyRegressor(strategy="median")
         model.fit(np.zeros((len(frames["train"]), 1)), frames["train"][TARGET_COLUMN])
-        predictions = {
-            split: model.predict(np.zeros((len(frames[split]), 1)))
-            for split in frames
-        }
+        predictions = {split: model.predict(np.zeros((len(frames[split]), 1))) for split in frames}
     metrics = _evaluate_predictions(frames, predictions)
     return {
         "candidate_id": candidate_id,
@@ -350,11 +350,15 @@ def _train_lgbm(
     )
 
 
-def _run_lgbm(repo: Path, frames: dict[str, pd.DataFrame], candidate_id: str, candidate: dict[str, Any]) -> dict[str, Any]:
+def _run_lgbm(
+    repo: Path, frames: dict[str, pd.DataFrame], candidate_id: str, candidate: dict[str, Any]
+) -> dict[str, Any]:
     from estate_value_index.ml import get_categorical_indices
     from estate_value_index.ml.training import LGBMTrainer
 
-    numeric_features, categorical_features, all_features = _resolve_features(repo, frames, candidate)
+    numeric_features, categorical_features, all_features = _resolve_features(
+        repo, frames, candidate
+    )
     X_train = _prepare_matrix(frames, "train", all_features, numeric_features, categorical_features)
     X_validation = _prepare_matrix(
         frames, "validation", all_features, numeric_features, categorical_features, X_train
@@ -380,7 +384,9 @@ def _run_lgbm(repo: Path, frames: dict[str, pd.DataFrame], candidate_id: str, ca
         if dropped and len(all_features) - len(dropped) >= 5:
             all_features = [feature for feature in all_features if feature not in dropped]
             numeric_features = [feature for feature in numeric_features if feature not in dropped]
-            categorical_features = [feature for feature in categorical_features if feature not in dropped]
+            categorical_features = [
+                feature for feature in categorical_features if feature not in dropped
+            ]
             X_train = _prepare_matrix(
                 frames, "train", all_features, numeric_features, categorical_features
             )
@@ -408,7 +414,9 @@ def _run_lgbm(repo: Path, frames: dict[str, pd.DataFrame], candidate_id: str, ca
         X_test = _prepare_matrix(
             frames, "test", all_features, numeric_features, categorical_features, X_train
         )
-        predictions["test"] = _inverse_target_values(frames["test"], model.predict(X_test), candidate)
+        predictions["test"] = _inverse_target_values(
+            frames["test"], model.predict(X_test), candidate
+        )
     metrics = _evaluate_predictions(frames, predictions)
     return {
         "candidate_id": candidate_id,

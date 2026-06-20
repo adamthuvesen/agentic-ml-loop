@@ -50,9 +50,7 @@ def load_candidate_spec(
         raise ValueError(f"{path} must contain a JSON object")
     declared_id = payload.setdefault("candidate_id", candidate_id)
     if declared_id != candidate_id:
-        raise ValueError(
-            f"{path} declares candidate_id={declared_id!r}, expected {candidate_id!r}"
-        )
+        raise ValueError(f"{path} declares candidate_id={declared_id!r}, expected {candidate_id!r}")
     required = ("family", "feature_set", "mode", "notes")
     missing = [key for key in required if not payload.get(key)]
     if missing:
