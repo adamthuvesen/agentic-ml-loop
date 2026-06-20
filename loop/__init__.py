@@ -9,6 +9,9 @@ from .artifacts import (  # noqa: F401
 from .core import (  # noqa: F401
     LOCK_PATH_NAME,
     acquire_lock,
+    final_holdout_command,
+    freeze_command,
+    ledger_command,
     main,
     release_lock,
     resume_command,

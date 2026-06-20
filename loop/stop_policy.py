@@ -33,6 +33,9 @@ def _budget_stop(state: LoopState) -> StopDecision | None:
 
 def evaluate_stop(state: LoopState) -> StopDecision:
     """Decide if the supervisor should exit before starting another cycle."""
+    if state.final_holdout_accessed:
+        return StopDecision(True, StopReason.FINAL_HOLDOUT_ACCESSED, LoopStatus.COMPLETED)
+
     if not state.enforce_budget_until_limit and state.last_cycle_result == CycleResult.COMPLETE:
         return StopDecision(True, StopReason.EXPERIMENT_COMPLETE, LoopStatus.COMPLETED)
 

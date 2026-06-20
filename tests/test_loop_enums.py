@@ -63,6 +63,11 @@ class TestLoopStateSerialization:
         assert state.status is LoopStatus.STALLED
         assert state.last_cycle_result is CycleResult.COMPLETE
         assert state.stop_reason is StopReason.INTERRUPTED
+        assert state.runner_resolved_model is None
+        assert state.selection_frozen is False
+        assert state.frozen_candidate_ids is None
+        assert state.final_holdout_accessed is False
+        assert state.final_holdout_path is None
 
     def test_round_trip_is_stable(self) -> None:
         state = _state_with()

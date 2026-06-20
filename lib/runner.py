@@ -55,6 +55,24 @@ def _raise_for_result_errors(messages: list[str]) -> None:
         raise ValueError("; ".join(errors))
 
 
+def _raise_if_selection_frozen(experiment_dir: Path) -> None:
+    state_path = experiment_dir / "loop_state.json"
+    if not state_path.exists():
+        return
+    state = load_json(state_path)
+    if not isinstance(state, dict) or not (
+        state.get("selection_frozen") or state.get("final_holdout_accessed")
+    ):
+        return
+    frozen_ids = state.get("frozen_candidate_ids") or []
+    frozen_text = ", ".join(str(candidate_id) for candidate_id in frozen_ids) or "n/a"
+    raise ValueError(
+        "Selection is frozen for this experiment; refusing to write results.json. "
+        f"Frozen candidates: {frozen_text}. Use the guarded final-holdout path for "
+        "test scoring or unfreeze explicitly before more validation search."
+    )
+
+
 def save_candidate_result(
     experiment_dir: Path,
     candidate_id: str,
@@ -78,6 +96,7 @@ def save_candidate_result(
     if candidate_id not in candidate_runners:
         known = ", ".join(sorted(candidate_runners)) or "none"
         raise ValueError(f"Unknown candidate '{candidate_id}'. Available: {known}")
+    _raise_if_selection_frozen(experiment_dir)
 
     results_path = experiment_dir / "results.json"
     _load_existing_results(results_path)

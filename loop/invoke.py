@@ -71,6 +71,14 @@ BUILTIN_RUNNER_COMMANDS = {
     name: list(preset.command) for name, preset in BUILTIN_RUNNER_PRESETS.items()
 }
 
+RUNNER_MODEL_ALIASES = {
+    "claude": {
+        # The local Claude CLI accepts this stable family alias while some
+        # fully-qualified Opus ids can lag behind or return model_not_found.
+        "claude-opus-4-8-high": "opus",
+    }
+}
+
 
 @dataclass(frozen=True)
 class RunnerConfig:
@@ -80,6 +88,7 @@ class RunnerConfig:
     command: list[str]
     timeout_seconds: int = RUNNER_TIMEOUT
     model: str | None = None
+    resolved_model: str | None = None
     effort: str | None = None
 
     @property
@@ -120,20 +129,31 @@ def runner_config_from_args(
         command = list(preset.command)
         name = runner
         runner_model = runner_model or preset.default_model
+        resolved_runner_model = resolve_runner_model(runner, runner_model)
         _append_builtin_runner_options(
             runner=runner,
             command=command,
-            runner_model=runner_model,
+            runner_model=resolved_runner_model,
             runner_effort=runner_effort,
         )
+    if runner_command:
+        resolved_runner_model = _arg_after(command, "--model")
 
     return RunnerConfig(
         name=name,
         command=command,
         timeout_seconds=runner_timeout,
         model=runner_model or _arg_after(command, "--model"),
+        resolved_model=resolved_runner_model,
         effort=runner_effort or _arg_after(command, "--effort"),
     )
+
+
+def resolve_runner_model(runner: str, requested_model: str | None) -> str | None:
+    """Return the model id to pass to a runner CLI."""
+    if requested_model is None:
+        return None
+    return RUNNER_MODEL_ALIASES.get(runner, {}).get(requested_model, requested_model)
 
 
 def add_runner_arguments(parser: argparse.ArgumentParser) -> None:

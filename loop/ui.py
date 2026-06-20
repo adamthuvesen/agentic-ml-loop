@@ -83,6 +83,11 @@ def format_runner_label(state: dict[str, Any]) -> str:
     runner_label = str(state.get("runner_name") or "unknown")
     if state.get("runner_model"):
         runner_label = f"{runner_label} ({state['runner_model']}"
+        if (
+            state.get("runner_resolved_model")
+            and state["runner_resolved_model"] != state["runner_model"]
+        ):
+            runner_label = f"{runner_label} -> {state['runner_resolved_model']}"
         if state.get("runner_effort"):
             runner_label = f"{runner_label}, effort={state['runner_effort']}"
         runner_label = f"{runner_label})"

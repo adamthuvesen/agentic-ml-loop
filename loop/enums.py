@@ -56,6 +56,7 @@ class StopReason(StrEnum):
     MAX_CYCLES_REACHED = "max_cycles_reached"
     MAX_HOURS_REACHED = "max_hours_reached"
     EXPERIMENT_COMPLETE = "experiment_complete"
+    FINAL_HOLDOUT_ACCESSED = "final_holdout_accessed"
     SLICE_STALL = "slice_stall"
     TOO_MANY_FAILED_CYCLES = "too_many_failed_cycles"
     INTERRUPTED = "interrupted"

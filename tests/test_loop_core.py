@@ -12,6 +12,9 @@ from loop import (
     LOCK_PATH_NAME,
     DefaultCycleHooks,
     acquire_lock,
+    final_holdout_command,
+    freeze_command,
+    ledger_command,
     release_lock,
     resume_command,
 )
@@ -78,6 +81,19 @@ class TestShouldStopBudgetMode:
         assert should_end
         assert reason == "slice_stall"
 
+    def test_final_holdout_access_stops_even_in_run_until_limit(self) -> None:
+        should_end, reason, _ = should_stop(
+            self._minimal_state(
+                last_cycle_result="complete",
+                cycle_count=3,
+                max_cycles=10,
+                enforce_budget_until_limit=True,
+                final_holdout_accessed=True,
+            )
+        )
+        assert should_end
+        assert reason == "final_holdout_accessed"
+
     def test_default_mode_stops_on_experiment_complete(self) -> None:
         should_end, reason, _ = should_stop(
             self._minimal_state(
@@ -131,6 +147,17 @@ class TestBuildParser:
 
         assert args.max_cycles == 2
         assert args.max_hours == 0.5
+
+    def test_exposes_freeze_final_holdout_and_ledger_subcommands(self) -> None:
+        parser = cli_parser()
+
+        freeze = parser.parse_args(["freeze", "experiments/demo", "--candidate", "candidate-a"])
+        holdout = parser.parse_args(["final-holdout", "experiments/demo"])
+        ledger = parser.parse_args(["ledger", "experiments/demo"])
+
+        assert freeze.command == "freeze"
+        assert holdout.command == "final-holdout"
+        assert ledger.command == "ledger"
 
 
 class TestResumeCommand:
@@ -322,6 +349,126 @@ class TestResumeCommand:
 
         assert exit_code == 0
         assert captured_state.get("last_cycle_result") is None
+
+
+class TestFreezeAndFinalHoldoutCommands:
+    def _write_state(self, experiment_dir: Path, **overrides: object) -> None:
+        state = {
+            "experiment_id": experiment_dir.name,
+            "status": "completed",
+            "cycle_count": 3,
+            "consecutive_no_progress_cycles": 0,
+            "consecutive_failed_cycles": 0,
+            "last_successful_cycle_id": "0003",
+            "last_cycle_result": "complete",
+            "max_cycles": 10,
+            "max_hours": None,
+            "started_at": "2025-01-01T00:00:00+00:00",
+            "updated_at": "2025-01-01T00:00:30+00:00",
+            "stop_reason": "experiment_complete",
+        }
+        state.update(overrides)
+        (experiment_dir / "loop_state.json").write_text(json.dumps(state) + "\n")
+
+    def test_freeze_records_frozen_candidates(self, tmp_path: Path) -> None:
+        d = _make_experiment(
+            tmp_path,
+            results=[{"candidate_id": "candidate-a", "objective_score": 0.7}],
+        )
+        self._write_state(d)
+
+        args = argparse.Namespace(
+            experiment_path=str(d),
+            candidate=["candidate-a"],
+            reason="validation winner",
+            force=False,
+        )
+
+        assert freeze_command(args) == 0
+        state = json.loads((d / "loop_state.json").read_text())
+        assert state["selection_frozen"] is True
+        assert state["frozen_candidate_ids"] == ["candidate-a"]
+        assert state["frozen_at_cycle"] == "0003"
+        assert state["freeze_reason"] == "validation winner"
+
+    def test_final_holdout_writes_separate_artifact_and_preserves_results(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        d = _make_experiment(
+            tmp_path,
+            results=[{"candidate_id": "candidate-a", "objective_score": 0.7}],
+        )
+        self._write_state(
+            d,
+            selection_frozen=True,
+            frozen_candidate_ids=["candidate-a"],
+            frozen_at_cycle="0003",
+            freeze_reason="validation winner",
+            final_holdout_accessed=False,
+        )
+        before_results = (d / "results.json").read_text()
+        args = argparse.Namespace(experiment_path=str(d), candidate=None, force=False)
+        final_payload = [
+            {
+                "candidate_id": "candidate-a",
+                "objective_score": 0.7,
+                "metrics": {
+                    "validation": {"score": 0.7},
+                    "test": {"score": 0.65},
+                },
+                "hyperparameters": {"final_holdout_included": True},
+            }
+        ]
+
+        with patch("loop.core.run_final_holdout_candidates", return_value=final_payload):
+            assert final_holdout_command(args) == 0
+
+        assert (d / "results.json").read_text() == before_results
+        artifact = json.loads((d / "outputs" / "final_holdout.json").read_text())
+        assert artifact["scored_candidate_ids"] == ["candidate-a"]
+        assert artifact["candidates"] == final_payload
+        state = json.loads((d / "loop_state.json").read_text())
+        assert state["final_holdout_accessed"] is True
+        assert state["stop_reason"] == "final_holdout_accessed"
+        assert state["final_holdout_path"].endswith("outputs/final_holdout.json")
+
+
+class TestLedgerCommand:
+    def test_ledger_rebuild_is_deterministic(self, tmp_path: Path) -> None:
+        d = _make_experiment(tmp_path)
+        cycle_dir = d / "cycles" / "0001"
+        cycle_dir.mkdir(parents=True)
+        summary = {
+            "cycle_id": "0001",
+            "started_at": "2025-01-01T00:00:00+00:00",
+            "completed_at": "2025-01-01T00:00:02+00:00",
+            "result": "progress",
+            "completion_marker": "CYCLE_DONE",
+            "progress_reasons": ["new_candidates:candidate-a"],
+            "attempts": [{"attempt": 1}],
+            "before_snapshot": {"results_by_id": {}},
+            "after_snapshot": {
+                "results_by_id": {
+                    "candidate-a": {
+                        "candidate_id": "candidate-a",
+                        "objective_score": 0.7,
+                        "hyperparameters": {"runtime_seconds": 1.25, "cost_usd": 0.0},
+                    }
+                }
+            },
+        }
+        (cycle_dir / "cycle_summary.json").write_text(json.dumps(summary) + "\n")
+
+        args = argparse.Namespace(experiment_path=str(d))
+        assert ledger_command(args) == 0
+        first = (d / "outputs" / "cycle_metrics.csv").read_text()
+        assert ledger_command(args) == 0
+        second = (d / "outputs" / "cycle_metrics.csv").read_text()
+
+        assert first == second
+        assert "candidate-a" in first
+        assert "1.25" in first
 
 
 class TestRunLoopHooks:
