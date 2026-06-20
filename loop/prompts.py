@@ -310,6 +310,15 @@ def _assemble_cycle_prompt(
     results = results_snapshot(experiment_dir)
     last_journal = read_last_journal_entries(experiment_dir, n=journal_n)
     journal_cycles = count_journal_cycles(experiment_dir)
+    loop_state: dict[str, object] = {}
+    _state_path = experiment_dir / STATE_PATH_NAME
+    if _state_path.exists():
+        try:
+            loaded_state = load_json(_state_path)
+            if isinstance(loaded_state, dict):
+                loop_state = loaded_state
+        except json.JSONDecodeError:
+            pass
 
     # ---- Static sections (identical across cycles for the same experiment) ----
     static_sections: list[str] = []
@@ -412,6 +421,37 @@ def _assemble_cycle_prompt(
             )
         )
 
+    if loop_state.get("selection_frozen"):
+        frozen_ids = loop_state.get("frozen_candidate_ids") or []
+        if not isinstance(frozen_ids, list):
+            frozen_ids = []
+        dynamic_sections.append(
+            "\n".join(
+                [
+                    "## Selection Frozen",
+                    "",
+                    "Validation-time model selection is locked. Do not add, change, "
+                    "or select new candidates in `results.json`.",
+                    f"Frozen candidates: `{', '.join(str(x) for x in frozen_ids) or 'n/a'}`.",
+                    "Allowed work is limited to validation-only diagnostics, final reporting, "
+                    "or the guarded final-holdout command outside the normal cycle loop.",
+                ]
+            )
+        )
+
+    if loop_state.get("final_holdout_accessed"):
+        dynamic_sections.append(
+            "\n".join(
+                [
+                    "## Final Holdout Accessed",
+                    "",
+                    "The locked test/holdout has already been scored. Do not run any "
+                    "new model-search cycle, feature search, hyperparameter search, or "
+                    "candidate selection using these results.",
+                ]
+            )
+        )
+
     # Where you left off + results + recent journal
     briefing_lines = [
         "## Where You Left Off",
@@ -435,13 +475,8 @@ def _assemble_cycle_prompt(
 
     # Stall nudge
     consecutive_no_progress = 0
-    _state_path = experiment_dir / STATE_PATH_NAME
-    if _state_path.exists():
-        try:
-            st = load_json(_state_path)
-            consecutive_no_progress = st.get("consecutive_no_progress_cycles", 0)
-        except json.JSONDecodeError:
-            pass
+    if isinstance(loop_state.get("consecutive_no_progress_cycles"), int):
+        consecutive_no_progress = int(loop_state["consecutive_no_progress_cycles"])
     if consecutive_no_progress >= 2:
         dynamic_sections.append(STALL_RESEARCH_NUDGE.format(no_progress=consecutive_no_progress))
 

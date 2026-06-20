@@ -90,6 +90,8 @@ def run_cycle_attempt(
             "agent_message_path": str(agent_message_path.resolve()),
             "runner_name": runner_config.name,
             "runner_command": runner_config.command,
+            "runner_model": runner_config.model,
+            "runner_resolved_model": runner_config.resolved_model,
             "timeout_seconds": runner_config.timeout_seconds,
         },
     )

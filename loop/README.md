@@ -8,6 +8,9 @@ Supervisor that runs **repeatable cycles** on an experiment: each cycle builds a
 2. **`resume`** — loads `loop_state.json` and continues until limits or completion.
 3. Each **cycle** (`run_cycle` in `core.py`): capture baselines via **`artifacts.py`** → build prompt in **`prompts.py`** → per-attempt **`cycle_attempt.py`** (invoke + **`contracts.py`**) → progress via **`hooks.py`** → retry up to **`DEFAULT_MAX_ATTEMPTS_PER_CYCLE`**.
 4. **Stop** via **`stop_policy.py`**: `max_cycles`, `max_hours`, **`EXPERIMENT_COMPLETE`** (unless `--run-until-limit`), stall/failure caps, or Ctrl+C.
+   Final-holdout access is stronger than budget mode: once
+   `final_holdout_accessed=true`, the supervisor stops instead of prompting for
+   another search cycle.
 
 State and human-readable status live under the experiment directory: **`loop_state.json`**, **`status.md`**, plus the lock file.
 
@@ -37,9 +40,16 @@ uv run python -m loop start experiments/<experiment_id> --max-cycles 5 --max-hou
 uv run python -m loop start experiments/<experiment_id> --max-cycles 10 --run-until-limit
 uv run python -m loop resume experiments/<experiment_id>
 uv run python -m loop status experiments/<experiment_id>
+uv run python -m loop freeze experiments/<experiment_id> --candidate <candidate-id>
+uv run python -m loop final-holdout experiments/<experiment_id>
+uv run python -m loop ledger experiments/<experiment_id>
 ```
 
 Use **`resume`** if `loop_state.json` already exists; **`start`** is for a new run only.
+Use **`freeze`** to lock validation-time selection before final test access.
+Use **`final-holdout`** to score only frozen external-target candidates and write
+`outputs/final_holdout.json` without touching `results.json`. Use **`ledger`**
+to rebuild `outputs/cycle_metrics.csv` from cycle summaries.
 
 ## Contract with the runner
 

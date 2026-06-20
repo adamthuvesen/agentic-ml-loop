@@ -71,6 +71,26 @@ class TestStatusMarkdown:
         status = (d / "status.md").read_text()
         assert "claude (claude-opus-4-7[1m], effort=xhigh)" in status
 
+    def test_includes_requested_and_resolved_runner_model(self, tmp_path: Path) -> None:
+        d = _make_experiment(tmp_path)
+        state = {
+            "status": "idle",
+            "cycle_count": 0,
+            "last_successful_cycle_id": None,
+            "started_at": "2025-01-01T00:00:00+00:00",
+            "updated_at": "2025-01-01T00:00:30+00:00",
+            "runner_name": "claude",
+            "runner_model": "claude-opus-4-8-high",
+            "runner_resolved_model": "opus",
+            "runner_effort": "xhigh",
+            "stop_reason": None,
+        }
+
+        write_status_markdown(d, state)
+
+        status = (d / "status.md").read_text()
+        assert "claude (claude-opus-4-8-high -> opus, effort=xhigh)" in status
+
     def test_includes_active_attempt_details(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path, results=[{"candidate_id": "a", "objective_score": 0.5}])
         state = {

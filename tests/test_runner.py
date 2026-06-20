@@ -159,3 +159,33 @@ def test_save_candidate_result_replaces_existing_candidate_result(
         "candidate-a",
     ]
     assert results[1]["objective_score"] == 0.7
+
+
+def test_save_candidate_result_rejects_writes_after_selection_freeze(tmp_path: Path) -> None:
+    exp_dir = tmp_path / "exp"
+    exp_dir.mkdir()
+    (exp_dir / "results.json").write_text(
+        '[{"candidate_id": "candidate-a", "objective_score": 0.6}]\n'
+    )
+    (exp_dir / "loop_state.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": "exp",
+                "status": "completed",
+                "selection_frozen": True,
+                "frozen_candidate_ids": ["candidate-a"],
+            }
+        )
+        + "\n"
+    )
+
+    with pytest.raises(ValueError, match="Selection is frozen"):
+        save_candidate_result(
+            exp_dir,
+            "candidate-a",
+            lambda: object(),
+            {"candidate-a": _candidate_runner},
+        )
+
+    results = json.loads((exp_dir / "results.json").read_text())
+    assert results == [{"candidate_id": "candidate-a", "objective_score": 0.6}]

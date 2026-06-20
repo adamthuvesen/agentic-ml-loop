@@ -74,7 +74,7 @@ uv run python -m loop start experiments/demo_bootstrap --runner-command "claude 
 
 | Runner | Default command |
 | --- | --- |
-| Claude | `claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model claude-opus-4-8-high` |
+| Claude | `claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model opus` (`claude-opus-4-8-high` is recorded as the requested model) |
 | Codex | `codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high` |
 | Cursor | `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5` |
 
@@ -83,6 +83,9 @@ uv run python -m loop start experiments/demo_bootstrap --runner-command "claude 
 pick a model id that encodes it. Environment defaults: `AGENTIC_ML_LOOP_RUNNER`,
 `AGENTIC_ML_LOOP_RUNNER_COMMAND`, `AGENTIC_ML_LOOP_RUNNER_MODEL`,
 `AGENTIC_ML_LOOP_RUNNER_EFFORT`, `AGENTIC_ML_LOOP_RUNNER_TIMEOUT` (seconds).
+Built-in runners record the requested model and the resolved CLI model
+separately; this lets the Claude preset keep the intended Opus model while using
+the local CLI's accepted `opus` alias.
 
 Troubleshooting: presets shell out to `claude`, `codex`, or `cursor-agent`,
 which must be on `PATH`. Otherwise pass an absolute path via `--runner-command`
@@ -143,6 +146,34 @@ materialize local CSVs, which git ignores.
 
 `loop status` needs an initialized loop state; before a loop run it reports
 `No loop state found`.
+
+## Selection freeze and final holdout
+
+For experiments with a locked test/holdout split, freeze model selection before
+test access:
+
+```bash
+uv run python -m loop freeze experiments/<id> --candidate <validation-winner> \
+  --reason "validation winner"
+uv run python -m loop final-holdout experiments/<id>
+uv run python -m loop ledger experiments/<id>
+```
+
+`freeze` records the validation-selected candidate ids in `loop_state.json`.
+After freeze, shared candidate runners refuse normal `results.json` writes.
+`final-holdout` is only available after freeze; it writes test metrics to
+`outputs/final_holdout.json`, marks `final_holdout_accessed=true`, and the loop
+will not continue even under `--run-until-limit`. `ledger` rebuilds
+`outputs/cycle_metrics.csv` deterministically from `cycles/*/cycle_summary.json`.
+
+External targets that depend on private or gitignored snapshots should add a
+small committed fixture manifest based on
+[`experiments/templates/external-target-fixture-contract.json`](experiments/templates/external-target-fixture-contract.json).
+Validate a manifest with:
+
+```bash
+uv run python -m lib.external_targets.fixtures path/to/fixture-contract.json
+```
 
 ## Portable notebooks
 

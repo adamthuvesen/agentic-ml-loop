@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "fixture_id": "target-name-small-v1",
+  "target_repo": "target-name",
+  "description": "Small committed no-secret fixture for external-target smoke tests.",
+  "split_policy": "Describe train/validation/final-holdout split policy here.",
+  "data_files": [
+    {
+      "path": "fixtures/target-name-small.csv",
+      "rows": 10,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "expected_metrics": [
+    {
+      "candidate_id": "baseline",
+      "split": "validation",
+      "metric": "primary_validation_metric",
+      "value": 0.0,
+      "tolerance": 0.0
+    }
+  ],
+  "leakage_negative_tests": [
+    {
+      "name": "target_column_rejected",
+      "forbidden_columns": ["target"]
+    }
+  ]
+}

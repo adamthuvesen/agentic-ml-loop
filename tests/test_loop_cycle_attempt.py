@@ -110,4 +110,6 @@ def test_runner_config_is_written_to_attempt_metadata(tmp_path: Path) -> None:
     meta = json.loads(attempt_meta.read_text())
     assert meta["runner_name"] == "codex"
     assert meta["runner_command"] == ["codex", "exec", "--model", "gpt-5"]
+    assert meta["runner_model"] == "gpt-5"
+    assert meta["runner_resolved_model"] is None
     assert meta["timeout_seconds"] == 42

@@ -46,10 +46,23 @@ def status_markdown(
         lines.append(f"- {scorecard_line}")
     if state.stop_reason:
         lines.append(f"- Stop reason: `{state.stop_reason}`")
+    if state.selection_frozen:
+        frozen_ids = ", ".join(state.frozen_candidate_ids or []) or "n/a"
+        lines.append(f"- Selection frozen: `{frozen_ids}`")
+        if state.frozen_at_cycle:
+            lines.append(f"- Frozen at cycle: `{state.frozen_at_cycle}`")
+        if state.freeze_reason:
+            lines.append(f"- Freeze reason: {state.freeze_reason}")
+    if state.final_holdout_accessed:
+        lines.append("- Final holdout: `accessed`")
+        if state.final_holdout_at:
+            lines.append(f"- Final holdout at: `{state.final_holdout_at}`")
+        if state.final_holdout_path:
+            lines.append(f"- Final holdout artifact: `{state.final_holdout_path}`")
     if state.enforce_budget_until_limit:
         lines.append(
             "- Budget mode: `run until limit` — ignores EXPERIMENT_COMPLETE until "
-            "max cycles or max hours is reached"
+            "max cycles or max hours is reached, but still stops after final holdout access"
         )
     if state.status == "running" and not has_active_lock:
         lines.append(

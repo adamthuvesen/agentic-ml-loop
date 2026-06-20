@@ -18,6 +18,7 @@ class LoopState:
     status: LoopStatus
     runner_name: str
     runner_model: str | None
+    runner_resolved_model: str | None
     runner_effort: str | None
     runner_command: list[str]
     runner_timeout_seconds: int
@@ -32,6 +33,13 @@ class LoopState:
     started_at: str
     updated_at: str
     stop_reason: StopReason | None
+    selection_frozen: bool = False
+    frozen_at_cycle: str | None = None
+    frozen_candidate_ids: list[str] | None = None
+    freeze_reason: str | None = None
+    final_holdout_accessed: bool = False
+    final_holdout_at: str | None = None
+    final_holdout_path: str | None = None
     active_cycle_id: str | None = None
     active_started_at: str | None = None
     active_objective: str | None = None
@@ -54,6 +62,7 @@ class LoopState:
             status=LoopStatus(data.get("status", LoopStatus.IDLE)),
             runner_name=runner_name,
             runner_model=data.get("runner_model"),
+            runner_resolved_model=data.get("runner_resolved_model") or data.get("runner_model"),
             runner_effort=data.get("runner_effort"),
             runner_command=[str(part) for part in runner_command],
             runner_timeout_seconds=int(data.get("runner_timeout_seconds", 1800)),
@@ -70,6 +79,17 @@ class LoopState:
             started_at=str(data.get("started_at", "")),
             updated_at=str(data.get("updated_at", "")),
             stop_reason=StopReason(stop_reason) if stop_reason is not None else None,
+            selection_frozen=bool(data.get("selection_frozen", False)),
+            frozen_at_cycle=data.get("frozen_at_cycle"),
+            frozen_candidate_ids=(
+                [str(candidate_id) for candidate_id in data["frozen_candidate_ids"]]
+                if isinstance(data.get("frozen_candidate_ids"), list)
+                else None
+            ),
+            freeze_reason=data.get("freeze_reason"),
+            final_holdout_accessed=bool(data.get("final_holdout_accessed", False)),
+            final_holdout_at=data.get("final_holdout_at"),
+            final_holdout_path=data.get("final_holdout_path"),
             active_cycle_id=data.get("active_cycle_id"),
             active_started_at=data.get("active_started_at"),
             active_objective=data.get("active_objective"),

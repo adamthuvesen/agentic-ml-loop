@@ -92,7 +92,7 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
                 "--permission-mode",
                 "bypassPermissions",
                 "--model",
-                "claude-opus-4-8-high",
+                "opus",
             ],
         ),
         (
@@ -135,6 +135,7 @@ def test_runner_config_from_args_appends_model_for_builtin_runners(runner: str) 
     config = runner_config_from_args(runner=runner, runner_model="test-model")
 
     assert config.model == "test-model"
+    assert config.resolved_model == "test-model"
     assert config.command[-2:] == ["--model", "test-model"]
 
 
@@ -142,8 +143,28 @@ def test_runner_config_from_args_appends_effort_for_claude() -> None:
     config = runner_config_from_args(runner="claude", runner_effort="high")
 
     assert config.model == "claude-opus-4-8-high"
+    assert config.resolved_model == "opus"
     assert config.effort == "high"
     assert config.command[-2:] == ["--effort", "high"]
+
+
+def test_runner_config_records_requested_and_resolved_claude_model_alias() -> None:
+    config = runner_config_from_args(
+        runner="claude",
+        runner_model="claude-opus-4-8-high",
+    )
+
+    assert config.model == "claude-opus-4-8-high"
+    assert config.resolved_model == "opus"
+    assert config.command[-2:] == ["--model", "opus"]
+
+
+def test_runner_config_leaves_claude_opus_alias_unchanged() -> None:
+    config = runner_config_from_args(runner="claude", runner_model="opus")
+
+    assert config.model == "opus"
+    assert config.resolved_model == "opus"
+    assert config.command[-2:] == ["--model", "opus"]
 
 
 def test_runner_config_from_args_passes_effort_to_codex_config() -> None:
@@ -169,6 +190,7 @@ def test_runner_config_from_args_uses_custom_command() -> None:
     assert config.name == "codex"
     assert config.command == ["codex", "exec", "--model", "gpt-5"]
     assert config.model == "gpt-5"
+    assert config.resolved_model == "gpt-5"
     assert config.timeout_seconds == 42
 
 

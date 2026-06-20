@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from experiment import journal_path
+from lib.external_targets.final_holdout import run_final_holdout_candidates
 from lib.io import load_json, read_text, utc_now, write_json, write_text
 
 from .artifacts import (
@@ -43,6 +44,7 @@ from .invoke import (
     default_runner_config,
     runner_config_from_args,
 )
+from .ledger import refresh_cycle_metrics
 from .loop_state import LoopState, load_state, write_state_file
 from .prompts import latest_hypothesis
 from .status import status_markdown
@@ -198,6 +200,7 @@ def initial_state(
         status=LoopStatus.IDLE,
         runner_name=runner_config.name,
         runner_model=runner_config.model,
+        runner_resolved_model=runner_config.resolved_model,
         runner_effort=runner_config.effort,
         runner_command=runner_config.command,
         runner_timeout_seconds=runner_config.timeout_seconds,
@@ -332,6 +335,7 @@ def run_cycle(
                         command=state.runner_command,
                         timeout_seconds=state.runner_timeout_seconds,
                         model=state.runner_model,
+                        resolved_model=state.runner_resolved_model,
                         effort=state.runner_effort,
                     ),
                 )
@@ -456,6 +460,7 @@ def run_loop(
             summary = run_cycle(experiment_dir, state, hooks=hooks)
             apply_cycle_result(state, summary)
             write_state(experiment_dir, state)
+            refresh_cycle_metrics(experiment_dir)
             emit_cycle_result(experiment_dir, summary)
 
     except KeyboardInterrupt:
@@ -506,6 +511,38 @@ def cli_parser() -> argparse.ArgumentParser:
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("experiment_path")
 
+    freeze_parser = subparsers.add_parser(
+        "freeze",
+        help="Freeze validation-time candidate selection before final holdout.",
+    )
+    freeze_parser.add_argument("experiment_path")
+    freeze_parser.add_argument(
+        "--candidate",
+        action="append",
+        required=True,
+        help="Candidate id to freeze. Repeat for multiple final candidates.",
+    )
+    freeze_parser.add_argument("--reason", default="manual selection freeze")
+    freeze_parser.add_argument("--force", action="store_true")
+
+    holdout_parser = subparsers.add_parser(
+        "final-holdout",
+        help="Run guarded final holdout for frozen external-target candidates.",
+    )
+    holdout_parser.add_argument("experiment_path")
+    holdout_parser.add_argument(
+        "--candidate",
+        action="append",
+        help="Frozen candidate id to score. Defaults to all frozen candidates.",
+    )
+    holdout_parser.add_argument("--force", action="store_true")
+
+    ledger_parser = subparsers.add_parser(
+        "ledger",
+        help="Rebuild outputs/cycle_metrics.csv from cycle summaries.",
+    )
+    ledger_parser.add_argument("experiment_path")
+
     bench_parser = subparsers.add_parser(
         "bench",
         help="Run one experiment spec across multiple runners and compare research quality.",
@@ -548,6 +585,145 @@ def bench_command(args: argparse.Namespace) -> int:
         timestamp=timestamp,
     )
     print(read_text(bench_dir / "comparison.md"))
+    return 0
+
+
+def _load_state_for_command(experiment_dir: Path) -> LoopState:
+    state_path = experiment_dir / STATE_PATH_NAME
+    if not state_path.exists():
+        raise FileNotFoundError(f"No loop state found for {experiment_dir}. Use 'start' first.")
+    return load_state(experiment_dir)
+
+
+def _results_candidate_ids(experiment_dir: Path) -> set[str]:
+    results_path = experiment_dir / "results.json"
+    if not results_path.exists():
+        return set()
+    results = load_json(results_path)
+    if not isinstance(results, list):
+        raise ValueError(f"{results_path} must contain a JSON list")
+    return {
+        str(item["candidate_id"])
+        for item in results
+        if isinstance(item, dict) and isinstance(item.get("candidate_id"), str)
+    }
+
+
+def freeze_command(args: argparse.Namespace) -> int:
+    """Freeze validation-time model selection before final-holdout scoring."""
+    experiment_dir = Path(args.experiment_path).resolve()
+    require_experiment_directory(experiment_dir)
+    candidate_ids = [str(candidate_id) for candidate_id in args.candidate]
+
+    try:
+        state = _load_state_for_command(experiment_dir)
+        known_candidate_ids = _results_candidate_ids(experiment_dir)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if state.final_holdout_accessed:
+        print(
+            "error: final holdout has already been accessed; freeze cannot change", file=sys.stderr
+        )
+        return 1
+    if state.selection_frozen and not args.force:
+        print("error: selection is already frozen; pass --force to replace it", file=sys.stderr)
+        return 1
+
+    missing = sorted(set(candidate_ids) - known_candidate_ids)
+    if missing:
+        print(
+            "error: cannot freeze candidates absent from results.json: " + ", ".join(missing),
+            file=sys.stderr,
+        )
+        return 1
+
+    lock_path = acquire_lock(experiment_dir)
+    try:
+        state.selection_frozen = True
+        state.frozen_at_cycle = state.last_successful_cycle_id
+        state.frozen_candidate_ids = candidate_ids
+        state.freeze_reason = str(args.reason)
+        write_state(experiment_dir, state)
+    finally:
+        release_lock(lock_path)
+
+    print(f"Selection frozen for {experiment_dir.name}: {', '.join(candidate_ids)}")
+    return 0
+
+
+def final_holdout_command(args: argparse.Namespace) -> int:
+    """Run final-holdout scoring for frozen external-target candidates."""
+    experiment_dir = Path(args.experiment_path).resolve()
+    require_experiment_directory(experiment_dir)
+    output_path = experiment_dir / "outputs" / "final_holdout.json"
+
+    try:
+        state = _load_state_for_command(experiment_dir)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if not state.selection_frozen:
+        print("error: selection must be frozen before final holdout", file=sys.stderr)
+        return 1
+    frozen_ids = state.frozen_candidate_ids or []
+    candidate_ids = [str(candidate_id) for candidate_id in (args.candidate or frozen_ids)]
+    if not candidate_ids:
+        print("error: no frozen candidates available for final holdout", file=sys.stderr)
+        return 1
+    unknown = sorted(set(candidate_ids) - set(frozen_ids))
+    if unknown:
+        print(
+            "error: final holdout candidates must be frozen first: " + ", ".join(unknown),
+            file=sys.stderr,
+        )
+        return 1
+    if (state.final_holdout_accessed or output_path.exists()) and not args.force:
+        print(
+            "error: final holdout already exists; pass --force to rerun frozen candidates",
+            file=sys.stderr,
+        )
+        return 1
+
+    lock_path = acquire_lock(experiment_dir)
+    try:
+        generated_at = utc_now()
+        try:
+            candidate_payloads = run_final_holdout_candidates(experiment_dir, candidate_ids)
+        except Exception as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        payload = {
+            "schema_version": 1,
+            "experiment_id": experiment_dir.name,
+            "generated_at": generated_at,
+            "frozen_at_cycle": state.frozen_at_cycle,
+            "frozen_candidate_ids": frozen_ids,
+            "scored_candidate_ids": candidate_ids,
+            "candidates": candidate_payloads,
+        }
+        write_json(output_path, payload)
+        state.final_holdout_accessed = True
+        state.final_holdout_at = generated_at
+        state.final_holdout_path = str(output_path.resolve())
+        state.status = LoopStatus.COMPLETED
+        state.stop_reason = StopReason.FINAL_HOLDOUT_ACCESSED
+        write_state(experiment_dir, state)
+    finally:
+        release_lock(lock_path)
+
+    print(f"Final holdout written to {output_path}")
+    return 0
+
+
+def ledger_command(args: argparse.Namespace) -> int:
+    """Rebuild the automatic cycle metrics ledger."""
+    experiment_dir = Path(args.experiment_path).resolve()
+    require_experiment_directory(experiment_dir)
+    output_path = refresh_cycle_metrics(experiment_dir)
+    print(f"Cycle metrics written to {output_path}")
     return 0
 
 
@@ -624,6 +800,7 @@ def resume_command(args: argparse.Namespace) -> int:
     runner_config = _runner_config_from_args(args)
     state.runner_name = runner_config.name
     state.runner_model = runner_config.model
+    state.runner_resolved_model = runner_config.resolved_model
     state.runner_effort = runner_config.effort
     state.runner_command = runner_config.command
     state.runner_timeout_seconds = runner_config.timeout_seconds
@@ -640,7 +817,7 @@ def resume_command(args: argparse.Namespace) -> int:
             return 1
         state.enforce_budget_until_limit = True
 
-    if state.last_cycle_result == CycleResult.COMPLETE:
+    if state.last_cycle_result == CycleResult.COMPLETE and not state.final_holdout_accessed:
         cycle_budget_has_room = (
             state.max_cycles is not None and state.cycle_count < state.max_cycles
         )
@@ -668,6 +845,12 @@ def main() -> int:
         return resume_command(args)
     if args.command == "status":
         return print_status(Path(args.experiment_path).resolve())
+    if args.command == "freeze":
+        return freeze_command(args)
+    if args.command == "final-holdout":
+        return final_holdout_command(args)
+    if args.command == "ledger":
+        return ledger_command(args)
     if args.command == "bench":
         return bench_command(args)
     raise ValueError(f"Unknown command: {args.command}")
