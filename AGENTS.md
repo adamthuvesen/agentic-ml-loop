@@ -1,32 +1,62 @@
-# AGENTS.md
+# AGENTS.md — Agentic ML Loop
 
-## Repo Purpose
+`agentic-ml-loop` is a local, offline model-search harness for agent-driven ML
+experiments. The main unit of work is an experiment under `experiments/<experiment_id>/`.
 
-This repo is `agentic-ml-loop`, a local offline model-search harness for
-agent-driven ML experiments. The main unit of work is an experiment under
-`experiments/<experiment_id>/`.
+User-level guidance (tone, principles, git etiquette, code conduct) lives in
+`~/.claude/CLAUDE.md` and `~/dotfiles/agents/AGENTS.md` and is *not* duplicated
+here. This file is for project-specific facts.
 
-`AGENTS.md` is the canonical agent instruction file. `CLAUDE.md` should remain a
-symlink to `AGENTS.md`.
+## Layout
 
-## Core Files
+```
+experiment.py     Experiment validation + shared helpers
+program.md        Research principles + ML craft, read by each cycle
+guidelines.md     Operational rules injected into cycle prompts
+loop/             Long-running supervisor and runner invocation
+runners/          Demo runner entrypoints
+lib/              Shared modules (paths.py → outputs/work/scripts; io, eval, schemas)
+experiments/      One dir per experiment; <experiment_id>/ holds all its files
+.agents/skills/   Portable local skills for experiment setup and notebooks
+.agents/docs/     Subsystem docs — see Index
+```
 
-- `program.md` — research principles and ML craft guidance read by each cycle.
-- `guidelines.md` — operational rules injected into cycle prompts.
-- `experiment.py` — experiment validation and shared helpers.
-- `lib/paths.py` — helpers for `outputs/`, `work/`, and `scripts/`.
-- `loop/` — long-running supervisor and runner invocation.
-- `runners/` — demo runner entrypoints.
-- `.agents/skills/` — portable local skills for experiment setup and notebooks.
+## Quickstart
+
+```bash
+uv run python experiment.py validate experiments/<experiment_id>   # add --strict-completion to gate done
+uv run python -m loop start experiments/<experiment_id>            # also: resume, status; --max-cycles N
+uv run --extra models python runners/<experiment_id>_runner.py run-candidate --experiment experiments/<experiment_id> --candidate <id>
+uv run --extra models python runners/demo_bootstrap_runner.py init-demo --force
+
+# CI gate (all must pass):
+uv run ruff check . && uv run ruff format --check . && uv run --extra models --extra deep pytest
+```
+
+## Critical Conventions
+
+- **`CLAUDE.md` is a symlink to `AGENTS.md`.** `AGENTS.md` is the canonical agent
+  instruction file; never replace the symlink with a copy.
+- **`experiment.md` is a spec, not scratch.** Do not mutate
+  `experiments/<experiment_id>/experiment.md` unless the human explicitly asks for
+  a spec rewrite.
+- **New code lands per-experiment.** Write new scripts under
+  `experiments/<experiment_id>/scripts/`; keep long-lived modules in
+  `lib/<experiment_id>/`.
+- **Runner presets bypass all sandboxing** and run with full workspace
+  permissions — see [runners.md](.agents/docs/runners.md) before changing them.
+- **Never commit secrets, `.env`, generated notebooks, or local data.**
 
 ## Operating Principles
 
 - Optimize for reproducible offline evaluation.
 - Prefer clear baselines and trustworthy comparisons over tiny score chasing.
-- Respect the split policy and leakage constraints in `experiment.md`.
+- Respect the split policy and leakage constraints in
+  `experiments/<experiment_id>/experiment.md`.
 - One loop cycle should complete one bounded hypothesis test.
-- Read `research_journal.md`, `research_sources.md`, `experiment.md`, and
-  `results.json` before deciding what to do next.
+- Read `experiments/<experiment_id>/research_journal.md`,
+  `research_sources.md`, `experiment.md`, and `results.json` before deciding what
+  to do next.
 - Write the cycle hypothesis to `research_journal.md` before running code, then
   record the result and implications.
 
@@ -37,59 +67,18 @@ Each cycle must end with exactly one marker:
 - `<promise>CYCLE_DONE</promise>` — continue the experiment.
 - `<promise>EXPERIMENT_COMPLETE</promise>` — genuinely done.
 
-Do not mutate `experiment.md` unless the human explicitly asks for a spec
-rewrite. Write new scripts under `experiments/<experiment_id>/scripts/`; keep
-long-lived modules in `lib/<experiment_id>/`.
+## Read The Docs First
 
-## Commands
+Before editing a subsystem, read the matching doc:
 
-```bash
-uv run python experiment.py validate experiments/<experiment_id>
-uv run python experiment.py validate --strict-completion experiments/<experiment_id>
+- **Architecture / cycle anatomy** → [architecture.md](.agents/docs/architecture.md)
+- **Runner config / model aliases / effort flags** → [runners.md](.agents/docs/runners.md)
 
-uv run python -m loop start experiments/<experiment_id>
-uv run python -m loop start experiments/<experiment_id> --max-cycles 5
-uv run python -m loop resume experiments/<experiment_id>
-uv run python -m loop status experiments/<experiment_id>
+If a doc disagrees with code, fix the doc in the same change.
 
-uv run --extra models python runners/<experiment_id>_runner.py run-candidate --experiment experiments/<experiment_id> --candidate <candidate_id>
-uv run --extra models python runners/<experiment_id>_runner.py list-candidates
-uv run --extra models python runners/demo_bootstrap_runner.py init-demo --force
-```
+## Index
 
-## Runner Configuration
-
-The loop accepts `--runner claude`, `--runner codex`, `--runner cursor`, or a
-custom `--runner-command`. Runner defaults can also come from
-`AGENTIC_ML_LOOP_RUNNER`, `AGENTIC_ML_LOOP_RUNNER_COMMAND`,
-`AGENTIC_ML_LOOP_RUNNER_MODEL`, `AGENTIC_ML_LOOP_RUNNER_EFFORT`, and
-`AGENTIC_ML_LOOP_RUNNER_TIMEOUT`.
-
-Built-in commands run unattended with full workspace permissions:
-`claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model opus`,
-`codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high`,
-and `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5`.
-The Claude preset records `claude-opus-4-8-high` as the requested model and
-resolves it to the local CLI's accepted `opus` alias. `--runner-model` overrides
-those defaults. Claude receives effort through `--effort`; Codex receives effort
-through `-c model_reasoning_effort=<effort>`.
-Cursor does not expose a separate effort flag, so choose a Cursor model id that
-already encodes the desired effort.
-
-## Code Conduct
-
-- Use `pathlib.Path` over `os.path`.
-- Add Python type hints for new code.
-- Prefer explicit, human names.
-- Match neighboring style.
-- Keep changes scoped to the requested work.
-- Do not commit secrets, credentials, `.env`, generated notebooks, or local data.
-
-## Demos
-
-Before using the loop on real data, prove the setup against a bundled demo:
-
-- `experiments/demo_bootstrap/`
-- `experiments/demo_classification/`
-- `experiments/demo_regression/`
-- `experiments/demo_deep/` (requires `--extra deep`)
+Start in [architecture.md](.agents/docs/architecture.md). Before using the loop
+on real data, prove the setup against a bundled demo:
+`experiments/demo_bootstrap/`, `experiments/demo_classification/`,
+`experiments/demo_regression/`, `experiments/demo_deep/` (requires `--extra deep`).
