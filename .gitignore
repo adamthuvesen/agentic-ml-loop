@@ -44,7 +44,10 @@ experiments/**/*.csv
 experiments/**/*.parquet
 
 # Local-only agent configs
-.agents/
+# Ignore .agents/ contents (not the dir itself, so the negations below can recurse)
+.agents/*
+!.agents/docs/
+!.agents/skills/
 .cursor/
 .claude/scheduled_tasks.lock
 openspec/
