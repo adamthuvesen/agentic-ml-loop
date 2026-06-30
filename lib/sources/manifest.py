@@ -66,6 +66,17 @@ class DatasetManifest:
         return cls(**data)
 
 
+@dataclass(frozen=True)
+class DatasetManifestRequest:
+    table: pa.Table
+    source_type: str
+    driver: str
+    query: str
+    as_of: str | None
+    sample_seed: int | None
+    snapshot_filename: str = SNAPSHOT_FILENAME
+
+
 def schema_fingerprint(schema: pa.Schema) -> str:
     """A stable hash of field names + types (ignores schema metadata)."""
     parts = [f"{field.name}:{field.type}" for field in schema]
@@ -73,30 +84,76 @@ def schema_fingerprint(schema: pa.Schema) -> str:
 
 
 def dataset_manifest_from_table(
-    table: pa.Table,
-    *,
-    source_type: str,
-    driver: str,
-    query: str,
-    as_of: str | None,
-    sample_seed: int | None,
-    snapshot_filename: str = SNAPSHOT_FILENAME,
+    request: DatasetManifestRequest | Any | None = None, **legacy_kwargs: Any
 ) -> DatasetManifest:
     """Build a manifest from an extracted Arrow *table* (does not import pyarrow)."""
-    schema = table.schema
+    request = _coerce_dataset_manifest_request(request, legacy_kwargs)
+    schema = request.table.schema
     return DatasetManifest(
         manifest_version=MANIFEST_VERSION,
-        source_type=source_type,
-        driver=driver,
-        query=query,
-        as_of=as_of,
-        row_count=table.num_rows,
+        source_type=request.source_type,
+        driver=request.driver,
+        query=request.query,
+        as_of=request.as_of,
+        row_count=request.table.num_rows,
         column_count=len(schema),
         columns=[field.name for field in schema],
         schema_hash=schema_fingerprint(schema),
-        sample_seed=sample_seed,
-        snapshot_filename=snapshot_filename,
+        sample_seed=request.sample_seed,
+        snapshot_filename=request.snapshot_filename,
         pulled_at=utc_now(),
+    )
+
+
+def _coerce_dataset_manifest_request(
+    request: DatasetManifestRequest | Any | None,
+    legacy_kwargs: dict[str, Any],
+) -> DatasetManifestRequest:
+    if isinstance(request, DatasetManifestRequest):
+        if legacy_kwargs:
+            raise TypeError(
+                "dataset_manifest_from_table() received both a "
+                "DatasetManifestRequest and legacy keyword arguments"
+            )
+        return request
+
+    table = request if request is not None else legacy_kwargs.pop("table", None)
+    if table is None:
+        raise TypeError("dataset_manifest_from_table() missing required table")
+
+    allowed = {
+        "source_type",
+        "driver",
+        "query",
+        "as_of",
+        "sample_seed",
+        "snapshot_filename",
+    }
+    unknown = sorted(set(legacy_kwargs) - allowed)
+    if unknown:
+        raise TypeError(
+            "dataset_manifest_from_table() got unexpected keyword arguments: " + ", ".join(unknown)
+        )
+
+    missing = [
+        key
+        for key in ("source_type", "driver", "query", "as_of", "sample_seed")
+        if key not in legacy_kwargs
+    ]
+    if missing:
+        raise TypeError(
+            "dataset_manifest_from_table() missing required keyword arguments: "
+            + ", ".join(missing)
+        )
+
+    return DatasetManifestRequest(
+        table=table,
+        source_type=legacy_kwargs["source_type"],
+        driver=legacy_kwargs["driver"],
+        query=legacy_kwargs["query"],
+        as_of=legacy_kwargs["as_of"],
+        sample_seed=legacy_kwargs["sample_seed"],
+        snapshot_filename=legacy_kwargs.get("snapshot_filename", SNAPSHOT_FILENAME),
     )
 
 

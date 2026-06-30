@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from experiment import (
@@ -16,10 +16,11 @@ from experiment import (
 from lib.io import load_json
 from lib.learnings import cross_experiment_learnings_context
 from lib.signals import (
-    advisory_signals as collect_advisory_signals,
+    SignalOptions,
+    results_snapshot,
 )
 from lib.signals import (
-    results_snapshot,
+    advisory_signals as collect_advisory_signals,
 )
 
 from .constants import ROOT, STATE_PATH_NAME
@@ -135,39 +136,48 @@ class CyclePrompt:
         max_tokens: int,
     ) -> CyclePrompt:
         """Return a copy within *max_tokens* by dropping lower-priority dynamic content."""
-        steps: list[tuple[str, dict[str, object]]] = [
-            ("truncating journal entries to 1", {"journal_n": 1}),
-            ("truncating results to top 3", {"journal_n": 1, "top_n": 3}),
+        base_options = PromptOptions()
+        steps: list[tuple[str, PromptOptions]] = [
+            (
+                "truncating journal entries to 1",
+                replace(base_options, journal_n=1),
+            ),
+            (
+                "truncating results to top 3",
+                replace(base_options, journal_n=1, top_n=3),
+            ),
             (
                 "dropping advisory signals",
-                {"journal_n": 1, "top_n": 3, "include_advisory": False},
+                replace(base_options, journal_n=1, top_n=3, include_advisory=False),
             ),
             (
                 "dropping cross-experiment learnings",
-                {
-                    "journal_n": 1,
-                    "top_n": 3,
-                    "include_advisory": False,
-                    "include_cross_learnings": False,
-                },
+                replace(
+                    base_options,
+                    journal_n=1,
+                    top_n=3,
+                    include_advisory=False,
+                    include_cross_learnings=False,
+                ),
             ),
             (
                 "truncating guidelines excerpt",
-                {
-                    "journal_n": 1,
-                    "top_n": 3,
-                    "include_advisory": False,
-                    "include_cross_learnings": False,
-                    "guidelines_max_lines": 25,
-                },
+                replace(
+                    base_options,
+                    journal_n=1,
+                    top_n=3,
+                    include_advisory=False,
+                    include_cross_learnings=False,
+                    guidelines_max_lines=25,
+                ),
             ),
         ]
         current = self
         if current.estimated_tokens <= max_tokens:
             return current
-        for message, kwargs in steps:
+        for message, options in steps:
             print(f"WARNING: prompt over budget; {message}")
-            current = _assemble_cycle_prompt(experiment_dir, cycle_id, **kwargs)
+            current = _assemble_cycle_prompt(experiment_dir, cycle_id, options)
             if current.estimated_tokens <= max_tokens:
                 return current
         print("WARNING: prompt still exceeds budget after all dynamic truncation steps")
@@ -178,6 +188,25 @@ class CyclePrompt:
         """SHA-256 hex digest of the joined static sections."""
         text = "\n\n".join(s.strip() for s in self.static_sections if s.strip())
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class PromptOptions:
+    journal_n: int = 3
+    top_n: int = 5
+    include_advisory: bool = True
+    include_cross_learnings: bool = True
+    guidelines_max_lines: int | None = None
+
+
+@dataclass(frozen=True)
+class PromptContext:
+    experiment_dir: Path
+    cycle_id: str
+    results: list[dict[str, object]]
+    last_journal: str
+    journal_cycles: int
+    loop_state: dict[str, object]
 
 
 def load_guidelines() -> str:
@@ -296,163 +325,160 @@ def latest_hypothesis(experiment_dir: Path) -> str:
     return ""
 
 
-def _assemble_cycle_prompt(
-    experiment_dir: Path,
-    cycle_id: str,
-    *,
-    journal_n: int = 3,
-    top_n: int = 5,
-    include_advisory: bool = True,
-    include_cross_learnings: bool = True,
-    guidelines_max_lines: int | None = None,
-) -> CyclePrompt:
-    """Build a CyclePrompt with configurable truncation parameters."""
-    results = results_snapshot(experiment_dir)
-    last_journal = read_last_journal_entries(experiment_dir, n=journal_n)
-    journal_cycles = count_journal_cycles(experiment_dir)
+def _load_loop_state(experiment_dir: Path) -> dict[str, object]:
     loop_state: dict[str, object] = {}
-    _state_path = experiment_dir / STATE_PATH_NAME
-    if _state_path.exists():
+    state_path = experiment_dir / STATE_PATH_NAME
+    if state_path.exists():
         try:
-            loaded_state = load_json(_state_path)
+            loaded_state = load_json(state_path)
             if isinstance(loaded_state, dict):
                 loop_state = loaded_state
         except json.JSONDecodeError:
             pass
+    return loop_state
 
-    # ---- Static sections (identical across cycles for the same experiment) ----
+
+def _workspace_section(experiment_dir: Path) -> str:
+    exp_scripts_dir = experiment_dir.resolve() / "scripts"
+    lib_module_dir = (ROOT / "lib" / experiment_dir.name).resolve()
+    return "\n".join(
+        [
+            "## Your Workspace",
+            "",
+            f"- Experiment: `{experiment_dir.resolve()}`",
+            f"- One-shot cycle scripts: `{exp_scripts_dir}`",
+            f"- Long-lived module (loader, context): `{lib_module_dir}`",
+            "",
+            "Read experiment.md, research_journal.md, and results.json before deciding what to do.",
+            "Read research_sources.md before doing fresh research. Read program.md for research principles.",
+        ]
+    )
+
+
+def _done_section(experiment_dir: Path) -> str:
+    lib_module_dir = (ROOT / "lib" / experiment_dir.name).resolve()
+    return "\n".join(
+        [
+            "## When You're Done",
+            "",
+            "- Update your research journal with a new `## Cycle NNNN: <title>` entry for the current cycle.",
+            "- If you used outside research, update `research_sources.md` with reusable findings. "
+            "Keep `Reusable Takeaways` current — rewrite when new evidence changes the story.",
+            "- If you tested models, add entries to `results.json` (each entry needs at least "
+            "`candidate_id` and `objective_score`).",
+            "- Save one-shot cycle scripts under `experiments/<exp>/scripts/` (use "
+            "`scripts_dir(exp_dir)` from `lib.paths`). Long-lived modules live in "
+            f"`{lib_module_dir}`.",
+            "- Write deliverables under `outputs/` and intermediate scratch under `work/` "
+            "(use `outputs_dir` / `work_dir` from `lib.paths`). Do not dump files in the experiment root.",
+            f"- End with `{CYCLE_DONE_MARKER}` if continuing, or `{EXPERIMENT_COMPLETE_MARKER}` if genuinely done.",
+        ]
+    )
+
+
+def _static_prompt_sections(experiment_dir: Path, guidelines_max_lines: int | None) -> list[str]:
     static_sections: list[str] = []
-
-    # Identity
     static_sections.append("# ML Research Cycle\n\n" + load_researcher_identity())
-
-    # Output paths convention (universal three-folder layout)
     static_sections.append(load_output_paths_section())
-
-    # Guidelines summary
     guidelines_summary = summarize_guidelines(max_lines=guidelines_max_lines)
     if guidelines_summary:
         static_sections.append(guidelines_summary)
+    static_sections.append(_workspace_section(experiment_dir))
+    static_sections.append(_done_section(experiment_dir))
+    return static_sections
 
-    # Workspace
-    exp_scripts_dir = experiment_dir.resolve() / "scripts"
-    lib_module_dir = (ROOT / "lib" / experiment_dir.name).resolve()
-    static_sections.append(
-        "\n".join(
-            [
-                "## Your Workspace",
-                "",
-                f"- Experiment: `{experiment_dir.resolve()}`",
-                f"- One-shot cycle scripts: `{exp_scripts_dir}`",
-                f"- Long-lived module (loader, context): `{lib_module_dir}`",
-                "",
-                "Read experiment.md, research_journal.md, and results.json before deciding what to do.",
-                "Read research_sources.md before doing fresh research. Read program.md for research principles.",
-            ]
-        )
+
+def _cross_learnings_section(experiment_dir: Path, include_cross_learnings: bool) -> str | None:
+    if not include_cross_learnings or not get_cross_learnings_enabled(experiment_dir):
+        return None
+    learnings_context = cross_experiment_learnings_context(experiment_dir)
+    if not learnings_context:
+        return None
+    return "\n".join(
+        [
+            "## Cross-Experiment Learnings",
+            "",
+            "Relevant priors from `learnings.md`. Advisory — verify they fit this experiment.",
+            "",
+            learnings_context,
+        ]
     )
 
-    # Closing instructions / done markers
-    static_sections.append(
-        "\n".join(
-            [
-                "## When You're Done",
-                "",
-                "- Update your research journal with a new `## Cycle NNNN: <title>` entry for the current cycle.",
-                "- If you used outside research, update `research_sources.md` with reusable findings. "
-                "Keep `Reusable Takeaways` current — rewrite when new evidence changes the story.",
-                "- If you tested models, add entries to `results.json` (each entry needs at least "
-                "`candidate_id` and `objective_score`).",
-                "- Save one-shot cycle scripts under `experiments/<exp>/scripts/` (use "
-                "`scripts_dir(exp_dir)` from `lib.paths`). Long-lived modules live in "
-                f"`{lib_module_dir}`.",
-                "- Write deliverables under `outputs/` and intermediate scratch under `work/` "
-                "(use `outputs_dir` / `work_dir` from `lib.paths`). Do not dump files in the experiment root.",
-                f"- End with `{CYCLE_DONE_MARKER}` if continuing, or `{EXPERIMENT_COMPLETE_MARKER}` if genuinely done.",
-            ]
-        )
-    )
 
-    # ---- Dynamic sections (vary per cycle) ----
-    dynamic_sections: list[str] = []
+def _advisory_section(
+    experiment_dir: Path, results: list[dict[str, object]], include_advisory: bool
+) -> str | None:
+    if not include_advisory:
+        return None
+    signal_items = collect_advisory_signals(experiment_dir, SignalOptions(results=results))
+    if not signal_items:
+        return None
+    lines = [
+        "## Advisory Signals",
+        "",
+        "Observations from current artifacts. Advisory only — use judgment.",
+        "",
+    ]
+    lines.extend(f"- {signal}" for _, signal in signal_items)
+    return "\n".join(lines)
 
-    # Cross-experiment learnings
-    if include_cross_learnings and get_cross_learnings_enabled(experiment_dir):
-        learnings_context = cross_experiment_learnings_context(experiment_dir)
-        if learnings_context:
-            dynamic_sections.append(
-                "\n".join(
-                    [
-                        "## Cross-Experiment Learnings",
-                        "",
-                        "Relevant priors from `learnings.md`. Advisory — verify they fit this experiment.",
-                        "",
-                        learnings_context,
-                    ]
-                )
-            )
 
-    # Advisory signals
-    if include_advisory:
-        signal_items = collect_advisory_signals(experiment_dir, results=results)
-        if signal_items:
-            lines = [
-                "## Advisory Signals",
-                "",
-                "Observations from current artifacts. Advisory only — use judgment.",
-                "",
-            ]
-            lines.extend(f"- {signal}" for _, signal in signal_items)
-            dynamic_sections.append("\n".join(lines))
-
-    # Min-cycles contract
+def _minimum_cycles_section(experiment_dir: Path, journal_cycles: int) -> str | None:
     min_before_complete = get_min_cycles_before_complete(experiment_dir)
-    if min_before_complete is not None and journal_cycles < min_before_complete:
-        dynamic_sections.append(
-            "\n".join(
-                [
-                    "## Minimum cycles contract",
-                    "",
-                    f"This experiment requires **{min_before_complete}** completed journal cycles "
-                    f"(`## Cycle NNNN:` headings) before you may use "
-                    f"`{EXPERIMENT_COMPLETE_MARKER}`. Current journal cycle count: **{journal_cycles}**. "
-                    f"Use `{CYCLE_DONE_MARKER}` until the contract is satisfied.",
-                ]
-            )
-        )
+    if min_before_complete is None or journal_cycles >= min_before_complete:
+        return None
+    return "\n".join(
+        [
+            "## Minimum cycles contract",
+            "",
+            f"This experiment requires **{min_before_complete}** completed journal cycles "
+            f"(`## Cycle NNNN:` headings) before you may use "
+            f"`{EXPERIMENT_COMPLETE_MARKER}`. Current journal cycle count: **{journal_cycles}**. "
+            f"Use `{CYCLE_DONE_MARKER}` until the contract is satisfied.",
+        ]
+    )
 
-    if loop_state.get("selection_frozen"):
-        frozen_ids = loop_state.get("frozen_candidate_ids") or []
-        if not isinstance(frozen_ids, list):
-            frozen_ids = []
-        dynamic_sections.append(
-            "\n".join(
-                [
-                    "## Selection Frozen",
-                    "",
-                    "Validation-time model selection is locked. Do not add, change, "
-                    "or select new candidates in `results.json`.",
-                    f"Frozen candidates: `{', '.join(str(x) for x in frozen_ids) or 'n/a'}`.",
-                    "Allowed work is limited to validation-only diagnostics, final reporting, "
-                    "or the guarded final-holdout command outside the normal cycle loop.",
-                ]
-            )
-        )
 
-    if loop_state.get("final_holdout_accessed"):
-        dynamic_sections.append(
-            "\n".join(
-                [
-                    "## Final Holdout Accessed",
-                    "",
-                    "The locked test/holdout has already been scored. Do not run any "
-                    "new model-search cycle, feature search, hyperparameter search, or "
-                    "candidate selection using these results.",
-                ]
-            )
-        )
+def _selection_frozen_section(loop_state: dict[str, object]) -> str | None:
+    if not loop_state.get("selection_frozen"):
+        return None
+    frozen_ids = loop_state.get("frozen_candidate_ids") or []
+    if not isinstance(frozen_ids, list):
+        frozen_ids = []
+    return "\n".join(
+        [
+            "## Selection Frozen",
+            "",
+            "Validation-time model selection is locked. Do not add, change, "
+            "or select new candidates in `results.json`.",
+            f"Frozen candidates: `{', '.join(str(x) for x in frozen_ids) or 'n/a'}`.",
+            "Allowed work is limited to validation-only diagnostics, final reporting, "
+            "or the guarded final-holdout command outside the normal cycle loop.",
+        ]
+    )
 
-    # Where you left off + results + recent journal
+
+def _final_holdout_section(loop_state: dict[str, object]) -> str | None:
+    if not loop_state.get("final_holdout_accessed"):
+        return None
+    return "\n".join(
+        [
+            "## Final Holdout Accessed",
+            "",
+            "The locked test/holdout has already been scored. Do not run any "
+            "new model-search cycle, feature search, hyperparameter search, or "
+            "candidate selection using these results.",
+        ]
+    )
+
+
+def _briefing_section(
+    experiment_dir: Path,
+    cycle_id: str,
+    results: list[dict[str, object]],
+    last_journal: str,
+    top_n: int,
+) -> str:
     briefing_lines = [
         "## Where You Left Off",
         "",
@@ -465,24 +491,78 @@ def _assemble_cycle_prompt(
         briefing_lines.extend(top_results_lines(experiment_dir, n=top_n))
     if last_journal:
         briefing_lines.extend(["", "### Recent Research", "", last_journal])
-    dynamic_sections.append("\n".join(briefing_lines))
+    return "\n".join(briefing_lines)
 
-    # Cycle analysis / first-cycle research
+
+def _consecutive_no_progress(loop_state: dict[str, object]) -> int:
+    no_progress = loop_state.get("consecutive_no_progress_cycles")
+    return int(no_progress) if isinstance(no_progress, int) else 0
+
+
+def _cycle_guidance_sections(journal_cycles: int, loop_state: dict[str, object]) -> list[str]:
+    sections: list[str] = []
     if journal_cycles > 0:
-        dynamic_sections.append(CYCLE_ANALYSIS_PROTOCOL)
+        sections.append(CYCLE_ANALYSIS_PROTOCOL)
     if journal_cycles == 0:
-        dynamic_sections.append(FIRST_CYCLE_RESEARCH)
+        sections.append(FIRST_CYCLE_RESEARCH)
 
-    # Stall nudge
-    consecutive_no_progress = 0
-    if isinstance(loop_state.get("consecutive_no_progress_cycles"), int):
-        consecutive_no_progress = int(loop_state["consecutive_no_progress_cycles"])
+    consecutive_no_progress = _consecutive_no_progress(loop_state)
     if consecutive_no_progress >= 2:
-        dynamic_sections.append(STALL_RESEARCH_NUDGE.format(no_progress=consecutive_no_progress))
+        sections.append(STALL_RESEARCH_NUDGE.format(no_progress=consecutive_no_progress))
 
-    # Completion rigor check
     if journal_cycles > 0:
-        dynamic_sections.append(COMPLETION_RIGOR_CHECK)
+        sections.append(COMPLETION_RIGOR_CHECK)
+    return sections
+
+
+def _dynamic_prompt_sections(context: PromptContext, options: PromptOptions) -> list[str]:
+    optional_sections = [
+        _cross_learnings_section(context.experiment_dir, options.include_cross_learnings),
+        _advisory_section(
+            context.experiment_dir,
+            context.results,
+            options.include_advisory,
+        ),
+        _minimum_cycles_section(context.experiment_dir, context.journal_cycles),
+        _selection_frozen_section(context.loop_state),
+        _final_holdout_section(context.loop_state),
+    ]
+    dynamic_sections = [section for section in optional_sections if section]
+    dynamic_sections.append(
+        _briefing_section(
+            context.experiment_dir,
+            context.cycle_id,
+            context.results,
+            context.last_journal,
+            options.top_n,
+        )
+    )
+    dynamic_sections.extend(_cycle_guidance_sections(context.journal_cycles, context.loop_state))
+    return dynamic_sections
+
+
+def _assemble_cycle_prompt(
+    experiment_dir: Path,
+    cycle_id: str,
+    options: PromptOptions | None = None,
+) -> CyclePrompt:
+    """Build a CyclePrompt with configurable truncation parameters."""
+    options = options or PromptOptions()
+    results = results_snapshot(experiment_dir)
+    last_journal = read_last_journal_entries(experiment_dir, n=options.journal_n)
+    journal_cycles = count_journal_cycles(experiment_dir)
+    loop_state = _load_loop_state(experiment_dir)
+    context = PromptContext(
+        experiment_dir=experiment_dir,
+        cycle_id=cycle_id,
+        results=results,
+        last_journal=last_journal,
+        journal_cycles=journal_cycles,
+        loop_state=loop_state,
+    )
+
+    static_sections = _static_prompt_sections(experiment_dir, options.guidelines_max_lines)
+    dynamic_sections = _dynamic_prompt_sections(context, options)
 
     return CyclePrompt(static_sections=static_sections, dynamic_sections=dynamic_sections)
 

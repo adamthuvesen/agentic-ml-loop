@@ -5,6 +5,7 @@ import math
 import os
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -91,6 +92,24 @@ CANDIDATES: dict[str, dict[str, Any]] = {
         "notes": "Full target feature registry, with target/time/id columns excluded.",
     },
 }
+
+
+@dataclass(frozen=True)
+class MatrixSpec:
+    frames: dict[str, pd.DataFrame]
+    all_features: list[str]
+    numeric_features: list[str]
+    categorical_features: list[str]
+
+
+@dataclass(frozen=True)
+class LGBMTrainingRequest:
+    trainer: Any
+    X_train: pd.DataFrame
+    y_train: pd.Series
+    categorical_indices: list[int]
+    candidate: dict[str, Any]
+    train_frame: pd.DataFrame
 
 
 def _configure_target_repo(repo: Path) -> None:
@@ -276,35 +295,32 @@ def _run_baseline(
 
 
 def _prepare_matrix(
-    frames: dict[str, pd.DataFrame],
+    spec: MatrixSpec,
     split_name: str,
-    all_features: list[str],
-    numeric_features: list[str],
-    categorical_features: list[str],
     train_matrix: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     from estate_value_index.ml import handle_missing_values
 
     if split_name == "train":
         matrix, _, _, _ = handle_missing_values(
-            frames["train"][all_features].copy(),
-            frames["train"][all_features].copy(),
-            numeric_features,
-            categorical_features,
+            spec.frames["train"][spec.all_features].copy(),
+            spec.frames["train"][spec.all_features].copy(),
+            spec.numeric_features,
+            spec.categorical_features,
         )
-        for col in categorical_features:
+        for col in spec.categorical_features:
             if col in matrix.columns and matrix[col].dtype == "object":
                 matrix[col] = matrix[col].astype("category")
         return matrix
     if train_matrix is None:
         raise ValueError("train_matrix is required for non-train splits")
     _, matrix, _, _ = handle_missing_values(
-        frames["train"][all_features].copy(),
-        frames[split_name][all_features].copy(),
-        numeric_features,
-        categorical_features,
+        spec.frames["train"][spec.all_features].copy(),
+        spec.frames[split_name][spec.all_features].copy(),
+        spec.numeric_features,
+        spec.categorical_features,
     )
-    for col in categorical_features:
+    for col in spec.categorical_features:
         if col in matrix.columns and matrix[col].dtype == "object":
             matrix[col] = matrix[col].astype("category")
     return matrix
@@ -320,33 +336,29 @@ def _recency_weights(frame: pd.DataFrame, half_life_days: float | None) -> np.nd
     return weights / mean_weight if mean_weight else weights
 
 
-def _train_lgbm(
-    trainer: Any,
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-    categorical_indices: list[int],
-    candidate: dict[str, Any],
-    train_frame: pd.DataFrame,
-) -> Any:
-    custom_params = candidate.get("params")
-    sample_weight = _recency_weights(train_frame, candidate.get("sample_weight_half_life_days"))
+def _train_lgbm(request: LGBMTrainingRequest) -> Any:
+    custom_params = request.candidate.get("params")
+    sample_weight = _recency_weights(
+        request.train_frame,
+        request.candidate.get("sample_weight_half_life_days"),
+    )
     if custom_params or sample_weight is not None:
-        params = trainer.DEFAULT_PARAMS.copy()
+        params = request.trainer.DEFAULT_PARAMS.copy()
         params.update(custom_params or {})
-        trainer.best_params = params
-        trainer.model = trainer._create_model(params)
+        request.trainer.best_params = params
+        request.trainer.model = request.trainer._create_model(params)
         fit_kwargs: dict[str, Any] = {}
-        if categorical_indices:
-            fit_kwargs["categorical_feature"] = categorical_indices
+        if request.categorical_indices:
+            fit_kwargs["categorical_feature"] = request.categorical_indices
         if sample_weight is not None:
             fit_kwargs["sample_weight"] = sample_weight
-        trainer.model.fit(X_train, y_train, **fit_kwargs)
-        return trainer.model
-    return trainer.train(
-        X_train,
-        y_train,
-        hyperparameter_tuning=bool(candidate.get("hyperparameter_tuning", False)),
-        categorical_indices=categorical_indices,
+        request.trainer.model.fit(request.X_train, request.y_train, **fit_kwargs)
+        return request.trainer.model
+    return request.trainer.train(
+        request.X_train,
+        request.y_train,
+        hyperparameter_tuning=bool(request.candidate.get("hyperparameter_tuning", False)),
+        categorical_indices=request.categorical_indices,
     )
 
 
@@ -359,20 +371,26 @@ def _run_lgbm(
     numeric_features, categorical_features, all_features = _resolve_features(
         repo, frames, candidate
     )
-    X_train = _prepare_matrix(frames, "train", all_features, numeric_features, categorical_features)
-    X_validation = _prepare_matrix(
-        frames, "validation", all_features, numeric_features, categorical_features, X_train
+    matrix_spec = MatrixSpec(
+        frames=frames,
+        all_features=all_features,
+        numeric_features=numeric_features,
+        categorical_features=categorical_features,
     )
+    X_train = _prepare_matrix(matrix_spec, "train")
+    X_validation = _prepare_matrix(matrix_spec, "validation", X_train)
     y_train_model = _target_values(frames["train"], candidate)
 
     trainer = LGBMTrainer(random_state=42)
     model = _train_lgbm(
-        trainer,
-        X_train,
-        y_train_model,
-        get_categorical_indices(X_train, categorical_features),
-        candidate,
-        frames["train"],
+        LGBMTrainingRequest(
+            trainer=trainer,
+            X_train=X_train,
+            y_train=y_train_model,
+            categorical_indices=get_categorical_indices(X_train, categorical_features),
+            candidate=candidate,
+            train_frame=frames["train"],
+        )
     )
 
     dropped: list[str] = []
@@ -387,21 +405,25 @@ def _run_lgbm(
             categorical_features = [
                 feature for feature in categorical_features if feature not in dropped
             ]
-            X_train = _prepare_matrix(
-                frames, "train", all_features, numeric_features, categorical_features
+            matrix_spec = MatrixSpec(
+                frames=frames,
+                all_features=all_features,
+                numeric_features=numeric_features,
+                categorical_features=categorical_features,
             )
-            X_validation = _prepare_matrix(
-                frames, "validation", all_features, numeric_features, categorical_features, X_train
-            )
+            X_train = _prepare_matrix(matrix_spec, "train")
+            X_validation = _prepare_matrix(matrix_spec, "validation", X_train)
             y_train_model = _target_values(frames["train"], candidate)
             trainer = LGBMTrainer(random_state=42)
             model = _train_lgbm(
-                trainer,
-                X_train,
-                y_train_model,
-                get_categorical_indices(X_train, categorical_features),
-                candidate,
-                frames["train"],
+                LGBMTrainingRequest(
+                    trainer=trainer,
+                    X_train=X_train,
+                    y_train=y_train_model,
+                    categorical_indices=get_categorical_indices(X_train, categorical_features),
+                    candidate=candidate,
+                    train_frame=frames["train"],
+                )
             )
 
     predictions = {
@@ -411,9 +433,7 @@ def _run_lgbm(
         ),
     }
     if "test" in frames:
-        X_test = _prepare_matrix(
-            frames, "test", all_features, numeric_features, categorical_features, X_train
-        )
+        X_test = _prepare_matrix(matrix_spec, "test", X_train)
         predictions["test"] = _inverse_target_values(
             frames["test"], model.predict(X_test), candidate
         )

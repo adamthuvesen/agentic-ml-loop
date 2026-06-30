@@ -10,6 +10,7 @@ from loop import (
     load_researcher_identity,
     write_status_markdown,
 )
+from loop.ui import emit_cycle_result
 from tests.loop.conftest import _make_experiment
 
 
@@ -130,6 +131,72 @@ class TestStatusMarkdown:
         write_status_markdown(d, state)
         status = (d / "status.md").read_text()
         assert "may have been interrupted" in status
+
+    def test_includes_freeze_and_final_holdout_details(self, tmp_path: Path) -> None:
+        d = _make_experiment(tmp_path)
+        state = {
+            "status": "completed",
+            "cycle_count": 3,
+            "last_successful_cycle_id": "0003",
+            "started_at": "2025-01-01T00:00:00+00:00",
+            "updated_at": "2025-01-01T00:00:30+00:00",
+            "stop_reason": "experiment_complete",
+            "selection_frozen": True,
+            "frozen_candidate_ids": ["model-a", "model-b"],
+            "frozen_at_cycle": "0003",
+            "freeze_reason": "ready for holdout",
+            "final_holdout_accessed": True,
+            "final_holdout_at": "2025-01-02T00:00:00+00:00",
+            "final_holdout_path": "outputs/final_holdout.json",
+        }
+
+        write_status_markdown(d, state)
+
+        status = (d / "status.md").read_text()
+        assert "Selection frozen: `model-a, model-b`" in status
+        assert "Frozen at cycle: `0003`" in status
+        assert "Freeze reason: ready for holdout" in status
+        assert "Final holdout: `accessed`" in status
+        assert "Final holdout artifact: `outputs/final_holdout.json`" in status
+
+
+class TestEmitCycleResult:
+    def test_prints_progress_with_new_candidate_and_changes(self, tmp_path: Path, capsys) -> None:
+        d = _make_experiment(
+            tmp_path,
+            journal=(
+                "# Journal\n\n"
+                "## Cycle 0001: candidate\n\n"
+                "**Hypothesis:** Tuned tree improves validation AUC.\n"
+            ),
+        )
+        summary = {
+            "result": "progress",
+            "started_at": "2025-01-01T00:00:00+00:00",
+            "completed_at": "2025-01-01T00:00:03+00:00",
+            "progress_reasons": ["new_candidates:tree-a", "journal_updated"],
+            "before_snapshot": {
+                "results_by_id": {"baseline": {"objective_score": 0.7}},
+            },
+            "after_snapshot": {
+                "results_by_id": {
+                    "baseline": {"objective_score": 0.7},
+                    "tree-a": {
+                        "objective_score": 0.75,
+                        "model_family": "tree",
+                        "objective_metric": "val_auc",
+                    },
+                }
+            },
+        }
+
+        emit_cycle_result(d, summary)
+
+        output = capsys.readouterr().out
+        assert "Tuned tree improves validation AUC." in output
+        assert "progress" in output
+        assert "tree-a  tree  val_auc 0.7500 ↑" in output
+        assert "journal_updated" in output
 
 
 class TestLoadResearcherIdentity:

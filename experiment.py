@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 from lib.io import load_json, read_text
 from lib.paths import DATA_DIRNAME
@@ -277,8 +278,19 @@ def _snapshot_validation_errors(experiment_dir: Path) -> list[str]:
     if not manifest_path.exists():
         return []
     snapshot_path = experiment_dir / DATA_DIRNAME / "snapshot.parquet"
-    if not snapshot_path.exists():
-        return [f"manifest present but snapshot missing: {snapshot_path}"]
+    missing_snapshot_error = _snapshot_prerequisite_error(snapshot_path)
+    if missing_snapshot_error:
+        return [missing_snapshot_error]
+    return _verify_snapshot_manifest(manifest_path, snapshot_path)
+
+
+def _snapshot_prerequisite_error(snapshot_path: Path) -> str | None:
+    if snapshot_path.exists():
+        return None
+    return f"manifest present but snapshot missing: {snapshot_path}"
+
+
+def _verify_snapshot_manifest(manifest_path: Path, snapshot_path: Path) -> list[str]:
     try:
         from lib.sources.manifest import DatasetManifest, verify_snapshot
     except ImportError:
@@ -296,14 +308,74 @@ def _snapshot_validation_errors(experiment_dir: Path) -> list[str]:
     return []
 
 
+def _required_file_errors(experiment_dir: Path) -> list[str]:
+    return [
+        f"Missing required file: {experiment_dir / filename}"
+        for filename in REQUIRED_FILES
+        if not (experiment_dir / filename).exists()
+    ]
+
+
+def _load_results_list(experiment_dir: Path) -> tuple[list[Any] | None, list[str]]:
+    rf = results_file(experiment_dir)
+    try:
+        results = load_json(rf)
+    except json.JSONDecodeError as exc:
+        return None, [f"{rf.name} is invalid JSON: {exc}"]
+    if not isinstance(results, list):
+        return None, [f"{rf.name} must be a JSON list"]
+    return results, []
+
+
+def _result_entry_errors(results: list[Any], strict_completion: bool) -> list[str]:
+    if strict_completion and not results:
+        return ["strict completion requires at least one result entry"]
+    return validate_result_entries(results, strict_completion=strict_completion)
+
+
+def _strict_or_warning(message: str, strict_completion: bool) -> str:
+    return message if strict_completion else f"warning: {message}"
+
+
+def _objective_metric_errors(
+    experiment_dir: Path, results: list[Any], strict_completion: bool
+) -> list[str]:
+    declared_metric = get_objective_metric(experiment_dir)
+    if not declared_metric or not results:
+        return []
+
+    errors: list[str] = []
+    if not (declared_metric.startswith("val_") or declared_metric.startswith("validation_")):
+        errors.append(
+            _strict_or_warning(
+                f"declared objective metric '{declared_metric}' does not follow "
+                f"val_/validation_ prefix convention",
+                strict_completion,
+            )
+        )
+
+    for entry in results:
+        if not isinstance(entry, dict):
+            continue
+        entry_metric = entry.get("objective_metric")
+        if entry_metric and entry_metric != declared_metric:
+            cid = entry.get("candidate_id", "?")
+            errors.append(
+                _strict_or_warning(
+                    f"candidate '{cid}' has objective_metric='{entry_metric}' "
+                    f"but experiment declares '{declared_metric}'",
+                    strict_completion,
+                )
+            )
+    return errors
+
+
 def validate_experiment(experiment_dir: Path, strict_completion: bool = False) -> list[str]:
     errors: list[str] = []
     if not experiment_dir.exists() or not experiment_dir.is_dir():
         return [f"Experiment directory does not exist: {experiment_dir}"]
 
-    for filename in REQUIRED_FILES:
-        if not (experiment_dir / filename).exists():
-            errors.append(f"Missing required file: {experiment_dir / filename}")
+    errors.extend(_required_file_errors(experiment_dir))
     if errors:
         return errors
 
@@ -315,45 +387,13 @@ def validate_experiment(experiment_dir: Path, strict_completion: bool = False) -
             f"move deliverables to outputs/, scratch to work/, scripts to scripts/"
         )
 
-    rf = results_file(experiment_dir)
-    try:
-        results = load_json(rf)
-    except json.JSONDecodeError as exc:
-        errors.append(f"{rf.name} is invalid JSON: {exc}")
-        return errors
-    if not isinstance(results, list):
-        errors.append(f"{rf.name} must be a JSON list")
+    results, result_errors = _load_results_list(experiment_dir)
+    errors.extend(result_errors)
+    if results is None:
         return errors
 
-    if strict_completion and not results:
-        errors.append("strict completion requires at least one result entry")
-    else:
-        errors.extend(validate_result_entries(results, strict_completion=strict_completion))
-
-    # Metric consistency checks
-    declared_metric = get_objective_metric(experiment_dir)
-    if declared_metric and isinstance(results, list) and results:
-        # Check prefix convention
-        if not (declared_metric.startswith("val_") or declared_metric.startswith("validation_")):
-            msg = (
-                f"declared objective metric '{declared_metric}' does not follow "
-                f"val_/validation_ prefix convention"
-            )
-            errors.append(msg if strict_completion else f"warning: {msg}")
-
-        # Check each result entry matches
-        for entry in results:
-            if not isinstance(entry, dict):
-                continue
-            entry_metric = entry.get("objective_metric")
-            if entry_metric and entry_metric != declared_metric:
-                cid = entry.get("candidate_id", "?")
-                msg = (
-                    f"candidate '{cid}' has objective_metric='{entry_metric}' "
-                    f"but experiment declares '{declared_metric}'"
-                )
-                errors.append(msg if strict_completion else f"warning: {msg}")
-
+    errors.extend(_result_entry_errors(results, strict_completion))
+    errors.extend(_objective_metric_errors(experiment_dir, results, strict_completion))
     errors.extend(_snapshot_validation_errors(experiment_dir))
 
     return errors

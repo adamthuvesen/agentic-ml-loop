@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,25 @@ _ERROR_ANALYSIS_TERMS = [
     "failure mode",
     "error cluster",
 ]
+
+
+@dataclass(frozen=True)
+class SignalOptions:
+    results: list[dict[str, Any]] | None = None
+    journal_cycles: int | None = None
+    external_sources: int | None = None
+    has_error_analysis: bool | None = None
+    has_diagnostics: bool | None = None
+    limit: int = DEFAULT_SIGNAL_LIMIT
+
+
+@dataclass(frozen=True)
+class SignalInputs:
+    results: list[dict[str, Any]]
+    journal_cycles: int
+    external_sources: int
+    has_error_analysis: bool
+    has_diagnostics: bool
 
 
 def results_snapshot(experiment_dir: Path) -> list[dict[str, Any]]:
@@ -77,6 +97,10 @@ def _objective_metric_name(result: dict[str, Any]) -> str | None:
         return objective_metric[4:]
     if objective_metric.startswith("validation_"):
         return objective_metric[len("validation_") :]
+    return _shared_train_validation_metric(result, objective_metric)
+
+
+def _shared_train_validation_metric(result: dict[str, Any], objective_metric: str) -> str | None:
     metrics = result.get("metrics", {})
     if not isinstance(metrics, dict):
         return None
@@ -238,48 +262,87 @@ def _baseline_signal(results: list[dict[str, Any]]) -> str | None:
     )
 
 
+def _resolve_signal_inputs(experiment_dir: Path, options: SignalOptions | None) -> SignalInputs:
+    options = options or SignalOptions()
+    return SignalInputs(
+        results=(
+            options.results if options.results is not None else results_snapshot(experiment_dir)
+        ),
+        journal_cycles=(
+            options.journal_cycles
+            if options.journal_cycles is not None
+            else count_journal_cycles(experiment_dir)
+        ),
+        external_sources=(
+            options.external_sources
+            if options.external_sources is not None
+            else _count_external_sources(experiment_dir)
+        ),
+        has_error_analysis=(
+            options.has_error_analysis
+            if options.has_error_analysis is not None
+            else journal_mentions_error_analysis(experiment_dir)
+        ),
+        has_diagnostics=(
+            options.has_diagnostics
+            if options.has_diagnostics is not None
+            else read_diagnostics_summary(experiment_dir) is not None
+        ),
+    )
+
+
+_SIGNAL_INPUT_FIELDS = {
+    "results",
+    "journal_cycles",
+    "external_sources",
+    "has_error_analysis",
+    "has_diagnostics",
+}
+
+
+def _coerce_signal_options(
+    options: SignalOptions | None,
+    legacy_overrides: dict[str, Any],
+    *,
+    allow_limit: bool,
+) -> SignalOptions:
+    allowed = set(_SIGNAL_INPUT_FIELDS)
+    if allow_limit:
+        allowed.add("limit")
+    unknown = sorted(set(legacy_overrides) - allowed)
+    if unknown:
+        raise TypeError("unexpected signal option keyword arguments: " + ", ".join(unknown))
+
+    resolved = options or SignalOptions()
+    if not legacy_overrides:
+        return resolved
+    return replace(resolved, **legacy_overrides)
+
+
 def research_signals(
     experiment_dir: Path,
-    *,
-    results: list[dict[str, Any]] | None = None,
-    journal_cycles: int | None = None,
-    external_sources: int | None = None,
-    has_error_analysis: bool | None = None,
-    has_diagnostics: bool | None = None,
-    limit: int = DEFAULT_SIGNAL_LIMIT,
+    options: SignalOptions | None = None,
+    **legacy_overrides: Any,
 ) -> list[str]:
     """Return bounded, advisory research signals derived from current artifacts.
 
     Preserves the original public API: returns list[str] (no priority scores).
     """
-    results = results if results is not None else results_snapshot(experiment_dir)
-    journal_cycles = (
-        journal_cycles if journal_cycles is not None else count_journal_cycles(experiment_dir)
+    options = _coerce_signal_options(
+        options,
+        legacy_overrides,
+        allow_limit=True,
     )
-    external_sources = (
-        external_sources
-        if external_sources is not None
-        else _count_external_sources(experiment_dir)
-    )
-    has_error_analysis = (
-        has_error_analysis
-        if has_error_analysis is not None
-        else journal_mentions_error_analysis(experiment_dir)
-    )
-    has_diagnostics = (
-        has_diagnostics
-        if has_diagnostics is not None
-        else read_diagnostics_summary(experiment_dir) is not None
-    )
+    inputs = _resolve_signal_inputs(experiment_dir, options)
     candidates: list[tuple[int, str]] = _get_research_signal_observations(
-        results,
-        journal_cycles=journal_cycles,
-        external_sources=external_sources,
-        has_error_analysis=has_error_analysis,
-        has_diagnostics=has_diagnostics,
+        inputs.results,
+        journal_cycles=inputs.journal_cycles,
+        external_sources=inputs.external_sources,
+        has_error_analysis=inputs.has_error_analysis,
+        has_diagnostics=inputs.has_diagnostics,
     )
     candidates.sort(key=lambda item: item[0], reverse=True)
-    return [signal for _, signal in candidates[:limit]]
+    return [signal for _, signal in candidates[: options.limit]]
 
 
 def _get_research_signal_observations(
@@ -313,44 +376,27 @@ def _get_research_signal_observations(
 
 def advisory_signals(
     experiment_dir: Path,
-    *,
-    results: list[dict[str, Any]] | None = None,
-    journal_cycles: int | None = None,
-    external_sources: int | None = None,
-    has_error_analysis: bool | None = None,
-    has_diagnostics: bool | None = None,
+    options: SignalOptions | None = None,
+    **legacy_overrides: Any,
 ) -> list[tuple[int, str]]:
     """Collect, dedup, and return priority-sorted advisory signals from all sources.
 
     Returns at most ADVISORY_SIGNAL_CAP items.
     """
-    results = results if results is not None else results_snapshot(experiment_dir)
-    journal_cycles = (
-        journal_cycles if journal_cycles is not None else count_journal_cycles(experiment_dir)
+    options = _coerce_signal_options(
+        options,
+        legacy_overrides,
+        allow_limit=False,
     )
-    external_sources = (
-        external_sources
-        if external_sources is not None
-        else _count_external_sources(experiment_dir)
-    )
-    has_error_analysis = (
-        has_error_analysis
-        if has_error_analysis is not None
-        else journal_mentions_error_analysis(experiment_dir)
-    )
-    has_diagnostics = (
-        has_diagnostics
-        if has_diagnostics is not None
-        else read_diagnostics_summary(experiment_dir) is not None
-    )
+    inputs = _resolve_signal_inputs(experiment_dir, options)
 
     return merge_observations(
         _get_research_signal_observations(
-            results,
-            journal_cycles=journal_cycles,
-            external_sources=external_sources,
-            has_error_analysis=has_error_analysis,
-            has_diagnostics=has_diagnostics,
+            inputs.results,
+            journal_cycles=inputs.journal_cycles,
+            external_sources=inputs.external_sources,
+            has_error_analysis=inputs.has_error_analysis,
+            has_diagnostics=inputs.has_diagnostics,
         ),
         get_diagnostics_observations(experiment_dir),
         get_evaluation_observations(experiment_dir),

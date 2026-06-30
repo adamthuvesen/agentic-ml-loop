@@ -57,12 +57,11 @@ def list_bundles() -> list[Bundle]:
     """Return all source bundles, sorted by source type."""
     if not BUNDLES_DIR.is_dir():
         return []
-    bundles = [
+    return [
         _load_bundle(child)
         for child in sorted(BUNDLES_DIR.iterdir())
         if (child / "source.json").exists()
     ]
-    return bundles
 
 
 def get_bundle(source_type: str) -> Bundle:

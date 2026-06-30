@@ -4,9 +4,33 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from loop.cycle_attempt import run_cycle_attempt
-from loop.invoke import RunnerConfig
+from loop.cycle_attempt import CycleAttemptRequest, run_cycle_attempt
+from loop.invoke import RunnerConfig, default_runner_config
 from tests.loop.conftest import make_experiment_dir
+
+
+def _attempt_request(
+    experiment_dir: Path,
+    cycle_dir: Path,
+    *,
+    attempt_meta: Path | None = None,
+    attempt_result_path: Path | None = None,
+    runner_config: RunnerConfig | None = None,
+) -> CycleAttemptRequest:
+    return CycleAttemptRequest(
+        experiment_dir=experiment_dir,
+        cycle_id="0001",
+        attempt=1,
+        prompt_text="test prompt",
+        baselines_journal_hash="abc",
+        experiment_md_backup=(experiment_dir / "experiment.md").read_text(),
+        attempt_stdout=cycle_dir / "attempt_01_stdout.log",
+        attempt_stderr=cycle_dir / "attempt_01_stderr.log",
+        attempt_meta=attempt_meta or cycle_dir / "attempt_01_meta.json",
+        attempt_result_path=attempt_result_path or cycle_dir / "attempt_01_result.json",
+        agent_message_path=cycle_dir / "agent_last_message.md",
+        runner_config=runner_config or default_runner_config(),
+    )
 
 
 def test_runner_invocation_error_writes_attempt_result(tmp_path: Path) -> None:
@@ -21,17 +45,11 @@ def test_runner_invocation_error_writes_attempt_result(tmp_path: Path) -> None:
         side_effect=RuntimeError("runner unavailable"),
     ):
         outcome = run_cycle_attempt(
-            experiment_dir=experiment_dir,
-            cycle_id="0001",
-            attempt=1,
-            prompt_text="test prompt",
-            baselines_journal_hash="abc",
-            experiment_md_backup=(experiment_dir / "experiment.md").read_text(),
-            attempt_stdout=cycle_dir / "attempt_01_stdout.log",
-            attempt_stderr=cycle_dir / "attempt_01_stderr.log",
-            attempt_meta=cycle_dir / "attempt_01_meta.json",
-            attempt_result_path=attempt_result_path,
-            agent_message_path=cycle_dir / "agent_last_message.md",
+            _attempt_request(
+                experiment_dir,
+                cycle_dir,
+                attempt_result_path=attempt_result_path,
+            )
         )
 
     assert not outcome.success
@@ -59,17 +77,11 @@ def test_contract_failure_record_matches_persisted_json(tmp_path: Path) -> None:
 
     with patch("loop.cycle_attempt.invoke_runner", return_value=runner_result):
         outcome = run_cycle_attempt(
-            experiment_dir=experiment_dir,
-            cycle_id="0001",
-            attempt=1,
-            prompt_text="test prompt",
-            baselines_journal_hash="abc",
-            experiment_md_backup=(experiment_dir / "experiment.md").read_text(),
-            attempt_stdout=cycle_dir / "attempt_01_stdout.log",
-            attempt_stderr=cycle_dir / "attempt_01_stderr.log",
-            attempt_meta=cycle_dir / "attempt_01_meta.json",
-            attempt_result_path=attempt_result_path,
-            agent_message_path=cycle_dir / "agent_last_message.md",
+            _attempt_request(
+                experiment_dir,
+                cycle_dir,
+                attempt_result_path=attempt_result_path,
+            )
         )
 
     assert not outcome.success
@@ -93,18 +105,12 @@ def test_runner_config_is_written_to_attempt_metadata(tmp_path: Path) -> None:
 
     with patch("loop.cycle_attempt.invoke_runner", side_effect=RuntimeError("stop")):
         run_cycle_attempt(
-            experiment_dir=experiment_dir,
-            cycle_id="0001",
-            attempt=1,
-            prompt_text="test prompt",
-            baselines_journal_hash="abc",
-            experiment_md_backup=(experiment_dir / "experiment.md").read_text(),
-            attempt_stdout=cycle_dir / "attempt_01_stdout.log",
-            attempt_stderr=cycle_dir / "attempt_01_stderr.log",
-            attempt_meta=attempt_meta,
-            attempt_result_path=cycle_dir / "attempt_01_result.json",
-            agent_message_path=cycle_dir / "agent_last_message.md",
-            runner_config=config,
+            _attempt_request(
+                experiment_dir,
+                cycle_dir,
+                attempt_meta=attempt_meta,
+                runner_config=config,
+            )
         )
 
     meta = json.loads(attempt_meta.read_text())

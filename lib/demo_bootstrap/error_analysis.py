@@ -18,20 +18,26 @@ from lib.demo_bootstrap.data import (
     split_dataset,
 )
 
+ENGINEERED_COLUMNS = ["sessions_7d", "is_enterprise"]
+PROFILE_COLUMNS = ("sessions_7d", "pages_viewed", "days_active", "is_enterprise")
 
-def main() -> None:
+
+def _add_enterprise_indicator(frame: pd.DataFrame) -> None:
+    frame["is_enterprise"] = (frame["segment"] == "enterprise").astype(int)
+
+
+def _train_validation_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
     df = load_dataset()
     splits = split_dataset(df)
-
-    # Reproduce logreg-poly exactly
-    eng_cols = ["sessions_7d", "is_enterprise"]
     train = splits.train.copy()
     val = splits.validation.copy()
-
     for frame in [train, val]:
-        frame["is_enterprise"] = (frame["segment"] == "enterprise").astype(int)
+        _add_enterprise_indicator(frame)
+    return train, val
 
-    pipeline = Pipeline(
+
+def _logreg_poly_pipeline() -> Pipeline:
+    return Pipeline(
         steps=[
             (
                 "preprocessor",
@@ -49,7 +55,7 @@ def main() -> None:
                                     ),
                                 ]
                             ),
-                            eng_cols,
+                            ENGINEERED_COLUMNS,
                         ),
                     ]
                 ),
@@ -60,12 +66,18 @@ def main() -> None:
             ),
         ]
     )
-    pipeline.fit(train[eng_cols], train[TARGET_COLUMN])
-    val_probs = pipeline.predict_proba(val[eng_cols])[:, 1]
-    val_preds = (val_probs >= 0.5).astype(int)
-    val_y = val[TARGET_COLUMN].values
 
-    # Sanity check
+
+def _fit_validation_predictions() -> tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
+    train, val = _train_validation_frames()
+    pipeline = _logreg_poly_pipeline()
+    pipeline.fit(train[ENGINEERED_COLUMNS], train[TARGET_COLUMN])
+    val_probs = pipeline.predict_proba(val[ENGINEERED_COLUMNS])[:, 1]
+    val_preds = (val_probs >= 0.5).astype(int)
+    return val, val[TARGET_COLUMN].values, val_probs, val_preds
+
+
+def _print_validation_metrics(val_y: np.ndarray, val_probs: np.ndarray) -> None:
     auc = roc_auc_score(val_y, val_probs)
     brier = brier_score_loss(val_y, val_probs)
     print("=== logreg-poly validation metrics ===")
@@ -73,7 +85,13 @@ def main() -> None:
     print(f"Brier score: {brier:.4f}")
     print()
 
-    # Build analysis dataframe
+
+def _analysis_frame(
+    val: pd.DataFrame,
+    val_y: np.ndarray,
+    val_preds: np.ndarray,
+    val_probs: np.ndarray,
+) -> pd.DataFrame:
     analysis = val[["sessions_7d", "days_active", "pages_viewed", "segment"]].copy()
     analysis["is_enterprise"] = (analysis["segment"] == "enterprise").astype(int)
     analysis["y_true"] = val_y
@@ -82,8 +100,20 @@ def main() -> None:
     analysis["error_type"] = "correct"
     analysis.loc[(val_y == 1) & (val_preds == 0), "error_type"] = "false_negative"
     analysis.loc[(val_y == 0) & (val_preds == 1), "error_type"] = "false_positive"
+    return analysis
 
-    # Error counts
+
+def _error_totals(frame: pd.DataFrame) -> tuple[int, int, int]:
+    return (
+        int((frame["error_type"] != "correct").sum()),
+        int((frame["error_type"] == "false_negative").sum()),
+        int((frame["error_type"] == "false_positive").sum()),
+    )
+
+
+def _print_error_breakdown(
+    analysis: pd.DataFrame, val_y: np.ndarray, val_preds: np.ndarray
+) -> None:
     print("=== Error breakdown (threshold=0.5) ===")
     error_counts = analysis["error_type"].value_counts()
     print(error_counts)
@@ -98,16 +128,15 @@ def main() -> None:
     print(f"True negatives: {len(tn)}, False positives: {len(fp)}")
     print()
 
-    # Error patterns by segment
+
+def _print_segment_error_rates(analysis: pd.DataFrame) -> None:
     print("=== Error rates by segment ===")
     for seg in ["smb", "mid", "enterprise"]:
         seg_mask = analysis["segment"] == seg
         seg_data = analysis[seg_mask]
         if len(seg_data) == 0:
             continue
-        n_errors = (seg_data["error_type"] != "correct").sum()
-        n_fn = (seg_data["error_type"] == "false_negative").sum()
-        n_fp = (seg_data["error_type"] == "false_positive").sum()
+        n_errors, n_fn, n_fp = _error_totals(seg_data)
         print(
             f"  {seg:12s}: {len(seg_data):3d} rows, "
             f"{n_errors:2d} errors ({n_errors / len(seg_data):.1%}), "
@@ -115,7 +144,8 @@ def main() -> None:
         )
     print()
 
-    # Error patterns by sessions_7d buckets
+
+def _print_sessions_bucket_error_rates(analysis: pd.DataFrame) -> None:
     print("=== Error rates by sessions_7d bucket ===")
     bins = [0, 2, 4, 6, 100]
     labels = ["0-2", "3-4", "5-6", "7+"]
@@ -125,9 +155,7 @@ def main() -> None:
         bucket_data = analysis[bucket_mask]
         if len(bucket_data) == 0:
             continue
-        n_errors = (bucket_data["error_type"] != "correct").sum()
-        n_fn = (bucket_data["error_type"] == "false_negative").sum()
-        n_fp = (bucket_data["error_type"] == "false_positive").sum()
+        n_errors, n_fn, n_fp = _error_totals(bucket_data)
         pos_rate = bucket_data["y_true"].mean()
         avg_prob = bucket_data["prob"].mean()
         print(
@@ -137,7 +165,8 @@ def main() -> None:
         )
     print()
 
-    # Error patterns by days_active (threshold at >=4)
+
+def _print_days_active_error_rates(analysis: pd.DataFrame) -> None:
     print("=== Error rates by days_active (NOT in model) ===")
     for threshold_label, mask in [
         ("days_active < 4", analysis["days_active"] < 4),
@@ -146,9 +175,7 @@ def main() -> None:
         subset = analysis[mask]
         if len(subset) == 0:
             continue
-        n_errors = (subset["error_type"] != "correct").sum()
-        n_fn = (subset["error_type"] == "false_negative").sum()
-        n_fp = (subset["error_type"] == "false_positive").sum()
+        n_errors, n_fn, n_fp = _error_totals(subset)
         pos_rate = subset["y_true"].mean()
         avg_prob = subset["prob"].mean()
         print(
@@ -158,12 +185,12 @@ def main() -> None:
         )
     print()
 
-    # Calibration analysis
+
+def _print_calibration(val_y: np.ndarray, val_probs: np.ndarray) -> None:
     print("=== Calibration analysis ===")
     prob_true, prob_pred = calibration_curve(val_y, val_probs, n_bins=5, strategy="quantile")
     print("Bin  | Predicted | Actual  | Count")
     print("-----|-----------|---------|------")
-    # Get bin counts manually
     bin_edges = np.quantile(val_probs, np.linspace(0, 1, 6))
     for i, (pt, pp) in enumerate(zip(prob_true, prob_pred, strict=True)):
         low = bin_edges[i]
@@ -172,7 +199,8 @@ def main() -> None:
         print(f"  {i + 1}  |  {pp:.3f}   | {pt:.3f}  |  {count}")
     print()
 
-    # Prediction distribution
+
+def _print_probability_distribution(val_probs: np.ndarray) -> None:
     print("=== Prediction probability distribution ===")
     print(f"  Min: {val_probs.min():.4f}")
     print(f"  25%: {np.percentile(val_probs, 25):.4f}")
@@ -181,64 +209,44 @@ def main() -> None:
     print(f"  Max: {val_probs.max():.4f}")
     print()
 
-    # False negatives profile: what do missed positives look like?
-    print("=== False negative profile (missed positives) ===")
-    if len(fn) > 0:
-        print(f"  Count: {len(fn)}")
+
+def _print_error_profile(title: str, subset: pd.DataFrame, analysis: pd.DataFrame) -> None:
+    print(f"=== {title} ===")
+    if len(subset) > 0:
+        print(f"  Count: {len(subset)}")
+        for column in PROFILE_COLUMNS[:3]:
+            print(
+                f"  Avg {column}: {subset[column].mean():.1f} "
+                f"(overall: {analysis[column].mean():.1f})"
+            )
         print(
-            f"  Avg sessions_7d: {fn['sessions_7d'].mean():.1f} (overall: {analysis['sessions_7d'].mean():.1f})"
+            f"  Enterprise %: {subset['is_enterprise'].mean():.1%} "
+            f"(overall: {analysis['is_enterprise'].mean():.1%})"
         )
+        print(f"  Avg predicted prob: {subset['prob'].mean():.3f}")
         print(
-            f"  Avg pages_viewed: {fn['pages_viewed'].mean():.1f} (overall: {analysis['pages_viewed'].mean():.1f})"
-        )
-        print(
-            f"  Avg days_active: {fn['days_active'].mean():.1f} (overall: {analysis['days_active'].mean():.1f})"
-        )
-        print(
-            f"  Enterprise %: {fn['is_enterprise'].mean():.1%} (overall: {analysis['is_enterprise'].mean():.1%})"
-        )
-        print(f"  Avg predicted prob: {fn['prob'].mean():.3f}")
-        print(
-            f"  days_active >= 4: {(fn['days_active'] >= 4).mean():.1%} (overall: {(analysis['days_active'] >= 4).mean():.1%})"
+            f"  days_active >= 4: {(subset['days_active'] >= 4).mean():.1%} "
+            f"(overall: {(analysis['days_active'] >= 4).mean():.1%})"
         )
     print()
 
-    # False positives profile
-    print("=== False positive profile (wrongly flagged) ===")
-    if len(fp) > 0:
-        print(f"  Count: {len(fp)}")
-        print(
-            f"  Avg sessions_7d: {fp['sessions_7d'].mean():.1f} (overall: {analysis['sessions_7d'].mean():.1f})"
-        )
-        print(
-            f"  Avg pages_viewed: {fp['pages_viewed'].mean():.1f} (overall: {analysis['pages_viewed'].mean():.1f})"
-        )
-        print(
-            f"  Avg days_active: {fp['days_active'].mean():.1f} (overall: {analysis['days_active'].mean():.1f})"
-        )
-        print(
-            f"  Enterprise %: {fp['is_enterprise'].mean():.1%} (overall: {analysis['is_enterprise'].mean():.1%})"
-        )
-        print(f"  Avg predicted prob: {fp['prob'].mean():.3f}")
-        print(
-            f"  days_active >= 4: {(fp['days_active'] >= 4).mean():.1%} (overall: {(analysis['days_active'] >= 4).mean():.1%})"
-        )
-    print()
 
-    # Check if days_active threshold adds signal AFTER conditioning on model features
+def _probability_bucket_mask(label: str, val_probs: np.ndarray) -> np.ndarray:
+    if label.startswith("low"):
+        return val_probs < 0.45
+    if label.startswith("mid"):
+        return (val_probs >= 0.45) & (val_probs <= 0.55)
+    return val_probs > 0.55
+
+
+def _print_residual_days_active_signal(analysis: pd.DataFrame, val_probs: np.ndarray) -> None:
     print("=== Residual signal check: days_active >= 4 ===")
     for bucket_label in [
         "low_prob (<0.45)",
         "mid_prob (0.45-0.55)",
         "high_prob (>0.55)",
     ]:
-        if bucket_label.startswith("low"):
-            mask = val_probs < 0.45
-        elif bucket_label.startswith("mid"):
-            mask = (val_probs >= 0.45) & (val_probs <= 0.55)
-        else:
-            mask = val_probs > 0.55
-        subset = analysis[mask]
+        subset = analysis[_probability_bucket_mask(bucket_label, val_probs)]
         if len(subset) < 5:
             continue
         active_high = subset[subset["days_active"] >= 4]
@@ -251,7 +259,8 @@ def main() -> None:
             )
     print()
 
-    # Temporal analysis (using row index as proxy for time ordering)
+
+def _print_temporal_error_rates(analysis: pd.DataFrame) -> None:
     print("=== Error rate by temporal position (val set) ===")
     n_val = len(analysis)
     half = n_val // 2
@@ -265,6 +274,26 @@ def main() -> None:
             f"  {label}: {len(subset)} rows, actual_rate={pos_rate:.2f}, "
             f"avg_pred={avg_prob:.2f}, errors={n_err} ({n_err / len(subset):.1%})"
         )
+
+
+def main() -> None:
+    val, val_y, val_probs, val_preds = _fit_validation_predictions()
+    _print_validation_metrics(val_y, val_probs)
+
+    analysis = _analysis_frame(val, val_y, val_preds, val_probs)
+    _print_error_breakdown(analysis, val_y, val_preds)
+    _print_segment_error_rates(analysis)
+    _print_sessions_bucket_error_rates(analysis)
+    _print_days_active_error_rates(analysis)
+    _print_calibration(val_y, val_probs)
+    _print_probability_distribution(val_probs)
+
+    fn = analysis[analysis["error_type"] == "false_negative"]
+    fp = analysis[analysis["error_type"] == "false_positive"]
+    _print_error_profile("False negative profile (missed positives)", fn, analysis)
+    _print_error_profile("False positive profile (wrongly flagged)", fp, analysis)
+    _print_residual_days_active_signal(analysis, val_probs)
+    _print_temporal_error_rates(analysis)
 
 
 if __name__ == "__main__":

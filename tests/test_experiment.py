@@ -391,19 +391,35 @@ class TestStrayRootFilesWarning:
 def test_loop_managed_files_are_allowlisted() -> None:
     assert LOOP_MANAGED_FILES <= EXPERIMENT_ROOT_ALLOWLIST
 
-    def test_stray_warning_is_non_blocking(self, clean_exp: Path) -> None:
-        (clean_exp / "stray.csv").write_text("")
-        msgs = validate_experiment(clean_exp, strict_completion=False)
-        # Only a warning, no errors
-        errors = [m for m in msgs if not m.startswith("warning:")]
-        assert errors == []
 
-    def test_dotfiles_other_than_loop_lock_ignored(self, clean_exp: Path) -> None:
-        (clean_exp / ".DS_Store").write_text("")
-        (clean_exp / ".cache").mkdir()
-        msgs = validate_experiment(clean_exp)
-        stray_warnings = [m for m in msgs if "stray" in m.lower()]
-        assert stray_warnings == []
+def test_stray_warning_is_non_blocking(tmp_path: Path) -> None:
+    d = tmp_path / "exp"
+    d.mkdir()
+    (d / "experiment.md").write_text("# Experiment\n")
+    (d / "research_journal.md").write_text("# Journal\n")
+    (d / "results.json").write_text("[]")
+    (d / "stray.csv").write_text("")
+
+    msgs = validate_experiment(d, strict_completion=False)
+
+    errors = [m for m in msgs if not m.startswith("warning:")]
+    assert errors == []
+
+
+def test_dotfiles_other_than_loop_lock_ignored(tmp_path: Path) -> None:
+    d = tmp_path / "exp"
+    d.mkdir()
+    (d / "experiment.md").write_text("# Experiment\n")
+    (d / "research_journal.md").write_text("# Journal\n")
+    (d / "results.json").write_text("[]")
+    (d / "outputs").mkdir()
+    (d / ".DS_Store").write_text("")
+    (d / ".cache").mkdir()
+
+    msgs = validate_experiment(d)
+
+    stray_warnings = [m for m in msgs if "stray" in m.lower()]
+    assert stray_warnings == []
 
 
 class TestStrayRootEntriesHelper:

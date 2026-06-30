@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -130,6 +131,20 @@ class TabularMLP(nn.Module):
         return self.network(features).squeeze(-1)
 
 
+@dataclass(frozen=True)
+class MLPTrainingData:
+    train_x: np.ndarray
+    train_y: np.ndarray
+    val_x: np.ndarray
+    val_y: np.ndarray
+
+
+@dataclass(frozen=True)
+class MLPArchitecture:
+    hidden_dims: Sequence[int]
+    dropout: float
+
+
 def _predict_proba(model: TabularMLP, features: np.ndarray) -> np.ndarray:
     model.eval()
     with torch.no_grad():
@@ -139,21 +154,19 @@ def _predict_proba(model: TabularMLP, features: np.ndarray) -> np.ndarray:
 
 
 def _train_mlp(
-    *,
-    train_x: np.ndarray,
-    train_y: np.ndarray,
-    val_x: np.ndarray,
-    val_y: np.ndarray,
-    hidden_dims: Sequence[int],
-    dropout: float,
+    training_data: MLPTrainingData, architecture: MLPArchitecture
 ) -> tuple[TabularMLP, int]:
     torch.manual_seed(RANDOM_STATE)
-    model = TabularMLP(train_x.shape[1], hidden_dims, dropout)
+    model = TabularMLP(
+        training_data.train_x.shape[1],
+        architecture.hidden_dims,
+        architecture.dropout,
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     loss_fn = nn.BCEWithLogitsLoss()
 
-    x_tensor = torch.from_numpy(train_x.astype(np.float32))
-    y_tensor = torch.from_numpy(train_y.astype(np.float32))
+    x_tensor = torch.from_numpy(training_data.train_x.astype(np.float32))
+    y_tensor = torch.from_numpy(training_data.train_y.astype(np.float32))
     dataset = torch.utils.data.TensorDataset(x_tensor, y_tensor)
     loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
@@ -171,11 +184,11 @@ def _train_mlp(
             loss.backward()
             optimizer.step()
 
-        val_probs = _predict_proba(model, val_x)
-        if len(np.unique(val_y)) < 2:
+        val_probs = _predict_proba(model, training_data.val_x)
+        if len(np.unique(training_data.val_y)) < 2:
             val_auc = float("-inf")
         else:
-            val_auc = float(roc_auc_score(val_y, val_probs))
+            val_auc = float(roc_auc_score(training_data.val_y, val_probs))
 
         if val_auc > best_val_auc:
             best_val_auc = val_auc
@@ -236,12 +249,13 @@ def _run_mlp(
     preprocessor = _preprocessor()
     train_x, train_y, val_x, val_y, test_x, _test_y = _fit_arrays(preprocessor, splits)
     model, best_epoch = _train_mlp(
-        train_x=train_x,
-        train_y=train_y,
-        val_x=val_x,
-        val_y=val_y,
-        hidden_dims=hidden_dims,
-        dropout=dropout,
+        MLPTrainingData(
+            train_x=train_x,
+            train_y=train_y,
+            val_x=val_x,
+            val_y=val_y,
+        ),
+        MLPArchitecture(hidden_dims=hidden_dims, dropout=dropout),
     )
     probabilities_by_split = {
         "train": _predict_proba(model, train_x),

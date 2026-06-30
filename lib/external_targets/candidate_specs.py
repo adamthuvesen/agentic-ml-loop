@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -95,47 +96,69 @@ def _finite(values: pd.Series | np.ndarray) -> pd.Series:
     return series.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
+def _log1p_feature(source: pd.Series, spec: dict[str, Any]) -> pd.Series:
+    lower = float(spec.get("lower", 0.0))
+    return _finite(np.log1p(source.clip(lower=lower)))
+
+
+def _sqrt_feature(source: pd.Series, spec: dict[str, Any]) -> pd.Series:
+    lower = float(spec.get("lower", 0.0))
+    return _finite(np.sqrt(source.clip(lower=lower)))
+
+
+def _square_feature(source: pd.Series, _spec: dict[str, Any]) -> pd.Series:
+    return _finite(source**2)
+
+
+def _clip_feature(source: pd.Series, spec: dict[str, Any]) -> pd.Series:
+    min_value = spec.get("min")
+    max_value = spec.get("max")
+    return _finite(
+        source.clip(
+            lower=float(min_value) if min_value is not None else None,
+            upper=float(max_value) if max_value is not None else None,
+        )
+    )
+
+
+_SINGLE_SOURCE_OPS: dict[str, Callable[[pd.Series, dict[str, Any]], pd.Series]] = {
+    "log1p": _log1p_feature,
+    "sqrt": _sqrt_feature,
+    "square": _square_feature,
+    "clip": _clip_feature,
+}
+
+_BINARY_OPS: dict[str, Callable[[pd.Series, pd.Series], pd.Series]] = {
+    "ratio": lambda left, right: left / right.replace(0, np.nan),
+    "difference": lambda left, right: left - right,
+    "product": lambda left, right: left * right,
+    "sum": lambda left, right: left + right,
+}
+
+_THRESHOLD_OPS: dict[str, Callable[[pd.Series, float], pd.Series]] = {
+    "greater_than": lambda source, threshold: (source > threshold).astype(float),
+    "less_than": lambda source, threshold: (source < threshold).astype(float),
+}
+
+
 def _compute_derived_feature(
     frame: pd.DataFrame,
     spec: dict[str, Any],
     forbidden_sources: set[str],
 ) -> pd.Series:
     op = str(spec["op"])
-    if op in {"log1p", "sqrt", "square", "clip"}:
+    if op in _SINGLE_SOURCE_OPS:
         source = _source(frame, str(spec["source"]), forbidden_sources)
-        if op == "log1p":
-            lower = float(spec.get("lower", 0.0))
-            return _finite(np.log1p(source.clip(lower=lower)))
-        if op == "sqrt":
-            lower = float(spec.get("lower", 0.0))
-            return _finite(np.sqrt(source.clip(lower=lower)))
-        if op == "square":
-            return _finite(source**2)
-        min_value = spec.get("min")
-        max_value = spec.get("max")
-        return _finite(
-            source.clip(
-                lower=float(min_value) if min_value is not None else None,
-                upper=float(max_value) if max_value is not None else None,
-            )
-        )
+        return _SINGLE_SOURCE_OPS[op](source, spec)
 
-    if op in {"ratio", "difference", "product", "sum"}:
+    if op in _BINARY_OPS:
         left = _source(frame, str(spec["left"]), forbidden_sources)
         right = _source(frame, str(spec["right"]), forbidden_sources)
-        if op == "ratio":
-            return _finite(left / right.replace(0, np.nan))
-        if op == "difference":
-            return _finite(left - right)
-        if op == "product":
-            return _finite(left * right)
-        return _finite(left + right)
+        return _finite(_BINARY_OPS[op](left, right))
 
-    if op in {"greater_than", "less_than"}:
+    if op in _THRESHOLD_OPS:
         source = _source(frame, str(spec["source"]), forbidden_sources)
         threshold = float(spec["threshold"])
-        if op == "greater_than":
-            return (source > threshold).astype(float)
-        return (source < threshold).astype(float)
+        return _THRESHOLD_OPS[op](source, threshold)
 
     raise ValueError(f"Unsupported derived feature op {op!r}")

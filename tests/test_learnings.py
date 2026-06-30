@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from lib.learnings import (
@@ -9,16 +10,18 @@ from lib.learnings import (
 )
 
 
-def _write_experiment(
-    tmp_path: Path,
-    name: str,
-    *,
-    problem_type: str,
-    objective_metric: str,
-    split_strategy: str,
-    data_profile: str,
-    extra: str = "",
-) -> Path:
+@dataclass(frozen=True)
+class LearningExperimentSpec:
+    name: str
+    problem_type: str
+    objective_metric: str
+    split_strategy: str
+    data_profile: str
+    extra: str = ""
+
+
+def _write_experiment(tmp_path: Path, spec: LearningExperimentSpec) -> Path:
+    name = spec.name
     experiment_dir = tmp_path / name
     experiment_dir.mkdir()
     (experiment_dir / "experiment.md").write_text(
@@ -36,21 +39,21 @@ def _write_experiment(
                 "",
                 "## Data Profile",
                 "",
-                data_profile,
+                spec.data_profile,
                 "",
                 "## Problem Type",
                 "",
-                problem_type,
+                spec.problem_type,
                 "",
                 "## Split Strategy",
                 "",
-                split_strategy,
+                spec.split_strategy,
                 "",
                 "## Objective Metric",
                 "",
-                objective_metric,
+                spec.objective_metric,
                 "",
-                extra,
+                spec.extra,
             ]
         ).strip()
         + "\n"
@@ -62,12 +65,14 @@ class TestLearningsRetrieval:
     def test_builds_profile_tags(self, tmp_path: Path) -> None:
         experiment_dir = _write_experiment(
             tmp_path,
-            "classification-exp",
-            problem_type="Binary classification",
-            objective_metric="Validation AUC (`val_auc`)",
-            split_strategy="Temporal split with holdout test.",
-            data_profile="- Row count: 53,707\n- Feature count: 80",
-            extra="## Known Risks\n\n- Class imbalance is high.\n",
+            LearningExperimentSpec(
+                name="classification-exp",
+                problem_type="Binary classification",
+                objective_metric="Validation AUC (`val_auc`)",
+                split_strategy="Temporal split with holdout test.",
+                data_profile="- Row count: 53,707\n- Feature count: 80",
+                extra="## Known Risks\n\n- Class imbalance is high.\n",
+            ),
         )
 
         profile = experiment_profile(experiment_dir)
@@ -81,11 +86,13 @@ class TestLearningsRetrieval:
     def test_retrieves_only_relevant_excerpts(self, tmp_path: Path) -> None:
         experiment_dir = _write_experiment(
             tmp_path,
-            "ranking-exp",
-            problem_type="Open",
-            objective_metric="`val_captured_at_20pct` top-20% revenue capture",
-            split_strategy="Temporal split by quarter with no holdout.",
-            data_profile="- Row count: 4,433\n- Feature count: 11",
+            LearningExperimentSpec(
+                name="ranking-exp",
+                problem_type="Open",
+                objective_metric="`val_captured_at_20pct` top-20% revenue capture",
+                split_strategy="Temporal split by quarter with no holdout.",
+                data_profile="- Row count: 4,433\n- Feature count: 11",
+            ),
         )
         learnings_text = """
 # Cross-Experiment Learnings
@@ -114,11 +121,13 @@ Tags: ranking, value-modeling, temporal-split, top-k
     def test_omits_low_relevance_memory(self, tmp_path: Path) -> None:
         experiment_dir = _write_experiment(
             tmp_path,
-            "regression-exp",
-            problem_type="Regression",
-            objective_metric="Validation R^2",
-            split_strategy="Random split.",
-            data_profile="- Row count: 1,200\n- Feature count: 8",
+            LearningExperimentSpec(
+                name="regression-exp",
+                problem_type="Regression",
+                objective_metric="Validation R^2",
+                split_strategy="Random split.",
+                data_profile="- Row count: 1,200\n- Feature count: 8",
+            ),
         )
         learnings_text = """
 # Cross-Experiment Learnings

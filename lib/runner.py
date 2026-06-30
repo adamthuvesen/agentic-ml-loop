@@ -5,6 +5,7 @@ import fcntl
 import json
 import shutil
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +124,81 @@ def save_candidate_result(
     return payload
 
 
+def _remove_loop_managed_artifacts(experiment_dir: Path) -> None:
+    if not experiment_dir.exists():
+        return
+    for artifact in sorted(LOOP_MANAGED_FILES):
+        (experiment_dir / artifact).unlink(missing_ok=True)
+    for dirname in sorted(LOOP_MANAGED_DIRECTORIES):
+        path = experiment_dir / dirname
+        if path.exists():
+            shutil.rmtree(path)
+
+
+def _seed_text_file(path: Path, content: Callable[[], str], *, force: bool) -> None:
+    if force or not path.exists():
+        path.write_text(content(), encoding="utf-8")
+
+
+def _experiment_template_text(template_path: Path | None) -> str:
+    source = template_path or (ROOT / "experiments" / "templates" / "model-search.md")
+    return source.read_text(encoding="utf-8")
+
+
+def _research_journal_text(experiment_id: str) -> str:
+    return (
+        f"# Research Journal: {experiment_id}\n\n"
+        "Write one entry per cycle. Include what you set out to learn, what you found,\n"
+        "and what it means for next steps.\n"
+    )
+
+
+def _research_sources_text(
+    experiment_id: str,
+    research_sources_template_path: Path | None,
+) -> str:
+    if research_sources_template_path:
+        return research_sources_template_path.read_text(encoding="utf-8")
+    return research_sources_template(experiment_id)
+
+
+def _seed_experiment_files(
+    experiment_dir: Path,
+    experiment_id: str,
+    template_path: Path | None,
+    research_sources_template_path: Path | None,
+    *,
+    force: bool,
+) -> None:
+    _seed_text_file(
+        experiment_dir / "experiment.md",
+        lambda: _experiment_template_text(template_path),
+        force=force,
+    )
+    _seed_text_file(
+        experiment_dir / "research_journal.md",
+        lambda: _research_journal_text(experiment_id),
+        force=force,
+    )
+    _seed_text_file(
+        experiment_dir / "research_sources.md",
+        lambda: _research_sources_text(experiment_id, research_sources_template_path),
+        force=force,
+    )
+    if force or not (experiment_dir / "results.json").exists():
+        write_json(experiment_dir / "results.json", [])
+
+
+def _ensure_three_folder_layout(experiment_dir: Path) -> None:
+    # Universal three-folder output layout. Idempotent: existing files are preserved.
+    for subdir in ("outputs", "work", "scripts"):
+        target = experiment_dir / subdir
+        target.mkdir(parents=True, exist_ok=True)
+        gitkeep = target / ".gitkeep"
+        if not gitkeep.exists():
+            gitkeep.write_text("", encoding="utf-8")
+
+
 def init_experiment_dir(
     experiment_id: str,
     template_path: Path | None = None,
@@ -140,44 +216,17 @@ def init_experiment_dir(
         force: When True, remove existing artifacts before re-seeding.
     """
     experiment_dir = ROOT / "experiments" / experiment_id
-    if force and experiment_dir.exists():
-        for artifact in sorted(LOOP_MANAGED_FILES):
-            (experiment_dir / artifact).unlink(missing_ok=True)
-        for dirname in sorted(LOOP_MANAGED_DIRECTORIES):
-            path = experiment_dir / dirname
-            if path.exists():
-                shutil.rmtree(path)
+    if force:
+        _remove_loop_managed_artifacts(experiment_dir)
     experiment_dir.mkdir(parents=True, exist_ok=True)
-    if force or not (experiment_dir / "experiment.md").exists():
-        source = template_path or (ROOT / "experiments" / "templates" / "model-search.md")
-        (experiment_dir / "experiment.md").write_text(
-            source.read_text(encoding="utf-8"), encoding="utf-8"
-        )
-    if force or not (experiment_dir / "research_journal.md").exists():
-        (experiment_dir / "research_journal.md").write_text(
-            f"# Research Journal: {experiment_id}\n\n"
-            "Write one entry per cycle. Include what you set out to learn, what you found,\n"
-            "and what it means for next steps.\n",
-            encoding="utf-8",
-        )
-    if force or not (experiment_dir / "research_sources.md").exists():
-        if research_sources_template_path:
-            sources = research_sources_template_path.read_text(encoding="utf-8")
-        else:
-            sources = research_sources_template(experiment_id)
-        (experiment_dir / "research_sources.md").write_text(sources, encoding="utf-8")
-    if force or not (experiment_dir / "results.json").exists():
-        write_json(experiment_dir / "results.json", [])
-
-    # Universal three-folder output layout. Idempotent — safe for both fresh
-    # experiments and `init-demo --force` re-runs; existing files are preserved.
-    for subdir in ("outputs", "work", "scripts"):
-        target = experiment_dir / subdir
-        target.mkdir(parents=True, exist_ok=True)
-        gitkeep = target / ".gitkeep"
-        if not gitkeep.exists():
-            gitkeep.write_text("", encoding="utf-8")
-
+    _seed_experiment_files(
+        experiment_dir,
+        experiment_id,
+        template_path,
+        research_sources_template_path,
+        force=force,
+    )
+    _ensure_three_folder_layout(experiment_dir)
     return experiment_dir
 
 
@@ -240,13 +289,73 @@ def runner_cli(
     return parser
 
 
+@dataclass(frozen=True)
+class RunnerMainConfig:
+    experiment_id: str
+    candidate_runners: dict[str, Callable]
+    dataset_loader: Callable[[], Any]
+    template_path: Path | None = None
+    research_sources_template_path: Path | None = None
+    retired_candidate_runners: dict[str, Callable] | None = None
+
+
+def _coerce_runner_main_config(
+    config_or_experiment_id: RunnerMainConfig | str | None,
+    legacy_args: tuple[Any, ...],
+    legacy_kwargs: dict[str, Any],
+) -> RunnerMainConfig:
+    if isinstance(config_or_experiment_id, RunnerMainConfig):
+        if legacy_args or legacy_kwargs:
+            raise TypeError("run_runner_main() received both RunnerMainConfig and legacy arguments")
+        return config_or_experiment_id
+
+    values = dict(legacy_kwargs)
+    if config_or_experiment_id is None:
+        try:
+            config_or_experiment_id = values.pop("experiment_id")
+        except KeyError as exc:
+            raise TypeError("run_runner_main() missing required experiment_id") from exc
+
+    legacy_fields = [
+        "candidate_runners",
+        "dataset_loader",
+        "template_path",
+        "research_sources_template_path",
+        "retired_candidate_runners",
+    ]
+    if len(legacy_args) > len(legacy_fields):
+        raise TypeError("run_runner_main() got too many positional arguments")
+    positional_values = dict(zip(legacy_fields, legacy_args, strict=False))
+    duplicate = sorted(set(positional_values) & set(values))
+    if duplicate:
+        raise TypeError(
+            "run_runner_main() got multiple values for argument(s): " + ", ".join(duplicate)
+        )
+
+    unknown = sorted(set(values) - set(legacy_fields))
+    if unknown:
+        raise TypeError("run_runner_main() got unexpected keyword arguments: " + ", ".join(unknown))
+    values = {**positional_values, **values}
+    missing = [key for key in ("candidate_runners", "dataset_loader") if key not in values]
+    if missing:
+        raise TypeError(
+            "run_runner_main() missing required legacy arguments: " + ", ".join(missing)
+        )
+
+    return RunnerMainConfig(
+        experiment_id=str(config_or_experiment_id),
+        candidate_runners=values["candidate_runners"],
+        dataset_loader=values["dataset_loader"],
+        template_path=values.get("template_path"),
+        research_sources_template_path=values.get("research_sources_template_path"),
+        retired_candidate_runners=values.get("retired_candidate_runners"),
+    )
+
+
 def run_runner_main(
-    experiment_id: str,
-    candidate_runners: dict[str, Callable],
-    dataset_loader: Callable[[], Any],
-    template_path: Path | None = None,
-    research_sources_template_path: Path | None = None,
-    retired_candidate_runners: dict[str, Callable] | None = None,
+    config: RunnerMainConfig | str | None = None,
+    *legacy_args: Any,
+    **legacy_kwargs: Any,
 ) -> int:
     """Parse argv and dispatch a demo runner subcommand. Returns a process exit code.
 
@@ -254,16 +363,17 @@ def run_runner_main(
     candidates, initializes the experiment directory, or runs a (possibly retired)
     candidate and prints its objective score as JSON.
     """
-    retired_candidate_runners = retired_candidate_runners or {}
+    config = _coerce_runner_main_config(config, legacy_args, legacy_kwargs)
+    retired_candidate_runners = config.retired_candidate_runners or {}
     parser = runner_cli(
-        experiment_id,
-        list(candidate_runners.keys()),
+        config.experiment_id,
+        list(config.candidate_runners.keys()),
         list(retired_candidate_runners.keys()),
     )
     args = parser.parse_args()
 
     if args.command == "list-candidates":
-        for cid in candidate_runners:
+        for cid in config.candidate_runners:
             print(cid)
         return 0
 
@@ -274,12 +384,12 @@ def run_runner_main(
 
     if args.command == "init-demo":
         path = init_experiment_dir(
-            experiment_id,
-            template_path,
-            research_sources_template_path,
+            config.experiment_id,
+            config.template_path,
+            config.research_sources_template_path,
             force=args.force,
         )
-        print(f"Initialized {experiment_id} experiment at {path}")
+        print(f"Initialized {config.experiment_id} experiment at {path}")
         return 0
 
     if args.command in {"run-candidate", "run-retired-candidate"}:
@@ -287,9 +397,11 @@ def run_runner_main(
         runners = (
             retired_candidate_runners
             if args.command == "run-retired-candidate"
-            else candidate_runners
+            else config.candidate_runners
         )
-        result = save_candidate_result(experiment_dir, args.candidate, dataset_loader, runners)
+        result = save_candidate_result(
+            experiment_dir, args.candidate, config.dataset_loader, runners
+        )
         print(
             json.dumps(
                 {

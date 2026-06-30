@@ -50,6 +50,18 @@ class CycleBaselines:
     advisory: AdvisorySnapshot
 
 
+@dataclass(frozen=True)
+class RestoreArtifactsRequest:
+    experiment_dir: Path
+    journal_backup: str
+    experiment_md_backup: str
+    results_backup: str
+    sources_path: Path
+    sources_backup: str | None
+    pre_cycle_diagnostics: set[Path] | None = None
+    pre_cycle_evaluation_reviews: dict[Path, str] | None = None
+
+
 def capture_advisory_snapshot(experiment_dir: Path) -> AdvisorySnapshot:
     """Record diagnostics and evaluation-review paths present before a cycle."""
     diagnostics_dir = experiment_dir / "diagnostics"
@@ -93,14 +105,16 @@ def capture_cycle_baselines(experiment_dir: Path) -> CycleBaselines:
 def restore_cycle_baselines(experiment_dir: Path, baselines: CycleBaselines) -> None:
     """Restore experiment files to the cycle-start snapshot."""
     restore_artifacts(
-        experiment_dir,
-        baselines.journal_backup,
-        baselines.experiment_md_backup,
-        baselines.results_backup,
-        baselines.sources_path,
-        baselines.sources_backup,
-        baselines.advisory.pre_cycle_diagnostics,
-        baselines.advisory.pre_cycle_evaluation_reviews,
+        RestoreArtifactsRequest(
+            experiment_dir=experiment_dir,
+            journal_backup=baselines.journal_backup,
+            experiment_md_backup=baselines.experiment_md_backup,
+            results_backup=baselines.results_backup,
+            sources_path=baselines.sources_path,
+            sources_backup=baselines.sources_backup,
+            pre_cycle_diagnostics=baselines.advisory.pre_cycle_diagnostics,
+            pre_cycle_evaluation_reviews=baselines.advisory.pre_cycle_evaluation_reviews,
+        )
     )
 
 
@@ -161,59 +175,75 @@ def compute_progress(before: ArtifactSnapshot, after: ArtifactSnapshot) -> list[
     return reasons
 
 
-def restore_artifacts(
+def _restore_sources_file(sources_path: Path, sources_backup: str | None) -> None:
+    if sources_backup is not None:
+        write_text(sources_path, sources_backup)
+    else:
+        sources_path.unlink(missing_ok=True)
+
+
+def _restore_evaluation_reviews(
     experiment_dir: Path,
-    journal_backup: str,
-    experiment_md_backup: str,
-    results_backup: str,
-    sources_path: Path,
-    sources_backup: str | None,
-    pre_cycle_diagnostics: set[Path] | None = None,
-    pre_cycle_evaluation_reviews: dict[Path, str] | None = None,
+    pre_cycle_evaluation_reviews: dict[Path, str] | None,
 ) -> None:
+    for name in ("evaluation_review.md", "evaluation_review.json"):
+        path = experiment_dir / name
+        if pre_cycle_evaluation_reviews is not None and path in pre_cycle_evaluation_reviews:
+            write_text(path, pre_cycle_evaluation_reviews[path])
+        else:
+            path.unlink(missing_ok=True)
+
+
+def _remove_attempt_diagnostic_paths(
+    diagnostics_dir: Path,
+    pre_cycle_diagnostics: set[Path],
+) -> None:
+    for path in sorted(
+        diagnostics_dir.glob("**/*"),
+        key=lambda item: len(item.parts),
+        reverse=True,
+    ):
+        if path in pre_cycle_diagnostics:
+            continue
+        if path.is_file() or path.is_symlink():
+            path.unlink(missing_ok=True)
+        elif path.is_dir():
+            with contextlib.suppress(OSError):
+                path.rmdir()
+
+
+def _restore_diagnostics(
+    experiment_dir: Path,
+    pre_cycle_diagnostics: set[Path] | None,
+) -> None:
+    diagnostics_dir = experiment_dir / "diagnostics"
+    if not diagnostics_dir.is_dir():
+        return
+    if pre_cycle_diagnostics is None:
+        shutil.rmtree(diagnostics_dir)
+        return
+
+    _remove_attempt_diagnostic_paths(diagnostics_dir, pre_cycle_diagnostics)
+    if diagnostics_dir not in pre_cycle_diagnostics:
+        with contextlib.suppress(OSError):
+            diagnostics_dir.rmdir()
+
+
+def restore_artifacts(request: RestoreArtifactsRequest) -> None:
     """Reset mutable files and advisory artifacts to the cycle-start snapshot.
 
     Raises :class:`RollbackError` if any restore operation fails, so a corrupted
     rollback aborts the cycle loudly instead of leaving partial state behind.
     """
     try:
-        write_text(journal_path(experiment_dir), journal_backup)
-        write_text(experiment_dir / "experiment.md", experiment_md_backup)
-        write_text(results_file(experiment_dir), results_backup)
-        if sources_backup is not None:
-            write_text(sources_path, sources_backup)
-        else:
-            sources_path.unlink(missing_ok=True)
-
-        for name in ("evaluation_review.md", "evaluation_review.json"):
-            p = experiment_dir / name
-            if pre_cycle_evaluation_reviews is not None and p in pre_cycle_evaluation_reviews:
-                write_text(p, pre_cycle_evaluation_reviews[p])
-            else:
-                p.unlink(missing_ok=True)
-
-        diagnostics_dir = experiment_dir / "diagnostics"
-        if diagnostics_dir.is_dir():
-            if pre_cycle_diagnostics is not None:
-                for f in sorted(
-                    diagnostics_dir.glob("**/*"),
-                    key=lambda path: len(path.parts),
-                    reverse=True,
-                ):
-                    if f in pre_cycle_diagnostics:
-                        continue
-                    if f.is_file() or f.is_symlink():
-                        f.unlink(missing_ok=True)
-                    elif f.is_dir():
-                        with contextlib.suppress(OSError):
-                            f.rmdir()
-                if diagnostics_dir not in pre_cycle_diagnostics:
-                    with contextlib.suppress(OSError):
-                        diagnostics_dir.rmdir()
-            else:
-                shutil.rmtree(diagnostics_dir)
+        write_text(journal_path(request.experiment_dir), request.journal_backup)
+        write_text(request.experiment_dir / "experiment.md", request.experiment_md_backup)
+        write_text(results_file(request.experiment_dir), request.results_backup)
+        _restore_sources_file(request.sources_path, request.sources_backup)
+        _restore_evaluation_reviews(request.experiment_dir, request.pre_cycle_evaluation_reviews)
+        _restore_diagnostics(request.experiment_dir, request.pre_cycle_diagnostics)
     except OSError as exc:
-        logger.error("Failed to restore cycle artifacts in %s: %s", experiment_dir, exc)
+        logger.error("Failed to restore cycle artifacts in %s: %s", request.experiment_dir, exc)
         raise RollbackError(
-            f"Could not restore cycle-start artifacts in {experiment_dir}: {exc}"
+            f"Could not restore cycle-start artifacts in {request.experiment_dir}: {exc}"
         ) from exc

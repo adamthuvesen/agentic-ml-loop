@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,16 @@ from lib.candidate_result import CandidateResult
 
 ROOT = Path(__file__).resolve().parents[2]
 RESULT_PREFIX = "RESULT_JSON:"
+
+
+@dataclass(frozen=True)
+class UvProjectHelperRequest:
+    repo: Path
+    helper: Path
+    candidate_id: str
+    extra_args: list[str] | None = None
+    env: dict[str, str] | None = None
+    timeout_seconds: int = 600
 
 
 def resolve_external_repo(env_var: str, repo_name: str) -> Path:
@@ -38,34 +49,26 @@ def parse_helper_result(stdout: str) -> dict[str, Any]:
     raise RuntimeError(f"Evaluator did not emit {RESULT_PREFIX!r}. stdout:\n{stdout}")
 
 
-def run_uv_project_helper(
-    *,
-    repo: Path,
-    helper: Path,
-    candidate_id: str,
-    extra_args: list[str] | None = None,
-    env: dict[str, str] | None = None,
-    timeout_seconds: int = 600,
-) -> dict[str, Any]:
+def run_uv_project_helper(request: UvProjectHelperRequest) -> dict[str, Any]:
     command = [
         "uv",
         "run",
         "--project",
-        str(repo),
+        str(request.repo),
         "python",
-        str(helper),
+        str(request.helper),
         "--repo",
-        str(repo),
+        str(request.repo),
         "--candidate",
-        candidate_id,
+        request.candidate_id,
     ]
-    if extra_args:
-        command.extend(extra_args)
+    if request.extra_args:
+        command.extend(request.extra_args)
 
     child_env = os.environ.copy()
     child_env.pop("VIRTUAL_ENV", None)
-    if env:
-        child_env.update(env)
+    if request.env:
+        child_env.update(request.env)
 
     completed = subprocess.run(
         command,
@@ -73,14 +76,14 @@ def run_uv_project_helper(
         env=child_env,
         text=True,
         capture_output=True,
-        timeout=timeout_seconds,
+        timeout=request.timeout_seconds,
         check=False,
     )
     if completed.returncode != 0:
         sys.stderr.write(completed.stdout)
         sys.stderr.write(completed.stderr)
         raise RuntimeError(
-            f"External evaluator failed for {candidate_id!r} in {repo} "
+            f"External evaluator failed for {request.candidate_id!r} in {request.repo} "
             f"(exit {completed.returncode})"
         )
     return parse_helper_result(completed.stdout)

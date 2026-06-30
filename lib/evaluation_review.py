@@ -172,6 +172,7 @@ def _split_concern(
     train_target = pd.to_numeric(train[target_column], errors="coerce").dropna()
     if train_target.empty:
         return None
+    is_binary_target = series_is_binary(train_target)
 
     for split_name in ("validation", "test"):
         frame = frames_by_split.get(split_name)
@@ -180,37 +181,20 @@ def _split_concern(
         split_target = pd.to_numeric(frame[target_column], errors="coerce").dropna()
         if split_target.empty:
             continue
-        shift = float(split_target.mean() - train_target.mean())
-        if series_is_binary(train_target):
-            threshold = 0.05
-            scaled = abs(shift)
-            if scaled >= threshold:
-                severity = max(severity, scaled)
-                evidence.append(f"`{split_name}` target rate differs from train by {shift:+.3f}.")
-        else:
-            scale = float(train_target.std(ddof=0))
-            if not np.isfinite(scale) or scale == 0:
-                scale = max(
-                    abs(float(train_target.mean())),
-                    abs(float(split_target.mean())),
-                    1e-6,
-                )
-            scaled = abs(shift) / scale
-            if scaled >= 0.5:
-                severity = max(severity, scaled)
-                evidence.append(
-                    f"`{split_name}` target mean differs from train by {shift:+.3f} "
-                    f"({scaled:.2f} train std)."
-                )
-
-        drift = top_feature_drift(train, frame, excluded_columns={target_column})
-        if drift and drift[0]["scaled_delta"] >= 1.0:
-            top = drift[0]
-            severity = max(severity, top["scaled_delta"])
-            evidence.append(
-                f"`{split_name}` shows strong feature drift on `{top['column']}` "
-                f"(scaled delta {top['scaled_delta']:.2f})."
-            )
+        for item in (
+            _target_shift_evidence(
+                split_name,
+                train_target,
+                split_target,
+                is_binary_target=is_binary_target,
+            ),
+            _feature_drift_evidence(split_name, train, frame, target_column),
+        ):
+            if item is None:
+                continue
+            item_severity, item_evidence = item
+            severity = max(severity, item_severity)
+            evidence.append(item_evidence)
 
     if not evidence:
         return None
@@ -225,6 +209,58 @@ def _split_concern(
         "priority": 90 + severity,
         "kind": "split",
     }
+
+
+def _target_shift_evidence(
+    split_name: str,
+    train_target: pd.Series,
+    split_target: pd.Series,
+    *,
+    is_binary_target: bool,
+) -> tuple[float, str] | None:
+    shift = float(split_target.mean() - train_target.mean())
+    if is_binary_target:
+        scaled = abs(shift)
+        if scaled < 0.05:
+            return None
+        return scaled, f"`{split_name}` target rate differs from train by {shift:+.3f}."
+
+    scale = _target_shift_scale(train_target, split_target)
+    scaled = abs(shift) / scale
+    if scaled < 0.5:
+        return None
+    return (
+        scaled,
+        f"`{split_name}` target mean differs from train by {shift:+.3f} ({scaled:.2f} train std).",
+    )
+
+
+def _target_shift_scale(train_target: pd.Series, split_target: pd.Series) -> float:
+    scale = float(train_target.std(ddof=0))
+    if np.isfinite(scale) and scale != 0:
+        return scale
+    return max(
+        abs(float(train_target.mean())),
+        abs(float(split_target.mean())),
+        1e-6,
+    )
+
+
+def _feature_drift_evidence(
+    split_name: str,
+    train: pd.DataFrame,
+    frame: pd.DataFrame,
+    target_column: str,
+) -> tuple[float, str] | None:
+    drift = top_feature_drift(train, frame, excluded_columns={target_column})
+    if not drift or drift[0]["scaled_delta"] < 1.0:
+        return None
+    top = drift[0]
+    return (
+        top["scaled_delta"],
+        f"`{split_name}` shows strong feature drift on `{top['column']}` "
+        f"(scaled delta {top['scaled_delta']:.2f}).",
+    )
 
 
 def _leakage_concern(

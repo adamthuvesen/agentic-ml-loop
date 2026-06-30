@@ -4,7 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from loop import artifact_snapshot, compute_progress
-from loop.artifacts import RollbackError
+from loop.artifacts import RestoreArtifactsRequest, RollbackError
 from loop.core import _restore_artifacts
 from tests.loop.conftest import _make_experiment
 
@@ -107,13 +107,15 @@ class TestRestoreArtifactsAdvisoryCleanup:
         (diag / "report.json").write_text("{}")
 
         _restore_artifacts(
-            d,
-            journal_backup="# Journal\n",
-            experiment_md_backup="# Experiment\n",
-            results_backup="[]\n",
-            sources_path=sources_path,
-            sources_backup="# Research Sources\n",
-            pre_cycle_evaluation_reviews={},
+            RestoreArtifactsRequest(
+                experiment_dir=d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup="# Research Sources\n",
+                pre_cycle_evaluation_reviews={},
+            )
         )
 
         assert not (d / "evaluation_review.md").exists()
@@ -136,13 +138,15 @@ class TestRestoreArtifactsAdvisoryCleanup:
         review_json.write_text('{"attempt": true}')
 
         _restore_artifacts(
-            d,
-            journal_backup="# Journal\n",
-            experiment_md_backup="# Experiment\n",
-            results_backup="[]\n",
-            sources_path=sources_path,
-            sources_backup="# Research Sources\n",
-            pre_cycle_evaluation_reviews=pre_cycle_reviews,
+            RestoreArtifactsRequest(
+                experiment_dir=d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup="# Research Sources\n",
+                pre_cycle_evaluation_reviews=pre_cycle_reviews,
+            )
         )
 
         assert review_md.read_text() == "pre-cycle review"
@@ -154,12 +158,14 @@ class TestRestoreArtifactsAdvisoryCleanup:
 
         # Should not raise when advisory artifacts don't exist
         _restore_artifacts(
-            d,
-            journal_backup="# Journal\n",
-            experiment_md_backup="# Experiment\n",
-            results_backup="[]\n",
-            sources_path=sources_path,
-            sources_backup="# Research Sources\n",
+            RestoreArtifactsRequest(
+                experiment_dir=d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup="# Research Sources\n",
+            )
         )
 
     def test_attempt_created_sources_file_is_removed_when_absent_before(
@@ -171,12 +177,14 @@ class TestRestoreArtifactsAdvisoryCleanup:
         sources_path.write_text("# Attempt sources\n")
 
         _restore_artifacts(
-            d,
-            journal_backup="# Journal\n",
-            experiment_md_backup="# Experiment\n",
-            results_backup="[]\n",
-            sources_path=sources_path,
-            sources_backup=None,
+            RestoreArtifactsRequest(
+                experiment_dir=d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup=None,
+            )
         )
 
         assert not sources_path.exists()
@@ -192,13 +200,15 @@ class TestRestoreArtifactsAdvisoryCleanup:
         (nested / "attempt_report.json").write_text("{}")
 
         _restore_artifacts(
-            d,
-            journal_backup="# Journal\n",
-            experiment_md_backup="# Experiment\n",
-            results_backup="[]\n",
-            sources_path=sources_path,
-            sources_backup="# Research Sources\n",
-            pre_cycle_diagnostics=set(),
+            RestoreArtifactsRequest(
+                experiment_dir=d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup="# Research Sources\n",
+                pre_cycle_diagnostics=set(),
+            )
         )
 
         assert not diag.exists()
@@ -216,13 +226,15 @@ class TestRestoreArtifactsAdvisoryCleanup:
         (diag / "attempt_artifact.json").write_text("{}")
 
         _restore_artifacts(
-            d,
-            journal_backup="# Journal\n",
-            experiment_md_backup="# Experiment\n",
-            results_backup="[]\n",
-            sources_path=sources_path,
-            sources_backup=None,
-            pre_cycle_diagnostics=pre_cycle_diagnostics,
+            RestoreArtifactsRequest(
+                experiment_dir=d,
+                journal_backup="# Journal\n",
+                experiment_md_backup="# Experiment\n",
+                results_backup="[]\n",
+                sources_path=sources_path,
+                sources_backup=None,
+                pre_cycle_diagnostics=pre_cycle_diagnostics,
+            )
         )
 
         assert pre_seeded.exists(), "pre-seeded diagnostic should survive restore"
@@ -241,10 +253,12 @@ class TestRestoreArtifactsFailureIsLoud:
             pytest.raises(RollbackError, match="Could not restore"),
         ):
             _restore_artifacts(
-                d,
-                journal_backup="# Journal\n",
-                experiment_md_backup="# Experiment\n",
-                results_backup="[]\n",
-                sources_path=sources_path,
-                sources_backup="# Research Sources\n",
+                RestoreArtifactsRequest(
+                    experiment_dir=d,
+                    journal_backup="# Journal\n",
+                    experiment_md_backup="# Experiment\n",
+                    results_backup="[]\n",
+                    sources_path=sources_path,
+                    sources_backup="# Research Sources\n",
+                )
             )

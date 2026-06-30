@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -31,6 +32,17 @@ logger = logging.getLogger(__name__)
 OBJECTIVE_METRIC = "val_r2"
 SPLIT_STRATEGY = "time_split_60_20_20"
 RANDOM_STATE = 42
+
+
+@dataclass(frozen=True)
+class RegressionModelSpec:
+    candidate_id: str
+    model_family: str
+    feature_set: str
+    estimator: Any
+    notes: str
+    hyperparameters: dict[str, Any]
+    preprocessor: ColumnTransformer
 
 
 def _regression_preprocessor(feature_set: str) -> ColumnTransformer:
@@ -128,23 +140,16 @@ def _evaluate_all_splits(
 
 
 def _fit_log_transform_model(
-    candidate_id: str,
-    model_family: str,
-    feature_set: str,
-    estimator: Any,
-    splits: DemoRegressionSplits,
-    notes: str,
-    hyperparameters: dict[str, Any],
-    preprocessor: ColumnTransformer,
+    spec: RegressionModelSpec, splits: DemoRegressionSplits
 ) -> CandidateResult:
     """Fit a pipeline with log(1+y) target transform; evaluate predictions on original scale."""
     selected_features = (
-        engineered_feature_columns() if feature_set == "engineered" else base_feature_columns()
+        engineered_feature_columns() if spec.feature_set == "engineered" else base_feature_columns()
     )
     inner_pipeline = Pipeline(
         steps=[
-            ("preprocessor", preprocessor),
-            ("estimator", estimator),
+            ("preprocessor", spec.preprocessor),
+            ("estimator", spec.estimator),
         ]
     )
     # TransformedTargetRegressor applies log1p to y before fitting, expm1 after predict
@@ -166,37 +171,28 @@ def _fit_log_transform_model(
     }
     metrics = _evaluate_all_splits(raw_predictions, splits)
     return CandidateResult(
-        candidate_id=candidate_id,
-        model_family=model_family,
-        feature_set=feature_set,
+        candidate_id=spec.candidate_id,
+        model_family=spec.model_family,
+        feature_set=spec.feature_set,
         objective_metric=OBJECTIVE_METRIC,
         objective_score=metrics["validation"]["r2"],
         split_strategy=SPLIT_STRATEGY,
         status="completed",
-        notes=notes,
+        notes=spec.notes,
         metrics=metrics,
-        hyperparameters=hyperparameters,
+        hyperparameters=spec.hyperparameters,
         selected_features=selected_features,
     )
 
 
-def _fit_pipeline_model(
-    candidate_id: str,
-    model_family: str,
-    feature_set: str,
-    estimator: Any,
-    splits: DemoRegressionSplits,
-    notes: str,
-    hyperparameters: dict[str, Any],
-    preprocessor: ColumnTransformer,
-) -> CandidateResult:
+def _fit_pipeline_model(spec: RegressionModelSpec, splits: DemoRegressionSplits) -> CandidateResult:
     selected_features = (
-        engineered_feature_columns() if feature_set == "engineered" else base_feature_columns()
+        engineered_feature_columns() if spec.feature_set == "engineered" else base_feature_columns()
     )
     pipeline = Pipeline(
         steps=[
-            ("preprocessor", preprocessor),
-            ("estimator", estimator),
+            ("preprocessor", spec.preprocessor),
+            ("estimator", spec.estimator),
         ]
     )
     train_x = splits.train[selected_features]
@@ -212,16 +208,16 @@ def _fit_pipeline_model(
     }
     metrics = _evaluate_all_splits(predictions_by_split, splits)
     return CandidateResult(
-        candidate_id=candidate_id,
-        model_family=model_family,
-        feature_set=feature_set,
+        candidate_id=spec.candidate_id,
+        model_family=spec.model_family,
+        feature_set=spec.feature_set,
         objective_metric=OBJECTIVE_METRIC,
         objective_score=metrics["validation"]["r2"],
         split_strategy=SPLIT_STRATEGY,
         status="completed",
-        notes=notes,
+        notes=spec.notes,
         metrics=metrics,
-        hyperparameters=hyperparameters,
+        hyperparameters=spec.hyperparameters,
         selected_features=selected_features,
     )
 
@@ -282,31 +278,35 @@ def run_rule_baseline(splits: DemoRegressionSplits) -> CandidateResult:
 
 def run_ridge_basic(splits: DemoRegressionSplits) -> CandidateResult:
     return _fit_pipeline_model(
-        candidate_id="ridge-basic",
-        model_family="ridge_regression",
-        feature_set="base",
-        estimator=Ridge(alpha=2.0),
-        splits=splits,
-        notes="Ridge regression over base features with train-fitted scaling and one-hot categoricals.",
-        hyperparameters={
-            "alpha": 2.0,
-        },
-        preprocessor=_regression_preprocessor("base"),
+        RegressionModelSpec(
+            candidate_id="ridge-basic",
+            model_family="ridge_regression",
+            feature_set="base",
+            estimator=Ridge(alpha=2.0),
+            notes="Ridge regression over base features with train-fitted scaling and one-hot categoricals.",
+            hyperparameters={
+                "alpha": 2.0,
+            },
+            preprocessor=_regression_preprocessor("base"),
+        ),
+        splits,
     )
 
 
 def run_ridge_engineered(splits: DemoRegressionSplits) -> CandidateResult:
     return _fit_pipeline_model(
-        candidate_id="ridge-engineered",
-        model_family="ridge_regression",
-        feature_set="engineered",
-        estimator=Ridge(alpha=3.0),
-        splits=splits,
-        notes="Ridge regression with engineered utilization, burden, and capacity features.",
-        hyperparameters={
-            "alpha": 3.0,
-        },
-        preprocessor=_regression_preprocessor("engineered"),
+        RegressionModelSpec(
+            candidate_id="ridge-engineered",
+            model_family="ridge_regression",
+            feature_set="engineered",
+            estimator=Ridge(alpha=3.0),
+            notes="Ridge regression with engineered utilization, burden, and capacity features.",
+            hyperparameters={
+                "alpha": 3.0,
+            },
+            preprocessor=_regression_preprocessor("engineered"),
+        ),
+        splits,
     )
 
 
@@ -325,43 +325,47 @@ def run_xgb_basic(splits: DemoRegressionSplits) -> CandidateResult:
         eval_metric="rmse",
     )
     return _fit_pipeline_model(
-        candidate_id="xgb-basic",
-        model_family="xgboost_regressor",
-        feature_set="engineered",
-        estimator=estimator,
-        splits=splits,
-        notes="Regularized XGBoost regressor over base plus engineered regression features.",
-        hyperparameters={
-            "n_estimators": 260,
-            "max_depth": 4,
-            "learning_rate": 0.04,
-            "subsample": 0.8,
-            "colsample_bytree": 0.8,
-            "min_child_weight": 12,
-            "reg_alpha": 0.4,
-            "reg_lambda": 4.0,
-            "random_state": RANDOM_STATE,
-            "objective": "reg:squarederror",
-            "eval_metric": "rmse",
-        },
-        preprocessor=_xgb_preprocessor("engineered"),
+        RegressionModelSpec(
+            candidate_id="xgb-basic",
+            model_family="xgboost_regressor",
+            feature_set="engineered",
+            estimator=estimator,
+            notes="Regularized XGBoost regressor over base plus engineered regression features.",
+            hyperparameters={
+                "n_estimators": 260,
+                "max_depth": 4,
+                "learning_rate": 0.04,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "min_child_weight": 12,
+                "reg_alpha": 0.4,
+                "reg_lambda": 4.0,
+                "random_state": RANDOM_STATE,
+                "objective": "reg:squarederror",
+                "eval_metric": "rmse",
+            },
+            preprocessor=_xgb_preprocessor("engineered"),
+        ),
+        splits,
     )
 
 
 def run_ridge_log(splits: DemoRegressionSplits) -> CandidateResult:
     """Ridge on base features with log(1+y) target transform; evaluate on original scale."""
     return _fit_log_transform_model(
-        candidate_id="ridge-log",
-        model_family="ridge_regression",
-        feature_set="base",
-        estimator=Ridge(alpha=2.0),
-        splits=splits,
-        notes="Ridge on base features with log(1+y) target transform; back-transform to evaluate on original scale.",
-        hyperparameters={
-            "alpha": 2.0,
-            "target_transform": "log1p",
-        },
-        preprocessor=_regression_preprocessor("base"),
+        RegressionModelSpec(
+            candidate_id="ridge-log",
+            model_family="ridge_regression",
+            feature_set="base",
+            estimator=Ridge(alpha=2.0),
+            notes="Ridge on base features with log(1+y) target transform; back-transform to evaluate on original scale.",
+            hyperparameters={
+                "alpha": 2.0,
+                "target_transform": "log1p",
+            },
+            preprocessor=_regression_preprocessor("base"),
+        ),
+        splits,
     )
 
 
@@ -381,25 +385,27 @@ def run_xgb_log(splits: DemoRegressionSplits) -> CandidateResult:
         eval_metric="rmse",
     )
     return _fit_log_transform_model(
-        candidate_id="xgb-log",
-        model_family="xgboost_regressor",
-        feature_set="engineered",
-        estimator=estimator,
-        splits=splits,
-        notes="XGBoost with log(1+y) target transform; same architecture as xgb-basic, tests H1 for tree models.",
-        hyperparameters={
-            "n_estimators": 260,
-            "max_depth": 4,
-            "learning_rate": 0.04,
-            "subsample": 0.8,
-            "colsample_bytree": 0.8,
-            "min_child_weight": 12,
-            "reg_alpha": 0.4,
-            "reg_lambda": 4.0,
-            "random_state": RANDOM_STATE,
-            "target_transform": "log1p",
-        },
-        preprocessor=_xgb_preprocessor("engineered"),
+        RegressionModelSpec(
+            candidate_id="xgb-log",
+            model_family="xgboost_regressor",
+            feature_set="engineered",
+            estimator=estimator,
+            notes="XGBoost with log(1+y) target transform; same architecture as xgb-basic, tests H1 for tree models.",
+            hyperparameters={
+                "n_estimators": 260,
+                "max_depth": 4,
+                "learning_rate": 0.04,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "min_child_weight": 12,
+                "reg_alpha": 0.4,
+                "reg_lambda": 4.0,
+                "random_state": RANDOM_STATE,
+                "target_transform": "log1p",
+            },
+            preprocessor=_xgb_preprocessor("engineered"),
+        ),
+        splits,
     )
 
 
@@ -481,29 +487,31 @@ def run_xgb_tweedie(splits: DemoRegressionSplits) -> CandidateResult:
         tweedie_variance_power=1.5,
     )
     return _fit_pipeline_model(
-        candidate_id="xgb-tweedie",
-        model_family="xgboost_tweedie",
-        feature_set="base",
-        estimator=estimator,
-        splits=splits,
-        notes=(
-            "XGBoost with Tweedie loss (power=1.5) for zero-inflated right-skewed target. "
-            "Single-model alternative to two-stage hurdle; same regularization as xgb-basic."
+        RegressionModelSpec(
+            candidate_id="xgb-tweedie",
+            model_family="xgboost_tweedie",
+            feature_set="base",
+            estimator=estimator,
+            notes=(
+                "XGBoost with Tweedie loss (power=1.5) for zero-inflated right-skewed target. "
+                "Single-model alternative to two-stage hurdle; same regularization as xgb-basic."
+            ),
+            hyperparameters={
+                "n_estimators": 300,
+                "max_depth": 4,
+                "learning_rate": 0.04,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "min_child_weight": 12,
+                "reg_alpha": 0.4,
+                "reg_lambda": 4.0,
+                "random_state": RANDOM_STATE,
+                "objective": "reg:tweedie",
+                "tweedie_variance_power": 1.5,
+            },
+            preprocessor=_xgb_preprocessor("base"),
         ),
-        hyperparameters={
-            "n_estimators": 300,
-            "max_depth": 4,
-            "learning_rate": 0.04,
-            "subsample": 0.8,
-            "colsample_bytree": 0.8,
-            "min_child_weight": 12,
-            "reg_alpha": 0.4,
-            "reg_lambda": 4.0,
-            "random_state": RANDOM_STATE,
-            "objective": "reg:tweedie",
-            "tweedie_variance_power": 1.5,
-        },
-        preprocessor=_xgb_preprocessor("base"),
+        splits,
     )
 
 

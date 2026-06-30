@@ -6,6 +6,7 @@ from pathlib import Path
 
 from loop.bench import (
     BenchmarkBudget,
+    BenchmarkRequest,
     RunnerOutcome,
     aggregate_runner_outcome,
     run_benchmark,
@@ -91,13 +92,15 @@ def test_run_benchmark_ranks_by_referee_then_score(tmp_path: Path) -> None:
         _finish_experiment(experiment_dir, score=score, referee=referee)
 
     report = run_benchmark(
-        source,
-        ["claude", "codex"],
-        budget=_BUDGET,
-        bench_dir=bench_dir,
-        timestamp="2026-01-01T00:00:00Z",
-        run_one=fake_run_one,
-        runner_config_for=lambda name: RunnerConfig(name=name, command=[name]),
+        BenchmarkRequest(
+            source_experiment_dir=source,
+            runner_names=["claude", "codex"],
+            budget=_BUDGET,
+            bench_dir=bench_dir,
+            timestamp="2026-01-01T00:00:00Z",
+            run_one=fake_run_one,
+            runner_config_for=lambda name: RunnerConfig(name=name, command=[name]),
+        )
     )
 
     ranked = report.ranked()
@@ -121,13 +124,15 @@ def test_failing_runner_is_recorded_and_does_not_abort_others(tmp_path: Path) ->
         _finish_experiment(experiment_dir, score=0.7, referee=88)
 
     report = run_benchmark(
-        source,
-        ["claude", "codex"],
-        budget=_BUDGET,
-        bench_dir=bench_dir,
-        timestamp="2026-01-01T00:00:00Z",
-        run_one=fake_run_one,
-        runner_config_for=lambda name: RunnerConfig(name=name, command=[name]),
+        BenchmarkRequest(
+            source_experiment_dir=source,
+            runner_names=["claude", "codex"],
+            budget=_BUDGET,
+            bench_dir=bench_dir,
+            timestamp="2026-01-01T00:00:00Z",
+            run_one=fake_run_one,
+            runner_config_for=lambda name: RunnerConfig(name=name, command=[name]),
+        )
     )
 
     by_runner = {o.runner: o for o in report.outcomes}

@@ -14,7 +14,12 @@ from lib.sources.adapters import SUPPORTED_SOURCE_TYPES
 from lib.sources.errors import SourceError
 from lib.sources.query import apply_as_of, require_deterministic_query
 from lib.sources.registry import enable_source, get_bundle, is_enabled, list_bundles
-from lib.sources.snapshot import MANIFEST_FILENAME, SNAPSHOT_FILENAME, freeze_snapshot
+from lib.sources.snapshot import (
+    MANIFEST_FILENAME,
+    SNAPSHOT_FILENAME,
+    SnapshotFreezeRequest,
+    freeze_snapshot,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -62,13 +67,15 @@ def _cmd_pull(args: argparse.Namespace) -> int:
         return 0
 
     manifest = freeze_snapshot(
-        source_type=args.source,
-        query=query,
-        out_dir=data_dir,
-        config=_pull_config(args),
-        as_of=args.as_of,
-        sample_seed=args.sample_seed,
-        allow_nondeterministic=args.allow_nondeterministic,
+        SnapshotFreezeRequest(
+            source_type=args.source,
+            query=query,
+            out_dir=data_dir,
+            config=_pull_config(args),
+            as_of=args.as_of,
+            sample_seed=args.sample_seed,
+            allow_nondeterministic=args.allow_nondeterministic,
+        )
     )
     print(
         f"Wrote {manifest.row_count} rows x {manifest.column_count} cols "

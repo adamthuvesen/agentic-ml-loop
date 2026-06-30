@@ -20,16 +20,18 @@ from lib.sources.manifest import (
     MANIFEST_FILENAME,
     SNAPSHOT_FILENAME,
     DatasetManifest,
+    DatasetManifestRequest,
     dataset_manifest_from_table,
     verify_snapshot,
 )
 from lib.sources.query import apply_as_of, require_deterministic_query
 from lib.sources.registry import Bundle, get_bundle, list_bundles
-from lib.sources.snapshot import freeze_snapshot, read_snapshot
+from lib.sources.snapshot import SnapshotFreezeRequest, freeze_snapshot, read_snapshot
 
 __all__ = [
     "Bundle",
     "DatasetManifest",
+    "DatasetManifestRequest",
     "MANIFEST_FILENAME",
     "MissingSourceExtra",
     "NonDeterministicQueryError",
@@ -37,6 +39,7 @@ __all__ = [
     "SOURCE_EXTRAS",
     "SUPPORTED_SOURCE_TYPES",
     "SnapshotIntegrityError",
+    "SnapshotFreezeRequest",
     "SourceError",
     "WarehouseExtractor",
     "apply_as_of",

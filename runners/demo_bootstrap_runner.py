@@ -4,7 +4,7 @@ from pathlib import Path
 
 from lib.demo_bootstrap.data import load_dataset, split_dataset
 from lib.demo_bootstrap.modeling import CANDIDATE_RUNNERS
-from lib.runner import init_experiment_dir, run_runner_main
+from lib.runner import RunnerMainConfig, init_experiment_dir, run_runner_main
 
 EXPERIMENT_ID = "demo_bootstrap"
 _TEMPLATES = Path(__file__).resolve().parents[1] / "experiments" / "templates"
@@ -25,10 +25,12 @@ def init_demo(force: bool = False) -> Path:
 if __name__ == "__main__":
     raise SystemExit(
         run_runner_main(
-            EXPERIMENT_ID,
-            CANDIDATE_RUNNERS,
-            _load_splits,
-            TEMPLATE_PATH,
-            RESEARCH_SOURCES_TEMPLATE_PATH,
+            RunnerMainConfig(
+                experiment_id=EXPERIMENT_ID,
+                candidate_runners=CANDIDATE_RUNNERS,
+                dataset_loader=_load_splits,
+                template_path=TEMPLATE_PATH,
+                research_sources_template_path=RESEARCH_SOURCES_TEMPLATE_PATH,
+            )
         )
     )

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -33,6 +34,16 @@ from lib.demo_classification.data import (
 OBJECTIVE_METRIC = "val_auc"
 SPLIT_STRATEGY = "time_split_60_20_20"
 RANDOM_STATE = 42
+
+
+@dataclass(frozen=True)
+class PipelineModelSpec:
+    candidate_id: str
+    model_family: str
+    feature_set: str
+    estimator: Any
+    notes: str
+    hyperparameters: dict[str, Any]
 
 
 def _preprocessor(feature_set: str) -> ColumnTransformer:
@@ -106,22 +117,14 @@ def _evaluate_all_splits(
     }
 
 
-def _fit_pipeline_model(
-    candidate_id: str,
-    model_family: str,
-    feature_set: str,
-    estimator: Any,
-    splits: DemoSplits,
-    notes: str,
-    hyperparameters: dict[str, Any],
-) -> CandidateResult:
+def _fit_pipeline_model(spec: PipelineModelSpec, splits: DemoSplits) -> CandidateResult:
     selected_features = (
-        engineered_feature_columns() if feature_set == "engineered" else base_feature_columns()
+        engineered_feature_columns() if spec.feature_set == "engineered" else base_feature_columns()
     )
     pipeline = Pipeline(
         steps=[
-            ("preprocessor", _preprocessor(feature_set)),
-            ("estimator", estimator),
+            ("preprocessor", _preprocessor(spec.feature_set)),
+            ("estimator", spec.estimator),
         ]
     )
     train_x = splits.train[selected_features]
@@ -137,16 +140,16 @@ def _fit_pipeline_model(
     }
     metrics = _evaluate_all_splits(probabilities_by_split, splits)
     return CandidateResult(
-        candidate_id=candidate_id,
-        model_family=model_family,
-        feature_set=feature_set,
+        candidate_id=spec.candidate_id,
+        model_family=spec.model_family,
+        feature_set=spec.feature_set,
         objective_metric=OBJECTIVE_METRIC,
         objective_score=metrics["validation"]["auc"],
         split_strategy=SPLIT_STRATEGY,
         status="completed",
-        notes=notes,
+        notes=spec.notes,
         metrics=metrics,
-        hyperparameters=hyperparameters,
+        hyperparameters=spec.hyperparameters,
         selected_features=selected_features,
     )
 
@@ -193,33 +196,37 @@ def run_rule_baseline(splits: DemoSplits) -> CandidateResult:
 
 def run_logreg_basic(splits: DemoSplits) -> CandidateResult:
     return _fit_pipeline_model(
-        candidate_id="logreg-basic",
-        model_family="logistic_regression",
-        feature_set="base",
-        estimator=LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
-        splits=splits,
-        notes="Logistic regression over the base feature set.",
-        hyperparameters={
-            "max_iter": 500,
-            "random_state": RANDOM_STATE,
-            "solver": "lbfgs",
-        },
+        PipelineModelSpec(
+            candidate_id="logreg-basic",
+            model_family="logistic_regression",
+            feature_set="base",
+            estimator=LogisticRegression(max_iter=500, random_state=RANDOM_STATE, solver="lbfgs"),
+            notes="Logistic regression over the base feature set.",
+            hyperparameters={
+                "max_iter": 500,
+                "random_state": RANDOM_STATE,
+                "solver": "lbfgs",
+            },
+        ),
+        splits,
     )
 
 
 def run_logreg_engineered(splits: DemoSplits) -> CandidateResult:
     return _fit_pipeline_model(
-        candidate_id="logreg-engineered",
-        model_family="logistic_regression",
-        feature_set="engineered",
-        estimator=LogisticRegression(max_iter=800, random_state=RANDOM_STATE, solver="lbfgs"),
-        splits=splits,
-        notes="Logistic regression with engineered utilization, support intensity, and momentum features.",
-        hyperparameters={
-            "max_iter": 800,
-            "random_state": RANDOM_STATE,
-            "solver": "lbfgs",
-        },
+        PipelineModelSpec(
+            candidate_id="logreg-engineered",
+            model_family="logistic_regression",
+            feature_set="engineered",
+            estimator=LogisticRegression(max_iter=800, random_state=RANDOM_STATE, solver="lbfgs"),
+            notes="Logistic regression with engineered utilization, support intensity, and momentum features.",
+            hyperparameters={
+                "max_iter": 800,
+                "random_state": RANDOM_STATE,
+                "solver": "lbfgs",
+            },
+        ),
+        splits,
     )
 
 
@@ -237,24 +244,26 @@ def run_xgb_base(splits: DemoSplits) -> CandidateResult:
         eval_metric="logloss",
     )
     return _fit_pipeline_model(
-        candidate_id="xgb-base",
-        model_family="xgboost",
-        feature_set="base",
-        estimator=estimator,
-        splits=splits,
-        notes="XGBoost on base features with conservative regularization for small dataset.",
-        hyperparameters={
-            "n_estimators": 150,
-            "max_depth": 3,
-            "learning_rate": 0.08,
-            "subsample": 0.85,
-            "colsample_bytree": 0.85,
-            "min_child_weight": 5,
-            "reg_lambda": 2.0,
-            "reg_alpha": 0.1,
-            "random_state": RANDOM_STATE,
-            "eval_metric": "logloss",
-        },
+        PipelineModelSpec(
+            candidate_id="xgb-base",
+            model_family="xgboost",
+            feature_set="base",
+            estimator=estimator,
+            notes="XGBoost on base features with conservative regularization for small dataset.",
+            hyperparameters={
+                "n_estimators": 150,
+                "max_depth": 3,
+                "learning_rate": 0.08,
+                "subsample": 0.85,
+                "colsample_bytree": 0.85,
+                "min_child_weight": 5,
+                "reg_lambda": 2.0,
+                "reg_alpha": 0.1,
+                "random_state": RANDOM_STATE,
+                "eval_metric": "logloss",
+            },
+        ),
+        splits,
     )
 
 
@@ -269,21 +278,23 @@ def run_xgb_basic(splits: DemoSplits) -> CandidateResult:
         eval_metric="logloss",
     )
     return _fit_pipeline_model(
-        candidate_id="xgb-basic",
-        model_family="xgboost",
-        feature_set="engineered",
-        estimator=estimator,
-        splits=splits,
-        notes="XGBoost baseline over engineered features.",
-        hyperparameters={
-            "n_estimators": 180,
-            "max_depth": 4,
-            "learning_rate": 0.05,
-            "subsample": 0.9,
-            "colsample_bytree": 0.9,
-            "random_state": RANDOM_STATE,
-            "eval_metric": "logloss",
-        },
+        PipelineModelSpec(
+            candidate_id="xgb-basic",
+            model_family="xgboost",
+            feature_set="engineered",
+            estimator=estimator,
+            notes="XGBoost baseline over engineered features.",
+            hyperparameters={
+                "n_estimators": 180,
+                "max_depth": 4,
+                "learning_rate": 0.05,
+                "subsample": 0.9,
+                "colsample_bytree": 0.9,
+                "random_state": RANDOM_STATE,
+                "eval_metric": "logloss",
+            },
+        ),
+        splits,
     )
 
 
