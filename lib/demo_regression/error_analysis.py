@@ -19,32 +19,46 @@ from lib.demo_regression.data import (
 )
 from lib.demo_regression.modeling import _regression_preprocessor
 
+NUMERIC_CORRELATION_COLUMNS = [
+    "contract_value_t0",
+    "seat_count",
+    "avg_weekly_active_users",
+    "usage_growth_90d",
+    "feature_adoption_count",
+    "champion_engagement_score",
+    TARGET_COLUMN,
+    "_pred",
+]
 
-def run_error_analysis() -> None:
-    df = load_demo_regression_dataset()
-    splits = split_demo_regression_dataset(df)
 
-    selected_features = base_feature_columns()
-
-    pipeline = Pipeline(
+def _ridge_pipeline() -> Pipeline:
+    return Pipeline(
         steps=[
             ("preprocessor", _regression_preprocessor("base")),
             ("estimator", Ridge(alpha=2.0)),
         ]
     )
-    pipeline.fit(splits.train[selected_features], splits.train[TARGET_COLUMN])
 
-    val_preds = pipeline.predict(splits.validation[selected_features])
+
+def _fit_ridge_predictions(splits, selected_features):
+    pipeline = _ridge_pipeline()
+    pipeline.fit(splits.train[selected_features], splits.train[TARGET_COLUMN])
+    return pipeline.predict(splits.validation[selected_features])
+
+
+def _analysis_frame(splits, val_preds):
     val_true = splits.validation[TARGET_COLUMN].values
     residuals = val_true - val_preds  # positive = under-prediction, negative = over-prediction
     abs_residuals = np.abs(residuals)
-
     val = splits.validation.copy()
     val["_pred"] = val_preds
     val["_residual"] = residuals
     val["_abs_residual"] = abs_residuals
     val["_is_zero"] = val[TARGET_COLUMN] == 0
+    return val, val_true, residuals, abs_residuals
 
+
+def _print_header_metrics(val, val_true, residuals, abs_residuals) -> None:
     print("=" * 70)
     print("RIDGE-BASIC ERROR ANALYSIS — VALIDATION SET")
     print("=" * 70)
@@ -56,7 +70,8 @@ def run_error_analysis() -> None:
     print(f"  Val MAE:             {np.mean(abs_residuals):.1f}")
     print()
 
-    # 1. Residuals on zero vs positive accounts
+
+def _print_zero_positive_breakdown(val) -> None:
     print("─── Zero vs Positive Accounts ─────────────────────────────────────")
     zero_mask = val["_is_zero"]
     for label, mask in [
@@ -74,7 +89,8 @@ def run_error_analysis() -> None:
         )
     print()
 
-    # 2. SS contribution by tail percentile
+
+def _print_tail_contribution(val_true) -> None:
     print("─── SS_tot Contribution by Target Percentile ──────────────────────")
     ss_tot = np.sum((val_true - val_true.mean()) ** 2)
     for pct in [90, 95, 99]:
@@ -86,7 +102,8 @@ def run_error_analysis() -> None:
         )
     print()
 
-    # 3. Residual by prediction quartile (are we systematically under/over-predicting?)
+
+def _print_prediction_quartiles(val) -> None:
     print("─── Mean Residual by Prediction Quartile ──────────────────────────")
     val["_pred_q"] = pd.qcut(val["_pred"], 4, labels=["Q1 (low)", "Q2", "Q3", "Q4 (high)"])
     for q in ["Q1 (low)", "Q2", "Q3", "Q4 (high)"]:
@@ -96,7 +113,8 @@ def run_error_analysis() -> None:
         )
     print()
 
-    # 4. Top 15 highest-error cases
+
+def _print_top_errors(val) -> None:
     print("─── Top 15 Highest Absolute Residual Cases ─────────────────────────")
     top_errors = val.nlargest(15, "_abs_residual")[
         [
@@ -114,20 +132,11 @@ def run_error_analysis() -> None:
     print(top_errors.to_string(index=False))
     print()
 
-    # 5. Correlation of |residual| with features
+
+def _print_residual_correlations(val) -> None:
     print("─── Correlation of |Residual| with Key Features ────────────────────")
-    numeric_cols = [
-        "contract_value_t0",
-        "seat_count",
-        "avg_weekly_active_users",
-        "usage_growth_90d",
-        "feature_adoption_count",
-        "champion_engagement_score",
-        TARGET_COLUMN,
-        "_pred",
-    ]
     corrs = (
-        val[numeric_cols + ["_abs_residual"]]
+        val[NUMERIC_CORRELATION_COLUMNS + ["_abs_residual"]]
         .corr()["_abs_residual"]
         .drop("_abs_residual")
         .sort_values(ascending=False)
@@ -136,7 +145,8 @@ def run_error_analysis() -> None:
         print(f"  {feat:<35s}: {corr:+.3f}")
     print()
 
-    # 6. Where is the variance unexplained? Segment breakdown
+
+def _print_segment_r2(val) -> None:
     print("─── Val R² by Segment ──────────────────────────────────────────────")
     for seg_col in ["plan_tier", "segment"]:
         if seg_col not in val.columns:
@@ -153,6 +163,23 @@ def run_error_analysis() -> None:
                 f"    {seg_val}: n={len(sub)}, R²={r2:.3f}, mean_y={y_t.mean():.0f}, mean_pred={y_p.mean():.0f}"
             )
     print()
+
+
+def run_error_analysis() -> None:
+    df = load_demo_regression_dataset()
+    splits = split_demo_regression_dataset(df)
+    selected_features = base_feature_columns()
+
+    val_preds = _fit_ridge_predictions(splits, selected_features)
+    val, val_true, residuals, abs_residuals = _analysis_frame(splits, val_preds)
+
+    _print_header_metrics(val, val_true, residuals, abs_residuals)
+    _print_zero_positive_breakdown(val)
+    _print_tail_contribution(val_true)
+    _print_prediction_quartiles(val)
+    _print_top_errors(val)
+    _print_residual_correlations(val)
+    _print_segment_r2(val)
 
     print("=" * 70)
     print("END OF ERROR ANALYSIS")
