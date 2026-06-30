@@ -208,63 +208,107 @@ def emit_cycle_retry(next_attempt: int, attempt_record: dict[str, Any]) -> None:
     _print_kv("Status", f"{_status_text('error', 'x')} attempt {failed} failed: {reason_str}")
 
 
+def _progress_reasons(summary: dict[str, Any]) -> list[str]:
+    reasons = summary.get("progress_reasons", [])
+    if not isinstance(reasons, list):
+        return []
+    return [str(reason) for reason in reasons]
+
+
+def _results_by_id(snapshot: object) -> dict[str, Any]:
+    if not isinstance(snapshot, dict):
+        return {}
+    results = snapshot.get("results_by_id", {})
+    return results if isinstance(results, dict) else {}
+
+
+def _best_objective_score(results_by_id: dict[str, Any]) -> float | None:
+    scores = [
+        candidate["objective_score"]
+        for candidate in results_by_id.values()
+        if isinstance(candidate, dict)
+        and isinstance(candidate.get("objective_score"), (int, float))
+    ]
+    return max(scores) if scores else None
+
+
+def _score_delta_icon(summary: dict[str, Any]) -> str:
+    before_best = _best_objective_score(_results_by_id(summary.get("before_snapshot", {})))
+    after_best = _best_objective_score(_results_by_id(summary.get("after_snapshot", {})))
+    if before_best is None or after_best is None:
+        return ""
+    if after_best > before_best + 0.001:
+        return " ↑"
+    if after_best < before_best - 0.001:
+        return " ↓"
+    return ""
+
+
+def _new_candidate_ids(progress_reasons: list[str]) -> list[str]:
+    ids: list[str] = []
+    for reason in progress_reasons:
+        if reason.startswith("new_candidates:"):
+            ids.extend(cid.strip() for cid in reason.split(":", 1)[1].split(", ") if cid.strip())
+    return ids
+
+
+def _new_candidate_lines(summary: dict[str, Any], delta_icon: str) -> list[str]:
+    results_by_id = _results_by_id(summary.get("after_snapshot", {}))
+    lines: list[str] = []
+    for candidate_id in _new_candidate_ids(_progress_reasons(summary)):
+        entry = results_by_id.get(candidate_id, {})
+        if not isinstance(entry, dict):
+            entry = {}
+        score = entry.get("objective_score")
+        score_str = f"{score:.4f}" if isinstance(score, (int, float)) else "?"
+        lines.append(
+            f"{candidate_id}  {entry.get('model_family', '?')}"
+            f"  {entry.get('objective_metric', '?')} {score_str}{delta_icon}"
+        )
+    return lines
+
+
+def _other_progress_reasons(summary: dict[str, Any]) -> list[str]:
+    return [
+        reason for reason in _progress_reasons(summary) if not reason.startswith("new_candidates:")
+    ]
+
+
+def _emit_progress_result(experiment_dir: Any, summary: dict[str, Any], elapsed: str) -> None:
+    hypothesis = latest_hypothesis(experiment_dir)
+    if hypothesis:
+        _print_kv("Hypothesis", hypothesis)
+    label = "experiment complete" if summary["result"] == "complete" else "progress"
+    _print_kv(
+        "Result",
+        f"{_status_text('success', '✓')} {_status_text('success', label)}  {_muted(f'({elapsed})')}",
+    )
+
+    new_lines = _new_candidate_lines(summary, _score_delta_icon(summary))
+    if new_lines:
+        _print_kv("New", new_lines[0])
+        for line in new_lines[1:]:
+            _print_kv("", line)
+
+    other_reasons = _other_progress_reasons(summary)
+    if other_reasons:
+        _print_kv("Changes", ", ".join(other_reasons))
+
+
+def _emit_failed_result(summary: dict[str, Any]) -> None:
+    _print_kv("Result", f"{_status_text('error', 'x')} {_status_text('error', 'failed')}")
+    for attempt in summary.get("attempts", [])[-1:]:
+        for err in (attempt.get("validation_errors") or [])[:2]:
+            _print_kv("Error", _muted(err))
+
+
 def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
     """Print cycle outcome, timing, new candidates, and validation errors if any."""
     result = summary["result"]
     elapsed = _elapsed_str(summary["started_at"], summary["completed_at"])
 
     if result in {"progress", "complete"}:
-        hypothesis = latest_hypothesis(experiment_dir)
-        if hypothesis:
-            _print_kv("Hypothesis", hypothesis)
-        label = "experiment complete" if result == "complete" else "progress"
-        _print_kv(
-            "Result",
-            f"{_status_text('success', '✓')} {_status_text('success', label)}  {_muted(f'({elapsed})')}",
-        )
-        lb = summary.get("after_snapshot", {}).get("results_by_id", {})
-        before_scores = [
-            c["objective_score"]
-            for c in summary.get("before_snapshot", {}).get("results_by_id", {}).values()
-            if isinstance(c.get("objective_score"), (int, float))
-        ]
-        after_scores = [
-            c["objective_score"]
-            for c in lb.values()
-            if isinstance(c.get("objective_score"), (int, float))
-        ]
-        before_best = max(before_scores) if before_scores else None
-        after_best = max(after_scores) if after_scores else None
-        if before_best is not None and after_best is not None:
-            if after_best > before_best + 0.001:
-                delta_icon = " ↑"
-            elif after_best < before_best - 0.001:
-                delta_icon = " ↓"
-            else:
-                delta_icon = ""
-        else:
-            delta_icon = ""
-        new_lines: list[str] = []
-        for reason in summary.get("progress_reasons", []):
-            if reason.startswith("new_candidates:"):
-                for cid in reason.split(":", 1)[1].split(", "):
-                    cid = cid.strip()
-                    entry = lb.get(cid, {})
-                    score = entry.get("objective_score")
-                    score_str = f"{score:.4f}" if isinstance(score, (int, float)) else "?"
-                    new_lines.append(
-                        f"{cid}  {entry.get('model_family', '?')}"
-                        f"  {entry.get('objective_metric', '?')} {score_str}{delta_icon}"
-                    )
-        if new_lines:
-            _print_kv("New", new_lines[0])
-            for line in new_lines[1:]:
-                _print_kv("", line)
-        other_reasons = [
-            r for r in summary.get("progress_reasons", []) if not r.startswith("new_candidates:")
-        ]
-        if other_reasons:
-            _print_kv("Changes", ", ".join(other_reasons))
+        _emit_progress_result(experiment_dir, summary, elapsed)
 
     elif result == "no_progress":
         _print_kv(
@@ -273,10 +317,7 @@ def emit_cycle_result(experiment_dir: Any, summary: dict[str, Any]) -> None:
         )
 
     else:  # failed
-        _print_kv("Result", f"{_status_text('error', 'x')} {_status_text('error', 'failed')}")
-        for attempt in summary.get("attempts", [])[-1:]:
-            for err in (attempt.get("validation_errors") or [])[:2]:
-                _print_kv("Error", _muted(err))
+        _emit_failed_result(summary)
 
 
 def emit_loop_stop(experiment_dir: Any, state: dict[str, Any]) -> None:

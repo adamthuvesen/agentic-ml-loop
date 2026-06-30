@@ -33,6 +33,17 @@ class BenchmarkBudget:
     max_hours: float | None
 
 
+@dataclass(frozen=True)
+class BenchmarkRequest:
+    source_experiment_dir: Path
+    runner_names: list[str]
+    budget: BenchmarkBudget
+    bench_dir: Path
+    timestamp: str
+    run_one: RunOne | None = None
+    runner_config_for: Callable[[str], RunnerConfig] | None = None
+
+
 @dataclass
 class RunnerOutcome:
     """Aggregated result of running one runner over the shared spec."""
@@ -209,36 +220,29 @@ def _default_run_one(
         release_lock(lock_path)
 
 
-def run_benchmark(
-    source_experiment_dir: Path,
-    runner_names: list[str],
-    *,
-    budget: BenchmarkBudget,
-    bench_dir: Path,
-    timestamp: str,
-    run_one: RunOne | None = None,
-    runner_config_for: Callable[[str], RunnerConfig] | None = None,
-) -> BenchmarkReport:
+def run_benchmark(request: BenchmarkRequest) -> BenchmarkReport:
     """Run ``runner_names`` over the spec and return a ranked report.
 
     Each runner executes in its own scaffolded copy under ``bench_dir/<runner>/``.
     A failing runner is recorded with its error and never aborts the others.
     """
-    run_one = run_one or _default_run_one
-    runner_config_for = runner_config_for or (lambda name: runner_config_from_args(runner=name))
+    run_one = request.run_one or _default_run_one
+    runner_config_for = request.runner_config_for or (
+        lambda name: runner_config_from_args(runner=name)
+    )
 
     report = BenchmarkReport(
-        experiment_id=source_experiment_dir.name,
-        timestamp=timestamp,
-        budget=budget,
+        experiment_id=request.source_experiment_dir.name,
+        timestamp=request.timestamp,
+        budget=request.budget,
     )
-    for name in runner_names:
-        dest = bench_dir / name / source_experiment_dir.name
-        scaffold_runner_experiment(source_experiment_dir, dest)
+    for name in request.runner_names:
+        dest = request.bench_dir / name / request.source_experiment_dir.name
+        scaffold_runner_experiment(request.source_experiment_dir, dest)
         started = time.monotonic()
         error: str | None = None
         try:
-            run_one(dest, runner_config_for(name), budget)
+            run_one(dest, runner_config_for(name), request.budget)
         except Exception as exc:  # noqa: BLE001 - record and continue to next runner
             error = f"{type(exc).__name__}: {exc}"
         elapsed = time.monotonic() - started
@@ -247,7 +251,7 @@ def run_benchmark(
         outcome.error = error
         report.outcomes.append(outcome)
 
-    write_report(bench_dir, report)
+    write_report(request.bench_dir, report)
     return report
 
 

@@ -21,8 +21,10 @@ from lib.io import (
     write_text,
 )
 
+Observation = tuple[int, str]
 
-def get_diagnostics_observations(experiment_dir: Path) -> list[tuple[int, str]]:
+
+def get_diagnostics_observations(experiment_dir: Path) -> list[Observation]:
     """Extract priority-scored one-line observations from diagnostics/report.json.
 
     A missing report is normal (returns no observations). A report that exists but
@@ -44,9 +46,21 @@ def get_diagnostics_observations(experiment_dir: Path) -> list[tuple[int, str]]:
         warnings.warn(message, stacklevel=2)
         return [(95, message)]
 
-    observations: list[tuple[int, str]] = []
+    observations: list[Observation] = []
+    for extractor in (
+        _split_drift_observations,
+        _missingness_observations,
+        _subgroup_slice_observations,
+        _interaction_candidate_observations,
+    ):
+        observations.extend(extractor(report))
 
-    # Split drift (priority 85)
+    observations.sort(key=lambda item: item[0], reverse=True)
+    return observations
+
+
+def _split_drift_observations(report: dict[str, Any]) -> list[Observation]:
+    observations: list[Observation] = []
     for entry in report.get("split_comparison", []):
         for drift in entry.get("top_feature_drift", []):
             if drift.get("scaled_delta", 0) >= 1.0:
@@ -57,42 +71,43 @@ def get_diagnostics_observations(experiment_dir: Path) -> list[tuple[int, str]]:
                         f"{drift['scaled_delta']:.2f} std between train and `{entry['split']}`.",
                     )
                 )
-
-    # High missingness (priority 70)
-    for entry in report.get("missingness", []):
-        if entry.get("missing_rate", 0) >= 0.1:
-            observations.append(
-                (
-                    70,
-                    f"High missingness: `{entry['column']}` missing in "
-                    f"{entry['missing_rate']:.0%} of rows.",
-                )
-            )
-
-    # Subgroup variance (priority 60)
-    for entry in report.get("subgroup_slices", []):
-        if abs(entry.get("gap", 0)) >= 0.05:
-            observations.append(
-                (
-                    60,
-                    f"Subgroup variance: `{entry['feature']}` shows target gap of "
-                    f"{entry['gap']:.3f} between `{entry['low_group']}` and `{entry['high_group']}`.",
-                )
-            )
-
-    # Interaction candidates (priority 50)
-    for entry in report.get("interaction_candidates", []):
-        if entry.get("lift", 0) > 0:
-            observations.append(
-                (
-                    50,
-                    f"Interaction candidate: `{entry['feature_a']}` x `{entry['feature_b']}` "
-                    f"(correlation lift {entry['lift']:+.3f}).",
-                )
-            )
-
-    observations.sort(key=lambda item: item[0], reverse=True)
     return observations
+
+
+def _missingness_observations(report: dict[str, Any]) -> list[Observation]:
+    return [
+        (
+            70,
+            f"High missingness: `{entry['column']}` missing in "
+            f"{entry['missing_rate']:.0%} of rows.",
+        )
+        for entry in report.get("missingness", [])
+        if entry.get("missing_rate", 0) >= 0.1
+    ]
+
+
+def _subgroup_slice_observations(report: dict[str, Any]) -> list[Observation]:
+    return [
+        (
+            60,
+            f"Subgroup variance: `{entry['feature']}` shows target gap of "
+            f"{entry['gap']:.3f} between `{entry['low_group']}` and `{entry['high_group']}`.",
+        )
+        for entry in report.get("subgroup_slices", [])
+        if abs(entry.get("gap", 0)) >= 0.05
+    ]
+
+
+def _interaction_candidate_observations(report: dict[str, Any]) -> list[Observation]:
+    return [
+        (
+            50,
+            f"Interaction candidate: `{entry['feature_a']}` x `{entry['feature_b']}` "
+            f"(correlation lift {entry['lift']:+.3f}).",
+        )
+        for entry in report.get("interaction_candidates", [])
+        if entry.get("lift", 0) > 0
+    ]
 
 
 def generate_experiment_diagnostics(
@@ -174,51 +189,74 @@ def render_diagnostics_summary(report: dict[str, Any]) -> str:
         "### Data Profile",
     ]
     lines.extend(_render_split_overview(report["splits"]))
-
-    missingness = report["missingness"]
-    if missingness:
-        lines.extend(["", "### Missingness"])
-        for entry in missingness[:3]:
-            lines.append(f"- `{entry['column']}` missing in {entry['missing_rate']:.1%} of rows")
-
-    split_comparison = report["split_comparison"]
-    if split_comparison:
-        lines.extend(["", "### Split Comparison"])
-        for entry in split_comparison:
-            if entry.get("target_shift") is not None:
-                lines.append(
-                    f"- `{entry['split']}` target shift vs train: {entry['target_shift']:+.3f}"
-                )
-            for drift in entry.get("top_feature_drift", [])[:2]:
-                lines.append(
-                    f"- `{entry['split']}` drift: `{drift['column']}` "
-                    f"(delta={drift['delta']:+.3f}, scaled={drift['scaled_delta']:.2f})"
-                )
-
-    subgroup_slices = report["subgroup_slices"]
-    if subgroup_slices:
-        lines.extend(["", "### Subgroup Slices"])
-        for entry in subgroup_slices[:3]:
-            lines.append(
-                f"- `{entry['feature']}`: {entry['low_group']} -> {entry['low_value']:.3f}, "
-                f"{entry['high_group']} -> {entry['high_value']:.3f}"
-            )
-
-    interaction_candidates = report["interaction_candidates"]
-    if interaction_candidates:
-        lines.extend(["", "### Interaction Candidates"])
-        for entry in interaction_candidates[:3]:
-            lines.append(
-                f"- `{entry['feature_a']} × {entry['feature_b']}` (corr lift {entry['lift']:+.3f})"
-            )
-
-    error_patterns = report["error_patterns"]
-    if error_patterns:
-        lines.extend(["", "### Error Patterns"])
-        for entry in error_patterns[:3]:
-            lines.append(f"- {entry['summary']}")
-
+    lines.extend(_summary_section("Missingness", _render_missingness(report["missingness"])))
+    lines.extend(
+        _summary_section(
+            "Split Comparison",
+            _render_split_comparison(report["split_comparison"]),
+            include=bool(report["split_comparison"]),
+        )
+    )
+    lines.extend(
+        _summary_section("Subgroup Slices", _render_subgroup_slices(report["subgroup_slices"]))
+    )
+    lines.extend(
+        _summary_section(
+            "Interaction Candidates",
+            _render_interaction_candidates(report["interaction_candidates"]),
+        )
+    )
+    lines.extend(
+        _summary_section("Error Patterns", _render_error_patterns(report["error_patterns"]))
+    )
     return "\n".join(lines) + "\n"
+
+
+def _summary_section(title: str, body: list[str], *, include: bool | None = None) -> list[str]:
+    if include is None:
+        include = bool(body)
+    return ["", f"### {title}", *body] if include else []
+
+
+def _render_missingness(missingness: list[dict[str, Any]]) -> list[str]:
+    return [
+        f"- `{entry['column']}` missing in {entry['missing_rate']:.1%} of rows"
+        for entry in missingness[:3]
+    ]
+
+
+def _render_split_comparison(split_comparison: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for entry in split_comparison:
+        if entry.get("target_shift") is not None:
+            lines.append(
+                f"- `{entry['split']}` target shift vs train: {entry['target_shift']:+.3f}"
+            )
+        for drift in entry.get("top_feature_drift", [])[:2]:
+            lines.append(
+                f"- `{entry['split']}` drift: `{drift['column']}` "
+                f"(delta={drift['delta']:+.3f}, scaled={drift['scaled_delta']:.2f})"
+            )
+    return lines
+
+
+def _render_subgroup_slices(subgroup_slices: list[dict[str, Any]]) -> list[str]:
+    return [
+        f"- `{entry['feature']}`: {entry['low_group']} -> {entry['low_value']:.3f}, "
+        f"{entry['high_group']} -> {entry['high_value']:.3f}"
+        for entry in subgroup_slices[:3]
+    ]
+
+
+def _render_interaction_candidates(interaction_candidates: list[dict[str, Any]]) -> list[str]:
+    return [
+        f"- `{entry['feature_a']} × {entry['feature_b']}` (corr lift {entry['lift']:+.3f})"
+        for entry in interaction_candidates[:3]
+    ]
+
+
+def _render_error_patterns(error_patterns: list[dict[str, Any]]) -> list[str]:
+    return [f"- {entry['summary']}" for entry in error_patterns[:3]]
 
 
 def _render_split_overview(splits: list[dict[str, Any]]) -> list[str]:

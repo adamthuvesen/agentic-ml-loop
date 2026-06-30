@@ -123,6 +123,95 @@ def _has_any(text: str, terms: tuple[str, ...]) -> bool:
     return any(term in text for term in terms)
 
 
+def _artifact_changes(
+    before: dict[str, Any], after: dict[str, Any]
+) -> tuple[bool, bool, list[str]]:
+    journal_changed = before.get("journal_hash") != after.get("journal_hash")
+    results_changed = before.get("results_hash") != after.get("results_hash")
+    new_candidates = sorted(
+        set(after.get("candidate_ids", [])) - set(before.get("candidate_ids", []))
+    )
+    return journal_changed, results_changed, new_candidates
+
+
+def _journal_updated_score(journal_changed: bool) -> CriterionScore:
+    return CriterionScore(
+        "journal_updated",
+        1.0 if journal_changed else 0.0,
+        "journal entry recorded" if journal_changed else "journal not updated this cycle",
+    )
+
+
+def _hypothesis_score(narrative: str, journal_changed: bool) -> CriterionScore:
+    if _has_any(narrative, _HYPOTHESIS_TERMS):
+        return CriterionScore("hypothesis_framed", 1.0, "hypothesis/expectation stated")
+    if journal_changed:
+        return CriterionScore(
+            "hypothesis_framed", 0.5, "journal updated but no explicit hypothesis"
+        )
+    return CriterionScore("hypothesis_framed", 0.0, "no hypothesis found")
+
+
+def _evidence_score(
+    *,
+    results_changed: bool,
+    new_candidates: list[str],
+    journal_changed: bool,
+    narrative: str,
+) -> CriterionScore:
+    if results_changed or new_candidates:
+        note = (
+            f"new candidates: {', '.join(new_candidates)}" if new_candidates else "results updated"
+        )
+        return CriterionScore("evidence_or_understanding", 1.0, note)
+    if journal_changed and len(narrative) > 400:
+        return CriterionScore(
+            "evidence_or_understanding", 0.5, "understanding-only cycle (no results)"
+        )
+    return CriterionScore("evidence_or_understanding", 0.0, "no new results or substantive notes")
+
+
+def _noise_awareness_score(
+    *,
+    results_changed: bool,
+    new_candidates: list[str],
+    narrative: str,
+) -> CriterionScore:
+    if not (results_changed or new_candidates):
+        return CriterionScore("noise_awareness", 1.0, "no new candidate to judge against noise")
+    if _has_any(narrative, _UNCERTAINTY_TERMS):
+        return CriterionScore("noise_awareness", 1.0, "uncertainty/CI discussed")
+    return CriterionScore(
+        "noise_awareness",
+        0.0,
+        "new candidates without any uncertainty / CI / significance discussion",
+    )
+
+
+def _leakage_split_score(signals_blob: str, narrative: str) -> CriterionScore:
+    leakage_flagged = _has_any(signals_blob, _LEAKAGE_SPLIT_TERMS)
+    if not leakage_flagged:
+        return CriterionScore("leakage_split_clean", 1.0, "no leakage/split concern")
+    if _has_any(narrative, ("leak", "split", "drift")):
+        return CriterionScore(
+            "leakage_split_clean", 0.5, "concern raised and acknowledged in journal"
+        )
+    return CriterionScore(
+        "leakage_split_clean", 0.0, "leakage/split concern flagged but not addressed"
+    )
+
+
+def _saturation_analysis_score(experiment_dir: Path, signals_blob: str) -> CriterionScore:
+    missing_analysis = _has_any(signals_blob, _MISSING_ANALYSIS_TERMS)
+    if not missing_analysis or journal_mentions_error_analysis(experiment_dir):
+        return CriterionScore("analysis_when_saturating", 1.0, "error analysis present")
+    return CriterionScore(
+        "analysis_when_saturating",
+        0.0,
+        "candidates accumulating without recorded error analysis",
+    )
+
+
 def grade_cycle(
     experiment_dir: Path,
     cycle_id: str,
@@ -136,98 +225,29 @@ def grade_cycle(
     ``before``/``after`` are :class:`loop.artifacts.ArtifactSnapshot` dicts (the
     referee only reads their keys, so it stays free of any ``loop`` import).
     """
-    journal_changed = before.get("journal_hash") != after.get("journal_hash")
-    results_changed = before.get("results_hash") != after.get("results_hash")
-    new_candidates = sorted(
-        set(after.get("candidate_ids", [])) - set(before.get("candidate_ids", []))
-    )
-
+    journal_changed, results_changed, new_candidates = _artifact_changes(before, after)
     narrative = f"{output_text}\n{current_cycle_journal(experiment_dir, cycle_id)}".lower()
     advisory = advisory_signals(experiment_dir)
     signal_texts = [text for _, text in advisory]
     signals_blob = " ".join(signal_texts).lower()
 
-    criteria: list[CriterionScore] = []
-
-    # 1. Evidence discipline: the journal must record the cycle.
-    criteria.append(
-        CriterionScore(
-            "journal_updated",
-            1.0 if journal_changed else 0.0,
-            "journal entry recorded" if journal_changed else "journal not updated this cycle",
-        )
-    )
-
-    # 2. Hypothesis framing.
-    if _has_any(narrative, _HYPOTHESIS_TERMS):
-        criteria.append(CriterionScore("hypothesis_framed", 1.0, "hypothesis/expectation stated"))
-    elif journal_changed:
-        criteria.append(
-            CriterionScore("hypothesis_framed", 0.5, "journal updated but no explicit hypothesis")
-        )
-    else:
-        criteria.append(CriterionScore("hypothesis_framed", 0.0, "no hypothesis found"))
-
-    # 3. Produced evidence or understanding.
-    if results_changed or new_candidates:
-        note = (
-            f"new candidates: {', '.join(new_candidates)}" if new_candidates else "results updated"
-        )
-        criteria.append(CriterionScore("evidence_or_understanding", 1.0, note))
-    elif journal_changed and len(narrative) > 400:
-        criteria.append(
-            CriterionScore(
-                "evidence_or_understanding", 0.5, "understanding-only cycle (no results)"
-            )
-        )
-    else:
-        criteria.append(
-            CriterionScore("evidence_or_understanding", 0.0, "no new results or substantive notes")
-        )
-
-    # 4. Noise awareness when results moved.
-    if not (results_changed or new_candidates):
-        criteria.append(
-            CriterionScore("noise_awareness", 1.0, "no new candidate to judge against noise")
-        )
-    elif _has_any(narrative, _UNCERTAINTY_TERMS):
-        criteria.append(CriterionScore("noise_awareness", 1.0, "uncertainty/CI discussed"))
-    else:
-        criteria.append(
-            CriterionScore(
-                "noise_awareness",
-                0.0,
-                "new candidates without any uncertainty / CI / significance discussion",
-            )
-        )
-
-    # 5. Leakage / split reliability addressed (penalize an unaddressed concern).
-    leakage_flagged = _has_any(signals_blob, _LEAKAGE_SPLIT_TERMS)
-    if not leakage_flagged:
-        criteria.append(CriterionScore("leakage_split_clean", 1.0, "no leakage/split concern"))
-    elif _has_any(narrative, ("leak", "split", "drift")):
-        criteria.append(
-            CriterionScore("leakage_split_clean", 0.5, "concern raised and acknowledged in journal")
-        )
-    else:
-        criteria.append(
-            CriterionScore(
-                "leakage_split_clean", 0.0, "leakage/split concern flagged but not addressed"
-            )
-        )
-
-    # 6. Error analysis when saturating (advisory "missing analysis" signal fired).
-    missing_analysis = _has_any(signals_blob, _MISSING_ANALYSIS_TERMS)
-    if not missing_analysis or journal_mentions_error_analysis(experiment_dir):
-        criteria.append(CriterionScore("analysis_when_saturating", 1.0, "error analysis present"))
-    else:
-        criteria.append(
-            CriterionScore(
-                "analysis_when_saturating",
-                0.0,
-                "candidates accumulating without recorded error analysis",
-            )
-        )
+    criteria = [
+        _journal_updated_score(journal_changed),
+        _hypothesis_score(narrative, journal_changed),
+        _evidence_score(
+            results_changed=results_changed,
+            new_candidates=new_candidates,
+            journal_changed=journal_changed,
+            narrative=narrative,
+        ),
+        _noise_awareness_score(
+            results_changed=results_changed,
+            new_candidates=new_candidates,
+            narrative=narrative,
+        ),
+        _leakage_split_score(signals_blob, narrative),
+        _saturation_analysis_score(experiment_dir, signals_blob),
+    ]
 
     overall = round(100 * sum(c.score for c in criteria) / len(criteria))
     return CycleScorecard(

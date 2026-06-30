@@ -8,7 +8,7 @@ from lib.referee import (
     latest_scorecard_line,
     write_scorecard,
 )
-from loop.hooks import RefereeCycleHooks
+from loop.hooks import PostCycleContext, RefereeCycleHooks
 from tests.loop.conftest import make_experiment_dir
 
 _EMPTY_SNAPSHOT = {
@@ -113,7 +113,14 @@ def test_referee_hooks_persist_scorecard(tmp_path: Path) -> None:
 
     hooks = RefereeCycleHooks()
     result = hooks.post_cycle(
-        d, "0001", before, after, output="**Hypothesis:** h", marker="CYCLE_DONE"
+        PostCycleContext(
+            experiment_dir=d,
+            cycle_id="0001",
+            before_snapshot=before,
+            after_snapshot=after,
+            output="**Hypothesis:** h",
+            marker="CYCLE_DONE",
+        )
     )
 
     assert result.scorecard is not None

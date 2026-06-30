@@ -20,6 +20,7 @@ from .core import (  # noqa: F401
 from .hooks import (  # noqa: F401
     CycleHooks,
     DefaultCycleHooks,
+    PostCycleContext,
     PostCycleResult,
     PreCycleResult,
     RefereeCycleHooks,

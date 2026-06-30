@@ -6,6 +6,7 @@ import logging
 import os
 import signal
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ from .contracts import (  # noqa: F401 - re-exported for tests
     cycle_contract_errors,
     extract_completion_marker,
 )
-from .cycle_attempt import run_cycle_attempt
+from .cycle_attempt import AttemptOutcome, CycleAttemptRequest, run_cycle_attempt
 from .enums import (
     AttemptOutcomeKind,
     CycleResult,
@@ -37,7 +38,13 @@ from .enums import (
     StopReason,
     attempt_running,
 )
-from .hooks import CycleHooks, DefaultCycleHooks, RefereeCycleHooks
+from .hooks import (
+    CycleHooks,
+    DefaultCycleHooks,
+    PostCycleContext,
+    RefereeCycleHooks,
+    call_post_cycle_hook,
+)
 from .invoke import (
     RunnerConfig,
     add_runner_arguments,
@@ -68,6 +75,25 @@ LOCK_PATH_NAME = ".loop.lock"
 STATUS_PATH_NAME = "status.md"
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AttemptPaths:
+    stdout: Path
+    stderr: Path
+    meta: Path
+    result: Path
+
+
+@dataclass
+class SuccessfulCycleContext:
+    experiment_dir: Path
+    cycle_dir: Path
+    cycle_id: str
+    cycle_started_at: str
+    before_snapshot: dict[str, Any]
+    attempt_records: list[dict[str, Any]]
+    hooks: CycleHooks
 
 
 def require_experiment_directory(experiment_dir: Path) -> None:
@@ -270,27 +296,20 @@ def _clear_active_state(state: LoopState, outcome: str) -> None:
     state.last_attempt_outcome = outcome
 
 
-def run_cycle(
+def _prepare_cycle_dir(experiment_dir: Path, cycle_id: str, prompt_text: str) -> Path:
+    cycle_dir = experiment_dir / "cycles" / cycle_id
+    cycle_dir.mkdir(parents=True, exist_ok=True)
+    (cycle_dir / "prompt.md").write_text(prompt_text, encoding="utf-8")
+    return cycle_dir
+
+
+def _activate_cycle_state(
     experiment_dir: Path,
     state: LoopState,
-    hooks: CycleHooks | None = None,
-) -> dict[str, Any]:
-    """Run a single ML research cycle: prompt, attempts, validation, summary."""
-    if hooks is None:
-        hooks = DefaultCycleHooks()
-    cycle_id = f"{state.cycle_count + 1:04d}"
-    current_cycle_dir = experiment_dir / "cycles" / cycle_id
-    current_cycle_dir.mkdir(parents=True, exist_ok=True)
-    cycle_started_at = utc_now()
-
-    pre = hooks.pre_cycle(experiment_dir, cycle_id, state.to_dict())
-    prompt_text = pre.prompt_text
-    (current_cycle_dir / "prompt.md").write_text(prompt_text, encoding="utf-8")
-    agent_message_path = current_cycle_dir / "agent_last_message.md"
-
-    baselines = capture_cycle_baselines(experiment_dir)
-    before_snapshot = baselines.before_snapshot
-
+    *,
+    cycle_id: str,
+    cycle_started_at: str,
+) -> None:
     state.active_cycle_id = cycle_id
     state.active_started_at = cycle_started_at
     state.active_objective = latest_hypothesis(experiment_dir) or "(fresh start — no prior plan)"
@@ -299,99 +318,96 @@ def run_cycle(
     write_state(experiment_dir, state)
     emit_cycle_start(cycle_id, state.active_objective)
 
-    attempt_records: list[dict[str, Any]] = []
 
+def _record_attempt_start(experiment_dir: Path, state: LoopState, attempt: int) -> None:
+    state.active_attempt = attempt
+    state.last_attempt_outcome = attempt_running(attempt)
+    write_state(experiment_dir, state)
+    emit_attempt_start(attempt)
+
+
+def _attempt_paths(cycle_dir: Path, attempt: int) -> AttemptPaths:
+    prefix = f"attempt_{attempt:02d}"
+    return AttemptPaths(
+        stdout=cycle_dir / f"{prefix}_stdout.log",
+        stderr=cycle_dir / f"{prefix}_stderr.log",
+        meta=cycle_dir / f"{prefix}_meta.json",
+        result=cycle_dir / f"{prefix}_result.json",
+    )
+
+
+def _runner_config_from_state(state: LoopState) -> RunnerConfig:
+    return RunnerConfig(
+        name=state.runner_name,
+        command=state.runner_command,
+        timeout_seconds=state.runner_timeout_seconds,
+        model=state.runner_model,
+        resolved_model=state.runner_resolved_model,
+        effort=state.runner_effort,
+    )
+
+
+def _run_attempt_with_timer(request: CycleAttemptRequest):
+    timer = _LiveTimer("Running")
+    timer.start()
     try:
-        for attempt in range(1, DEFAULT_MAX_ATTEMPTS_PER_CYCLE + 1):
-            restore_cycle_baselines(experiment_dir, baselines)
+        return run_cycle_attempt(request)
+    finally:
+        timer.stop()
 
-            state.active_attempt = attempt
-            state.last_attempt_outcome = attempt_running(attempt)
-            write_state(experiment_dir, state)
-            emit_attempt_start(attempt)
 
-            attempt_stdout = current_cycle_dir / f"attempt_{attempt:02d}_stdout.log"
-            attempt_stderr = current_cycle_dir / f"attempt_{attempt:02d}_stderr.log"
-            attempt_meta = current_cycle_dir / f"attempt_{attempt:02d}_meta.json"
-            attempt_result_path = current_cycle_dir / f"attempt_{attempt:02d}_result.json"
+def _cycle_result_from_marker(marker: str, progress_reasons: list[str]) -> CycleResult:
+    if marker == "EXPERIMENT_COMPLETE":
+        return CycleResult.COMPLETE
+    return CycleResult.PROGRESS if progress_reasons else CycleResult.NO_PROGRESS
 
-            timer = _LiveTimer("Running")
-            timer.start()
-            try:
-                outcome = run_cycle_attempt(
-                    experiment_dir=experiment_dir,
-                    cycle_id=cycle_id,
-                    attempt=attempt,
-                    prompt_text=prompt_text,
-                    baselines_journal_hash=before_snapshot["journal_hash"],
-                    experiment_md_backup=baselines.experiment_md_backup,
-                    attempt_stdout=attempt_stdout,
-                    attempt_stderr=attempt_stderr,
-                    attempt_meta=attempt_meta,
-                    attempt_result_path=attempt_result_path,
-                    agent_message_path=agent_message_path,
-                    runner_config=RunnerConfig(
-                        name=state.runner_name,
-                        command=state.runner_command,
-                        timeout_seconds=state.runner_timeout_seconds,
-                        model=state.runner_model,
-                        resolved_model=state.runner_resolved_model,
-                        effort=state.runner_effort,
-                    ),
-                )
-            finally:
-                timer.stop()
 
-            if not outcome.success:
-                attempt_records.append(outcome.attempt_record)
-                if attempt < DEFAULT_MAX_ATTEMPTS_PER_CYCLE:
-                    emit_cycle_retry(attempt + 1, outcome.attempt_record)
-                continue
+def _successful_cycle_summary(
+    context: SuccessfulCycleContext, outcome: AttemptOutcome
+) -> dict[str, Any]:
+    if outcome.summary is None:
+        raise RuntimeError(
+            f"Cycle {context.cycle_id} reported success without a summary; "
+            "this is a bug in run_cycle_attempt."
+        )
+    after_snapshot = artifact_snapshot(context.experiment_dir)
+    post = call_post_cycle_hook(
+        context.hooks,
+        PostCycleContext(
+            experiment_dir=context.experiment_dir,
+            cycle_id=context.cycle_id,
+            before_snapshot=context.before_snapshot,
+            after_snapshot=after_snapshot,
+            output=outcome.summary["output_text"],
+            marker=outcome.marker,
+        ),
+    )
+    progress_reasons = post.progress_reasons
+    result = _cycle_result_from_marker(outcome.marker, progress_reasons)
+    summary = {
+        "cycle_id": context.cycle_id,
+        "started_at": context.cycle_started_at,
+        "completed_at": utc_now(),
+        "result": result,
+        "completion_marker": outcome.marker,
+        "progress_reasons": progress_reasons,
+        "validation_warnings": outcome.summary["validation_warnings"],
+        "attempts": context.attempt_records,
+        "before_snapshot": context.before_snapshot,
+        "after_snapshot": after_snapshot,
+    }
+    write_json(context.cycle_dir / "cycle_summary.json", summary)
+    return summary
 
-            if outcome.summary is None:
-                raise RuntimeError(
-                    f"Cycle {cycle_id} attempt {attempt} reported success without a "
-                    "summary; this is a bug in run_cycle_attempt."
-                )
-            after_snapshot = artifact_snapshot(experiment_dir)
-            post = hooks.post_cycle(
-                experiment_dir,
-                cycle_id,
-                before_snapshot,
-                after_snapshot,
-                outcome.summary["output_text"],
-                outcome.marker,
-            )
-            progress_reasons = post.progress_reasons
-            result = CycleResult.PROGRESS if progress_reasons else CycleResult.NO_PROGRESS
-            if outcome.marker == "EXPERIMENT_COMPLETE":
-                result = CycleResult.COMPLETE
 
-            summary = {
-                "cycle_id": cycle_id,
-                "started_at": cycle_started_at,
-                "completed_at": utc_now(),
-                "result": result,
-                "completion_marker": outcome.marker,
-                "progress_reasons": progress_reasons,
-                "validation_warnings": outcome.summary["validation_warnings"],
-                "attempts": attempt_records,
-                "before_snapshot": before_snapshot,
-                "after_snapshot": after_snapshot,
-            }
-            write_json(current_cycle_dir / "cycle_summary.json", summary)
-            _clear_active_state(state, result)
-            return summary
-
-    except BaseException as exc:
-        logger.warning("Cycle %s aborted by %s; rolling back", cycle_id, type(exc).__name__)
-        restore_cycle_baselines(experiment_dir, baselines)
-        _clear_active_state(state, AttemptOutcomeKind.EXCEPTION)
-        write_state(experiment_dir, state)
-        raise
-
-    restore_cycle_baselines(experiment_dir, baselines)
-
+def _failed_cycle_summary(
+    *,
+    cycle_dir: Path,
+    cycle_id: str,
+    cycle_started_at: str,
+    attempt_records: list[dict[str, Any]],
+    before_snapshot: dict[str, Any],
+) -> dict[str, Any]:
     summary = {
         "cycle_id": cycle_id,
         "started_at": cycle_started_at,
@@ -402,7 +418,97 @@ def run_cycle(
         "before_snapshot": before_snapshot,
         "after_snapshot": before_snapshot,
     }
-    write_json(current_cycle_dir / "cycle_summary.json", summary)
+    write_json(cycle_dir / "cycle_summary.json", summary)
+    return summary
+
+
+def run_cycle(
+    experiment_dir: Path,
+    state: LoopState,
+    hooks: CycleHooks | None = None,
+) -> dict[str, Any]:
+    """Run a single ML research cycle: prompt, attempts, validation, summary."""
+    if hooks is None:
+        hooks = DefaultCycleHooks()
+    cycle_id = f"{state.cycle_count + 1:04d}"
+    cycle_started_at = utc_now()
+
+    pre = hooks.pre_cycle(experiment_dir, cycle_id, state.to_dict())
+    prompt_text = pre.prompt_text
+    cycle_dir = _prepare_cycle_dir(experiment_dir, cycle_id, prompt_text)
+    agent_message_path = cycle_dir / "agent_last_message.md"
+
+    baselines = capture_cycle_baselines(experiment_dir)
+    before_snapshot = baselines.before_snapshot
+
+    _activate_cycle_state(
+        experiment_dir,
+        state,
+        cycle_id=cycle_id,
+        cycle_started_at=cycle_started_at,
+    )
+
+    attempt_records: list[dict[str, Any]] = []
+    runner_config = _runner_config_from_state(state)
+
+    try:
+        for attempt in range(1, DEFAULT_MAX_ATTEMPTS_PER_CYCLE + 1):
+            restore_cycle_baselines(experiment_dir, baselines)
+            _record_attempt_start(experiment_dir, state, attempt)
+            paths = _attempt_paths(cycle_dir, attempt)
+            outcome = _run_attempt_with_timer(
+                CycleAttemptRequest(
+                    experiment_dir=experiment_dir,
+                    cycle_id=cycle_id,
+                    attempt=attempt,
+                    prompt_text=prompt_text,
+                    baselines_journal_hash=before_snapshot["journal_hash"],
+                    experiment_md_backup=baselines.experiment_md_backup,
+                    attempt_stdout=paths.stdout,
+                    attempt_stderr=paths.stderr,
+                    attempt_meta=paths.meta,
+                    attempt_result_path=paths.result,
+                    agent_message_path=agent_message_path,
+                    runner_config=runner_config,
+                )
+            )
+
+            if not outcome.success:
+                attempt_records.append(outcome.attempt_record)
+                if attempt < DEFAULT_MAX_ATTEMPTS_PER_CYCLE:
+                    emit_cycle_retry(attempt + 1, outcome.attempt_record)
+                continue
+
+            summary = _successful_cycle_summary(
+                SuccessfulCycleContext(
+                    experiment_dir=experiment_dir,
+                    cycle_dir=cycle_dir,
+                    cycle_id=cycle_id,
+                    cycle_started_at=cycle_started_at,
+                    before_snapshot=before_snapshot,
+                    attempt_records=attempt_records,
+                    hooks=hooks,
+                ),
+                outcome=outcome,
+            )
+            _clear_active_state(state, summary["result"])
+            return summary
+
+    except BaseException as exc:
+        logger.warning("Cycle %s aborted by %s; rolling back", cycle_id, type(exc).__name__)
+        restore_cycle_baselines(experiment_dir, baselines)
+        _clear_active_state(state, AttemptOutcomeKind.EXCEPTION)
+        write_state(experiment_dir, state)
+        raise
+
+    restore_cycle_baselines(experiment_dir, baselines)
+    summary = _failed_cycle_summary(
+        cycle_dir=cycle_dir,
+        cycle_id=cycle_id,
+        cycle_started_at=cycle_started_at,
+        attempt_records=attempt_records,
+        before_snapshot=before_snapshot,
+    )
     _clear_active_state(state, CycleResult.TOO_MANY_FAILED_ATTEMPTS)
     return summary
 
@@ -560,7 +666,7 @@ def cli_parser() -> argparse.ArgumentParser:
 
 def bench_command(args: argparse.Namespace) -> int:
     """Run the runner benchmark and print the comparison report."""
-    from .bench import BenchmarkBudget, run_benchmark
+    from .bench import BenchmarkBudget, BenchmarkRequest, run_benchmark
 
     experiment_dir = Path(args.experiment_path).resolve()
     require_experiment_directory(experiment_dir)
@@ -578,11 +684,13 @@ def bench_command(args: argparse.Namespace) -> int:
         ROOT / "bench" / f"{experiment_dir.name}-{timestamp.replace(':', '').replace('-', '')}"
     )
     run_benchmark(
-        experiment_dir,
-        runner_names,
-        budget=BenchmarkBudget(max_cycles=args.max_cycles, max_hours=args.max_hours),
-        bench_dir=bench_dir,
-        timestamp=timestamp,
+        BenchmarkRequest(
+            source_experiment_dir=experiment_dir,
+            runner_names=runner_names,
+            budget=BenchmarkBudget(max_cycles=args.max_cycles, max_hours=args.max_hours),
+            bench_dir=bench_dir,
+            timestamp=timestamp,
+        )
     )
     print(read_text(bench_dir / "comparison.md"))
     return 0
@@ -665,27 +773,10 @@ def final_holdout_command(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    if not state.selection_frozen:
-        print("error: selection must be frozen before final holdout", file=sys.stderr)
+    candidate_ids = _final_holdout_candidate_ids(args, state, output_path)
+    if candidate_ids is None:
         return 1
     frozen_ids = state.frozen_candidate_ids or []
-    candidate_ids = [str(candidate_id) for candidate_id in (args.candidate or frozen_ids)]
-    if not candidate_ids:
-        print("error: no frozen candidates available for final holdout", file=sys.stderr)
-        return 1
-    unknown = sorted(set(candidate_ids) - set(frozen_ids))
-    if unknown:
-        print(
-            "error: final holdout candidates must be frozen first: " + ", ".join(unknown),
-            file=sys.stderr,
-        )
-        return 1
-    if (state.final_holdout_accessed or output_path.exists()) and not args.force:
-        print(
-            "error: final holdout already exists; pass --force to rerun frozen candidates",
-            file=sys.stderr,
-        )
-        return 1
 
     lock_path = acquire_lock(experiment_dir)
     try:
@@ -716,6 +807,37 @@ def final_holdout_command(args: argparse.Namespace) -> int:
 
     print(f"Final holdout written to {output_path}")
     return 0
+
+
+def _final_holdout_candidate_ids(
+    args: argparse.Namespace, state: LoopState, output_path: Path
+) -> list[str] | None:
+    if not state.selection_frozen:
+        print("error: selection must be frozen before final holdout", file=sys.stderr)
+        return None
+
+    frozen_ids = state.frozen_candidate_ids or []
+    candidate_ids = [str(candidate_id) for candidate_id in (args.candidate or frozen_ids)]
+    if not candidate_ids:
+        print("error: no frozen candidates available for final holdout", file=sys.stderr)
+        return None
+
+    unknown = sorted(set(candidate_ids) - set(frozen_ids))
+    if unknown:
+        print(
+            "error: final holdout candidates must be frozen first: " + ", ".join(unknown),
+            file=sys.stderr,
+        )
+        return None
+
+    if (state.final_holdout_accessed or output_path.exists()) and not args.force:
+        print(
+            "error: final holdout already exists; pass --force to rerun frozen candidates",
+            file=sys.stderr,
+        )
+        return None
+
+    return candidate_ids
 
 
 def ledger_command(args: argparse.Namespace) -> int:
@@ -839,18 +961,15 @@ def main() -> int:
     """Entry point: dispatch ``start`` / ``resume`` / ``status``."""
     signal.signal(signal.SIGTERM, signal.default_int_handler)  # align SIGTERM with Ctrl+C
     args = cli_parser().parse_args()
-    if args.command == "start":
-        return start_command(args)
-    if args.command == "resume":
-        return resume_command(args)
-    if args.command == "status":
-        return print_status(Path(args.experiment_path).resolve())
-    if args.command == "freeze":
-        return freeze_command(args)
-    if args.command == "final-holdout":
-        return final_holdout_command(args)
-    if args.command == "ledger":
-        return ledger_command(args)
-    if args.command == "bench":
-        return bench_command(args)
+    command_handlers = {
+        "start": start_command,
+        "resume": resume_command,
+        "status": lambda parsed_args: print_status(Path(parsed_args.experiment_path).resolve()),
+        "freeze": freeze_command,
+        "final-holdout": final_holdout_command,
+        "ledger": ledger_command,
+        "bench": bench_command,
+    }
+    if args.command in command_handlers:
+        return command_handlers[args.command](args)
     raise ValueError(f"Unknown command: {args.command}")

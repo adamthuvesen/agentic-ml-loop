@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from loop import CyclePrompt, PostCycleResult, PreCycleResult
+from loop import CyclePrompt, PostCycleContext, PostCycleResult, PreCycleResult
 
 
 class RecordingHooks:
@@ -21,16 +21,8 @@ class RecordingHooks:
         )
         return PreCycleResult(prompt_text=prompt.assemble(), cycle_prompt=prompt)
 
-    def post_cycle(
-        self,
-        experiment_dir: Path,
-        cycle_id: str,
-        before_snapshot: dict[str, object],
-        after_snapshot: dict[str, object],
-        output: str,
-        marker: str,
-    ) -> PostCycleResult:
-        self.post_calls.append((experiment_dir, cycle_id, marker))
+    def post_cycle(self, context: PostCycleContext) -> PostCycleResult:
+        self.post_calls.append((context.experiment_dir, context.cycle_id, context.marker))
         return PostCycleResult(progress_reasons=["custom:hook"])
 
 

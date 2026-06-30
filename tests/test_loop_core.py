@@ -556,7 +556,7 @@ class TestRunCycleRollback:
         original_journal = (d / "research_journal.md").read_text()
         state = initial_state(d, max_cycles=1, max_hours=None)
 
-        def crash_after_mutation(**_kwargs: object) -> object:
+        def crash_after_mutation(_request: object) -> object:
             (d / "research_journal.md").write_text("partial attempt edit\n")
             raise RuntimeError("post-mutation crash")
 

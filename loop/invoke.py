@@ -187,6 +187,45 @@ def add_runner_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _jsonl_events(raw: str) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+    return events
+
+
+def _assistant_message_parts(message: object) -> list[str]:
+    if isinstance(message, str):
+        return [message]
+    if not isinstance(message, dict):
+        return []
+
+    parts: list[str] = []
+    for block in message.get("content", []):
+        if isinstance(block, dict) and block.get("type") == "text" and block.get("text"):
+            parts.append(str(block["text"]))
+    return parts
+
+
+def _event_text_parts(event: dict[str, Any]) -> list[str]:
+    event_type = event.get("type")
+    if event_type == "assistant" and "message" in event:
+        return _assistant_message_parts(event["message"])
+    if event_type == "result" and isinstance(event.get("result"), str):
+        return [event["result"]]
+    if event_type in {"agent_message", "assistant_message"}:
+        return _assistant_message_parts(event.get("message"))
+    return []
+
+
 def extract_agent_text_from_jsonl(raw: str) -> str:
     """Extract assistant text from known JSONL output formats.
 
@@ -198,29 +237,8 @@ def extract_agent_text_from_jsonl(raw: str) -> str:
     completion marker is captured even if the agent does tool calls after it.
     """
     text_parts: list[str] = []
-    for line in raw.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-
-        if event.get("type") == "assistant" and "message" in event:
-            message = event["message"]
-            if isinstance(message, str):
-                text_parts.append(message)
-            elif isinstance(message, dict):
-                for block in message.get("content", []):
-                    if block.get("type") == "text" and block.get("text"):
-                        text_parts.append(block["text"])
-        elif event.get("type") == "result" and isinstance(event.get("result"), str):
-            text_parts.append(event["result"])
-        elif event.get("type") in {"agent_message", "assistant_message"}:
-            message = event.get("message")
-            if isinstance(message, str):
-                text_parts.append(message)
+    for event in _jsonl_events(raw):
+        text_parts.extend(_event_text_parts(event))
 
     return "\n".join(text_parts) if text_parts else raw.strip()
 
