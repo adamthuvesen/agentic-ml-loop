@@ -7,7 +7,7 @@ from lib.demo_regression.data import (
     split_demo_regression_dataset,
 )
 from lib.demo_regression.modeling import CANDIDATE_RUNNERS
-from lib.runner import init_experiment_dir, run_runner_main
+from lib.runner import RunnerMainConfig, init_experiment_dir, run_runner_main
 
 EXPERIMENT_ID = "demo_regression"
 TEMPLATE_PATH = (
@@ -26,4 +26,13 @@ def init_demo(force: bool = False) -> Path:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run_runner_main(EXPERIMENT_ID, CANDIDATE_RUNNERS, _load_splits, TEMPLATE_PATH))
+    raise SystemExit(
+        run_runner_main(
+            RunnerMainConfig(
+                experiment_id=EXPERIMENT_ID,
+                candidate_runners=CANDIDATE_RUNNERS,
+                dataset_loader=_load_splits,
+                template_path=TEMPLATE_PATH,
+            )
+        )
+    )

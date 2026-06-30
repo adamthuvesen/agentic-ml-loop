@@ -10,6 +10,7 @@ import pytest
 
 from lib.runner import (
     init_experiment_dir,
+    run_runner_main,
     runner_cli,
 )
 from lib.runner import (
@@ -105,6 +106,15 @@ def test_runner_parser_exposes_retired_candidate_commands() -> None:
     )
     assert run_args.command == "run-retired-candidate"
     assert run_args.candidate == "old"
+
+
+def test_runner_main_accepts_legacy_generated_runner_call(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["runner", "list-candidates"])
+
+    exit_code = run_runner_main("demo", {"active": lambda _splits: {}}, lambda: None)
+
+    assert exit_code == 0
+    assert capsys.readouterr().out == "active\n"
 
 
 class TestInitDemo:

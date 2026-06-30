@@ -16,8 +16,10 @@ import pytest
 
 from lib.sources import (
     DatasetManifest,
+    DatasetManifestRequest,
     MissingSourceExtra,
     NonDeterministicQueryError,
+    SnapshotFreezeRequest,
     SnapshotIntegrityError,
     apply_as_of,
     dataset_manifest_from_table,
@@ -138,12 +140,14 @@ def _sample_table() -> pa.Table:
 
 def test_manifest_roundtrip(tmp_path) -> None:
     manifest = dataset_manifest_from_table(
-        _sample_table(),
-        source_type="duckdb",
-        driver="duckdb",
-        query="SELECT * FROM t",
-        as_of=None,
-        sample_seed=None,
+        DatasetManifestRequest(
+            table=_sample_table(),
+            source_type="duckdb",
+            driver="duckdb",
+            query="SELECT * FROM t",
+            as_of=None,
+            sample_seed=None,
+        )
     )
     path = tmp_path / "dataset_manifest.json"
     manifest.write(path)
@@ -153,7 +157,7 @@ def test_manifest_roundtrip(tmp_path) -> None:
     assert loaded.columns == ["id", "label"]
 
 
-def test_manifest_load_rejects_unknown_keys(tmp_path) -> None:
+def test_manifest_builder_accepts_legacy_keywords() -> None:
     manifest = dataset_manifest_from_table(
         _sample_table(),
         source_type="duckdb",
@@ -161,6 +165,35 @@ def test_manifest_load_rejects_unknown_keys(tmp_path) -> None:
         query="SELECT * FROM t",
         as_of=None,
         sample_seed=None,
+    )
+    assert manifest.row_count == 3
+    assert manifest.source_type == "duckdb"
+
+
+def test_manifest_builder_rejects_request_plus_legacy_keywords() -> None:
+    request = DatasetManifestRequest(
+        table=_sample_table(),
+        source_type="duckdb",
+        driver="duckdb",
+        query="SELECT * FROM t",
+        as_of=None,
+        sample_seed=None,
+    )
+
+    with pytest.raises(TypeError, match="both"):
+        dataset_manifest_from_table(request, source_type="duckdb")
+
+
+def test_manifest_load_rejects_unknown_keys(tmp_path) -> None:
+    manifest = dataset_manifest_from_table(
+        DatasetManifestRequest(
+            table=_sample_table(),
+            source_type="duckdb",
+            driver="duckdb",
+            query="SELECT * FROM t",
+            as_of=None,
+            sample_seed=None,
+        )
     )
     payload = manifest.to_dict()
     payload["bogus"] = 1
@@ -178,12 +211,14 @@ def test_verify_snapshot_detects_row_and_schema_drift(tmp_path) -> None:
     snapshot = tmp_path / "snapshot.parquet"
     pq.write_table(table, snapshot)
     manifest = dataset_manifest_from_table(
-        table,
-        source_type="duckdb",
-        driver="duckdb",
-        query="SELECT * FROM t",
-        as_of=None,
-        sample_seed=None,
+        DatasetManifestRequest(
+            table=table,
+            source_type="duckdb",
+            driver="duckdb",
+            query="SELECT * FROM t",
+            as_of=None,
+            sample_seed=None,
+        )
     )
     verify_snapshot(snapshot, manifest)  # matches: no raise
 
@@ -219,10 +254,12 @@ def test_duckdb_freeze_preserves_decimal_and_timestamp_types(tmp_path) -> None:
     db_path = _make_duckdb(tmp_path)
     out_dir = tmp_path / "data"
     manifest = freeze_snapshot(
-        source_type="duckdb",
-        query="SELECT * FROM t ORDER BY id",
-        out_dir=out_dir,
-        config={"database": str(db_path), "read_only": True},
+        SnapshotFreezeRequest(
+            source_type="duckdb",
+            query="SELECT * FROM t ORDER BY id",
+            out_dir=out_dir,
+            config={"database": str(db_path), "read_only": True},
+        )
     )
     assert manifest.row_count == 2
     assert manifest.source_type == "duckdb"
@@ -235,14 +272,43 @@ def test_duckdb_freeze_preserves_decimal_and_timestamp_types(tmp_path) -> None:
 
 
 @pytest.mark.skipif(not _HAS_DUCKDB, reason="duckdb not installed (needs the models extra)")
+def test_freeze_snapshot_accepts_legacy_keywords(tmp_path) -> None:
+    db_path = _make_duckdb(tmp_path)
+    out_dir = tmp_path / "legacy-data"
+
+    manifest = freeze_snapshot(
+        source_type="duckdb",
+        query="SELECT * FROM t ORDER BY id",
+        out_dir=out_dir,
+        config={"database": str(db_path), "read_only": True},
+    )
+
+    assert manifest.row_count == 2
+    assert (out_dir / "dataset_manifest.json").exists()
+
+
+def test_freeze_snapshot_rejects_request_plus_legacy_keywords(tmp_path) -> None:
+    request = SnapshotFreezeRequest(
+        source_type="duckdb",
+        query="SELECT * FROM t ORDER BY id",
+        out_dir=tmp_path / "data",
+    )
+
+    with pytest.raises(TypeError, match="both"):
+        freeze_snapshot(request, source_type="duckdb")
+
+
+@pytest.mark.skipif(not _HAS_DUCKDB, reason="duckdb not installed (needs the models extra)")
 def test_read_snapshot_roundtrips_and_verifies(tmp_path) -> None:
     db_path = _make_duckdb(tmp_path)
     experiment_dir = tmp_path / "exp"
     freeze_snapshot(
-        source_type="duckdb",
-        query="SELECT * FROM t ORDER BY id",
-        out_dir=experiment_dir / "data",
-        config={"database": str(db_path), "read_only": True},
+        SnapshotFreezeRequest(
+            source_type="duckdb",
+            query="SELECT * FROM t ORDER BY id",
+            out_dir=experiment_dir / "data",
+            config={"database": str(db_path), "read_only": True},
+        )
     )
     frame = read_snapshot(experiment_dir)
     assert list(frame["id"]) == [1, 2]
@@ -264,10 +330,12 @@ def test_experiment_validate_flags_mutated_snapshot(tmp_path) -> None:
     (exp / "research_journal.md").write_text("# journal\n", encoding="utf-8")
     (exp / "results.json").write_text("[]\n", encoding="utf-8")
     freeze_snapshot(
-        source_type="duckdb",
-        query="SELECT * FROM t ORDER BY id",
-        out_dir=exp / "data",
-        config={"database": str(db_path), "read_only": True},
+        SnapshotFreezeRequest(
+            source_type="duckdb",
+            query="SELECT * FROM t ORDER BY id",
+            out_dir=exp / "data",
+            config={"database": str(db_path), "read_only": True},
+        )
     )
     assert experiment.validate_experiment(exp) == []
 

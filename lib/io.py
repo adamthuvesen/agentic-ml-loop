@@ -46,8 +46,6 @@ def _json_safe(value: Any) -> Any:
         if not math.isfinite(value):
             raise ValueError(f"Cannot write non-finite JSON number: {value!r}")
         return value
-    if isinstance(value, int | str | bool) or value is None:
-        return value
     return value
 
 
