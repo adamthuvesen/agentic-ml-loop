@@ -49,3 +49,15 @@ def test_validate_fixture_manifest_rejects_unsafe_paths_and_bad_hashes() -> None
     assert "data_files[0].path must be a safe relative path" in errors
     assert "data_files[0].rows must be a positive integer" in errors
     assert "data_files[0].sha256 must be a 64-character hex digest" in errors
+
+
+def test_validate_fixture_manifest_rejects_duplicate_data_paths() -> None:
+    manifest = _valid_manifest()
+    manifest["data_files"] = [
+        {"path": "fixtures/demo.csv", "rows": 12, "sha256": "a" * 64},
+        {"path": "fixtures/demo.csv", "rows": 12, "sha256": "b" * 64},
+    ]
+
+    errors = validate_fixture_manifest(manifest)
+
+    assert "data_files[1].path duplicates 'fixtures/demo.csv'" in errors

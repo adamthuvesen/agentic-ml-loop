@@ -5,6 +5,7 @@ from pathlib import Path
 from lib.candidate_result import CandidateResult
 from lib.external_targets.common import (
     ROOT,
+    UvProjectHelperRequest,
     candidate_result_from_payload,
     resolve_external_repo,
     run_uv_project_helper,
@@ -49,12 +50,14 @@ def run_candidate(
     if include_test:
         extra_args.append("--include-test")
     payload = run_uv_project_helper(
-        repo=_repo(),
-        helper=HELPER,
-        candidate_id=candidate_id,
-        extra_args=extra_args or None,
-        env=BOX_OFFICE_DUMMY_ENV,
-        timeout_seconds=900,
+        UvProjectHelperRequest(
+            repo=_repo(),
+            helper=HELPER,
+            candidate_id=candidate_id,
+            extra_args=extra_args or None,
+            env=BOX_OFFICE_DUMMY_ENV,
+            timeout_seconds=900,
+        )
     )
     return candidate_result_from_payload(payload)
 

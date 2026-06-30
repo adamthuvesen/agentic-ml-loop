@@ -5,6 +5,7 @@ from pathlib import Path
 from lib.candidate_result import CandidateResult
 from lib.external_targets.common import (
     ROOT,
+    UvProjectHelperRequest,
     candidate_result_from_payload,
     resolve_external_repo,
     run_uv_project_helper,
@@ -33,15 +34,17 @@ def run_candidate(
     if include_test:
         extra_args.append("--include-test")
     payload = run_uv_project_helper(
-        repo=repo,
-        helper=HELPER,
-        candidate_id=candidate_id,
-        extra_args=extra_args or None,
-        env={
-            "GCS_ENABLED": "false",
-            "EVI_CONFIG_FILE": str(repo / "config" / "pipeline_config.yaml"),
-        },
-        timeout_seconds=900,
+        UvProjectHelperRequest(
+            repo=repo,
+            helper=HELPER,
+            candidate_id=candidate_id,
+            extra_args=extra_args or None,
+            env={
+                "GCS_ENABLED": "false",
+                "EVI_CONFIG_FILE": str(repo / "config" / "pipeline_config.yaml"),
+            },
+            timeout_seconds=900,
+        )
     )
     return candidate_result_from_payload(payload)
 
