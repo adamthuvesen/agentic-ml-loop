@@ -12,63 +12,69 @@ from pathlib import Path
 # when this script is invoked as `python3 viz/generate.py`.
 
 
+def _experiment_sections(text: str) -> dict[str, str]:
+    wanted = ("Title", "Goal", "Objective Metric")
+    found: dict[str, str] = {}
+    for section in re.split(r"^## ", text, flags=re.MULTILINE):
+        heading = section.strip().splitlines()[0] if section.strip() else ""
+        for key in wanted:
+            if heading.startswith(key):
+                found[key] = section
+                break
+    return found
+
+
+def _first_nonblank_body_line(section: str) -> str:
+    for line in section.strip().splitlines()[1:]:
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _body_paragraph(section: str) -> str:
+    lines: list[str] = []
+    for line in section.strip().splitlines()[1:]:
+        stripped = line.strip()
+        if stripped:
+            lines.append(stripped)
+        elif lines:
+            break
+    return " ".join(lines)
+
+
+def _short_goal(goal: str) -> str:
+    if len(goal) <= 80:
+        return goal
+    for delimiter, minimum in ((".", 30), (" — ", 20), (",", 30)):
+        cut = goal[:80].rfind(delimiter)
+        if cut > minimum:
+            suffix = "." if delimiter != "." else delimiter
+            return goal[:cut] + suffix
+    return goal[:77] + "..."
+
+
+def _visualization_title(title: str) -> str:
+    if not title:
+        return ""
+    parts = title.split(":")
+    objective = ":".join(parts[1:]).strip() if len(parts) > 1 else title
+    obj_title = objective.title().replace("Auc", "AUC")
+    return f"Autonomous Research Agent: {obj_title}"
+
+
+def _objective_metric(section: str) -> str:
+    match = re.search(r"`([^`]+)`", section)
+    return match.group(1).split("—")[0].strip() if match else ""
+
+
 def parse_experiment_md(path: Path) -> dict:
     text = path.read_text()
-    sections = re.split(r"^## ", text, flags=re.MULTILINE)
-
-    title = ""
-    goal = ""
-    metric = ""
-
-    for section in sections:
-        if section.startswith("Title"):
-            lines = section.strip().splitlines()
-            for line in lines[1:]:
-                if line.strip():
-                    title = line.strip()
-                    break
-        elif section.startswith("Goal"):
-            lines = section.strip().splitlines()
-            goal_lines = []
-            for line in lines[1:]:
-                stripped = line.strip()
-                if stripped:
-                    goal_lines.append(stripped)
-                elif goal_lines:
-                    break
-            goal = " ".join(goal_lines)
-            # Keep it short and clear for the visualization
-            if len(goal) > 80:
-                # Cut at sentence or clause boundary
-                cut = goal[:80].rfind(".")
-                if cut > 30:
-                    goal = goal[: cut + 1]
-                else:
-                    cut = goal[:80].rfind(" — ")
-                    if cut > 20:
-                        goal = goal[:cut] + "."
-                    else:
-                        cut = goal[:80].rfind(",")
-                        goal = goal[:cut] + "." if cut > 30 else goal[:77] + "..."
-        elif section.startswith("Objective Metric"):
-            m = re.search(r"`([^`]+)`", section)
-            if m:
-                metric = m.group(1).split("—")[0].strip()
-
-    # Rewrite title for the visualization
-    if title:
-        # Strip the experiment slug prefix, keep the objective
-        parts = title.split(":")
-        if len(parts) > 1:
-            objective = ":".join(parts[1:]).strip()
-            # Title-case but preserve known acronyms
-            obj_title = objective.title().replace("Auc", "AUC")
-            title = f"Autonomous Research Agent: {obj_title}"
-        else:
-            obj_title = title.title().replace("Auc", "AUC")
-            title = f"Autonomous Research Agent: {obj_title}"
-
-    return {"name": title, "goal": goal, "metric": metric}
+    sections = _experiment_sections(text)
+    return {
+        "name": _visualization_title(_first_nonblank_body_line(sections.get("Title", ""))),
+        "goal": _short_goal(_body_paragraph(sections.get("Goal", ""))),
+        "metric": _objective_metric(sections.get("Objective Metric", "")),
+    }
 
 
 def _round_metric(value: object, digits: int = 3) -> float | None:
@@ -224,8 +230,7 @@ def extract_key_findings(body: str) -> list[str]:
 def _clean_name(name: str) -> str:
     """Strip markdown artifacts from candidate names."""
     name = re.sub(r"\*+", "", name).strip()
-    name = re.sub(r"\s*\(.*?\)\s*$", "", name)
-    return name
+    return re.sub(r"\s*\(.*?\)\s*$", "", name)
 
 
 def extract_result_table(body: str) -> list[dict]:
@@ -305,6 +310,258 @@ def _validation_total_for_experiment(experiment_dir: Path, metric: str) -> float
     return float(splits.validation[total_column].sum())
 
 
+_RESEARCH_TEXTS = {
+    1: "Studying the data and exploring what simple approaches might work as a starting point",
+    2: "Researching useful features for this problem and studying value-weighted classification",
+    3: "Analyzing patterns in what worked so far and exploring new feature ideas",
+    4: "Final review — checking if any unexplored approaches could beat the current leader",
+}
+
+_JOURNAL_TEXTS = {
+    1: "Recording baseline results and initial observations in the research journal",
+    2: "Writing down what worked, what didn't, and ideas for the next agent to try",
+    3: "Documenting key learnings and updating the research journal with findings",
+    4: "Final notes — summarizing all discoveries for the experiment record",
+}
+
+
+def _intro_scene(experiment: dict) -> dict:
+    metric_label = _friendly_metric(experiment["metric"])
+    return {
+        "type": "intro",
+        "station": "desk",
+        "title": "Understanding the Goal",
+        "text": experiment["goal"],
+        "subtitle": f"Measuring: {metric_label}",
+    }
+
+
+def _hypothesis_scene(cycle: dict) -> dict:
+    objective = cycle["objective"].replace("learned models", "trained models")
+    return {
+        "type": "hypothesis",
+        "cycle": cycle["number"],
+        "station": "desk",
+        "title": f"Round {cycle['number']}: Planning",
+        "text": objective,
+    }
+
+
+def _research_scene(cycle_number: int) -> dict:
+    return {
+        "type": "research",
+        "cycle": cycle_number,
+        "station": "library",
+        "title": "Exploring Ideas",
+        "text": _RESEARCH_TEXTS.get(cycle_number, "Reviewing results and exploring new approaches"),
+    }
+
+
+def _dedupe_preserving_order(names: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for name in names:
+        if name in seen:
+            continue
+        seen.add(name)
+        deduped.append(name)
+    return deduped
+
+
+def _new_candidate_names(table_candidates: list[dict], leaderboard: list[dict]) -> list[str]:
+    existing_names = {entry["name"] for entry in leaderboard}
+    names = [
+        candidate["name"]
+        for candidate in table_candidates
+        if candidate["name"] not in existing_names
+    ]
+    return _dedupe_preserving_order(names or [candidate["name"] for candidate in table_candidates])
+
+
+def _training_scene(cycle_number: int, candidate_names: list[str]) -> dict:
+    approach_word = "es" if len(candidate_names) != 1 else ""
+    return {
+        "type": "training",
+        "cycle": cycle_number,
+        "station": "lab",
+        "title": "Testing Models",
+        "text": f"Running {len(candidate_names)} different approach{approach_word}",
+        "candidates": candidate_names[:6],
+    }
+
+
+def _candidate_info(candidate_lookup: dict, candidate_name: str) -> dict:
+    return candidate_lookup.get(
+        candidate_name, candidate_lookup.get(candidate_name.replace(" ", "-"), {})
+    )
+
+
+def _leaderboard_entries(
+    table_candidates: list[dict],
+    candidate_lookup: dict,
+    leaderboard: list[dict],
+) -> tuple[list[dict], dict | None, dict | None]:
+    best_this_cycle = None
+    new_entries: list[dict] = []
+    for candidate in table_candidates:
+        candidate_name = candidate["name"]
+        info = _candidate_info(candidate_lookup, candidate_name)
+        score = candidate.get("at_20")
+        if score is None and info:
+            score = info.get("score")
+        if score is None:
+            continue
+        entry = {"name": candidate_name, "score": round(score, 3)}
+        if info and info.get("primary_metric"):
+            entry["primary_metric"] = info["primary_metric"]
+        new_entries.append(entry)
+        if not [existing for existing in leaderboard if existing["name"] == candidate_name]:
+            leaderboard.append(entry)
+        if best_this_cycle is None or score > best_this_cycle["score"]:
+            best_this_cycle = entry
+
+    leaderboard.sort(key=lambda entry: entry["score"], reverse=True)
+    overall_best = leaderboard[0] if leaderboard else None
+    return new_entries, best_this_cycle, overall_best
+
+
+def _cycle_result_text(
+    *,
+    best_this_cycle: dict | None,
+    overall_best: dict | None,
+    leaderboard: list[dict],
+    previous_best_name: str | None,
+) -> tuple[str, bool]:
+    if best_this_cycle is None:
+        return "", False
+    is_new_best = (
+        overall_best is not None
+        and best_this_cycle["name"] == overall_best["name"]
+        and best_this_cycle["name"] != previous_best_name
+    )
+    if is_new_best:
+        previous_score = leaderboard[1]["score"] if len(leaderboard) > 1 else 0
+        delta = best_this_cycle["score"] - previous_score
+        return (
+            f"New leader! {best_this_cycle['name']} scores {best_this_cycle['score']:.3f} "
+            f"(+{delta:.3f} improvement)",
+            True,
+        )
+    if overall_best and best_this_cycle["name"] != overall_best["name"]:
+        return (
+            f"No improvement — {overall_best['name']} still leads with {overall_best['score']:.3f}",
+            False,
+        )
+    return f"Still leading: {overall_best['name']} with {overall_best['score']:.3f}", False
+
+
+def _evaluation_scene(
+    cycle_number: int,
+    result_text: str,
+    new_entries: list[dict],
+    leaderboard: list[dict],
+    is_new_best: bool,
+) -> dict:
+    return {
+        "type": "evaluation",
+        "cycle": cycle_number,
+        "station": "whiteboard",
+        "title": "Scoreboard Update",
+        "text": result_text,
+        "results": new_entries,
+        "leaderboard": [dict(entry) for entry in leaderboard],
+        "is_new_best": is_new_best,
+    }
+
+
+def _journal_scene(cycle: dict) -> dict:
+    cycle_number = cycle["number"]
+    findings_summary = cycle["findings"][:2] if cycle["findings"] else []
+    return {
+        "type": "journal",
+        "cycle": cycle_number,
+        "station": "desk",
+        "title": "Recording Findings",
+        "text": _JOURNAL_TEXTS.get(
+            cycle_number, "Writing findings and learnings in the research journal"
+        ),
+        "findings": findings_summary,
+    }
+
+
+def _cycle_candidate_scenes(
+    cycle: dict,
+    candidate_lookup: dict,
+    leaderboard: list[dict],
+    previous_best_name: str | None,
+) -> tuple[list[dict], str | None]:
+    table_candidates = cycle["candidates"]
+    if not table_candidates:
+        return [], previous_best_name
+
+    candidate_names = _new_candidate_names(table_candidates, leaderboard)
+    scenes = [_training_scene(cycle["number"], candidate_names)]
+    new_entries, best_this_cycle, overall_best = _leaderboard_entries(
+        table_candidates, candidate_lookup, leaderboard
+    )
+    result_text, is_new_best = _cycle_result_text(
+        best_this_cycle=best_this_cycle,
+        overall_best=overall_best,
+        leaderboard=leaderboard,
+        previous_best_name=previous_best_name,
+    )
+    if overall_best:
+        previous_best_name = overall_best["name"]
+    scenes.append(
+        _evaluation_scene(cycle["number"], result_text, new_entries, leaderboard, is_new_best)
+    )
+    scenes.append(_journal_scene(cycle))
+    return scenes, previous_best_name
+
+
+def _value_capture_summary(
+    experiment_dir: Path,
+    experiment: dict,
+    all_candidates: list[dict],
+    leaderboard: list[dict],
+    best: dict,
+) -> dict | None:
+    total_validation_value = _validation_total_for_experiment(experiment_dir, experiment["metric"])
+    baseline_entry = next((c for c in all_candidates if c["id"] == "rule-baseline"), None)
+    best_entry = next((c for c in all_candidates if c["id"] == best["name"]), None)
+    if not baseline_entry and leaderboard:
+        baseline = leaderboard[-1]
+        baseline_entry = next((c for c in all_candidates if c["id"] == baseline["name"]), None)
+    if not baseline_entry or not best_entry or total_validation_value is None:
+        return None
+
+    improvement = best_entry["score"] - baseline_entry["score"]
+    pct_improvement = (
+        (improvement / baseline_entry["score"] * 100) if baseline_entry["score"] else 0
+    )
+    return {
+        "baseline": {
+            "name": baseline_entry["id"],
+            "auc": baseline_entry.get("auc", 0),
+            "at_20": baseline_entry.get("at_20", baseline_entry["score"]),
+            "value_captured": round(
+                baseline_entry.get("at_20", baseline_entry["score"]) * total_validation_value
+            ),
+        },
+        "winner": {
+            "name": best_entry["id"],
+            "auc": best_entry.get("auc", 0),
+            "at_20": best_entry.get("at_20", best_entry["score"]),
+            "value_captured": round(
+                best_entry.get("at_20", best_entry["score"]) * total_validation_value
+            ),
+        },
+        "total_validation_value": total_validation_value,
+        "extra_revenue": round(improvement * total_validation_value),
+        "improvement_pct": round(pct_improvement, 1),
+    }
+
+
 def replay_scenes(
     experiment_dir: Path,
     experiment: dict,
@@ -315,197 +572,20 @@ def replay_scenes(
     candidate_lookup = {c["id"]: c for c in all_candidates}
     leaderboard: list[dict] = []
 
-    metric_label = _friendly_metric(experiment["metric"])
-
-    scenes.append(
-        {
-            "type": "intro",
-            "station": "desk",
-            "title": "Understanding the Goal",
-            "text": experiment["goal"],
-            "subtitle": f"Measuring: {metric_label}",
-        }
-    )
+    scenes.append(_intro_scene(experiment))
 
     prev_best_name = None
 
     for cycle in cycles:
-        cn = cycle["number"]
-
-        # Hypothesis at desk — robot plans the next round at home base
-        # Clean up objective text for readability
-        obj_text = cycle["objective"]
-        obj_text = obj_text.replace("learned models", "trained models")
-        scenes.append(
-            {
-                "type": "hypothesis",
-                "cycle": cn,
-                "station": "desk",
-                "title": f"Round {cn}: Planning",
-                "text": obj_text,
-            }
+        scenes.append(_hypothesis_scene(cycle))
+        scenes.append(_research_scene(cycle["number"]))
+        candidate_scenes, prev_best_name = _cycle_candidate_scenes(
+            cycle, candidate_lookup, leaderboard, prev_best_name
         )
-
-        # Always visit the library for research
-        research_texts = {
-            1: "Studying the data and exploring what simple approaches might work as a starting point",
-            2: "Researching useful features for this problem and studying value-weighted classification",
-            3: "Analyzing patterns in what worked so far and exploring new feature ideas",
-            4: "Final review — checking if any unexplored approaches could beat the current leader",
-        }
-        scenes.append(
-            {
-                "type": "research",
-                "cycle": cn,
-                "station": "library",
-                "title": "Exploring Ideas",
-                "text": research_texts.get(cn, "Reviewing results and exploring new approaches"),
-            }
-        )
-
-        tc = cycle["candidates"]
-        if tc:
-            existing_names = {e["name"] for e in leaderboard}
-            new_cand_names = [c["name"] for c in tc if c["name"] not in existing_names]
-            if not new_cand_names:
-                new_cand_names = [c["name"] for c in tc]
-            seen_training = set()
-            deduped = []
-            for n in new_cand_names:
-                if n not in seen_training:
-                    seen_training.add(n)
-                    deduped.append(n)
-            new_cand_names = deduped
-
-            scenes.append(
-                {
-                    "type": "training",
-                    "cycle": cn,
-                    "station": "lab",
-                    "title": "Testing Models",
-                    "text": f"Running {len(new_cand_names)} different approach{'es' if len(new_cand_names) != 1 else ''}",
-                    "candidates": new_cand_names[:6],
-                }
-            )
-
-            best_this_cycle = None
-            new_entries = []
-            for c in tc:
-                cname = c["name"]
-                info = candidate_lookup.get(
-                    cname, candidate_lookup.get(cname.replace(" ", "-"), {})
-                )
-                score = c.get("at_20")
-                if score is None and info:
-                    score = info.get("score")
-                if score is not None:
-                    entry = {"name": cname, "score": round(score, 3)}
-                    if info and info.get("primary_metric"):
-                        entry["primary_metric"] = info["primary_metric"]
-                    new_entries.append(entry)
-                    existing = [e for e in leaderboard if e["name"] == cname]
-                    if not existing:
-                        leaderboard.append(entry)
-                    if best_this_cycle is None or score > best_this_cycle["score"]:
-                        best_this_cycle = entry
-
-            leaderboard.sort(key=lambda e: e["score"], reverse=True)
-            overall_best = leaderboard[0] if leaderboard else None
-
-            is_new_best = (
-                best_this_cycle is not None
-                and overall_best is not None
-                and best_this_cycle["name"] == overall_best["name"]
-                and best_this_cycle["name"] != prev_best_name
-            )
-
-            result_text = ""
-            if best_this_cycle:
-                if is_new_best:
-                    prev_score = leaderboard[1]["score"] if len(leaderboard) > 1 else 0
-                    delta = best_this_cycle["score"] - prev_score
-                    result_text = f"New leader! {best_this_cycle['name']} scores {best_this_cycle['score']:.3f} (+{delta:.3f} improvement)"
-                elif overall_best and best_this_cycle["name"] != overall_best["name"]:
-                    result_text = f"No improvement — {overall_best['name']} still leads with {overall_best['score']:.3f}"
-                else:
-                    result_text = (
-                        f"Still leading: {overall_best['name']} with {overall_best['score']:.3f}"
-                    )
-
-            if overall_best:
-                prev_best_name = overall_best["name"]
-
-            scenes.append(
-                {
-                    "type": "evaluation",
-                    "cycle": cn,
-                    "station": "whiteboard",
-                    "title": "Scoreboard Update",
-                    "text": result_text,
-                    "results": new_entries,
-                    "leaderboard": [dict(e) for e in leaderboard],
-                    "is_new_best": is_new_best,
-                }
-            )
-
-            # Journal scene — agent walks back to desk to record findings
-            journal_texts = {
-                1: "Recording baseline results and initial observations in the research journal",
-                2: "Writing down what worked, what didn't, and ideas for the next agent to try",
-                3: "Documenting key learnings and updating the research journal with findings",
-                4: "Final notes — summarizing all discoveries for the experiment record",
-            }
-            findings_summary = cycle["findings"][:2] if cycle["findings"] else []
-            scenes.append(
-                {
-                    "type": "journal",
-                    "cycle": cn,
-                    "station": "desk",
-                    "title": "Recording Findings",
-                    "text": journal_texts.get(
-                        cn, "Writing findings and learnings in the research journal"
-                    ),
-                    "findings": findings_summary,
-                }
-            )
+        scenes.extend(candidate_scenes)
 
     best = leaderboard[0] if leaderboard else {"name": "?", "score": 0}
-
-    # Build summary comparing baseline vs winner
-    total_validation_value = _validation_total_for_experiment(experiment_dir, experiment["metric"])
-    baseline_entry = next((c for c in all_candidates if c["id"] == "rule-baseline"), None)
-    best_entry = next((c for c in all_candidates if c["id"] == best["name"]), None)
-    if not baseline_entry and leaderboard:
-        bl = leaderboard[-1]
-        baseline_entry = next((c for c in all_candidates if c["id"] == bl["name"]), None)
-    summary = None
-    if baseline_entry and best_entry and total_validation_value is not None:
-        improvement = best_entry["score"] - baseline_entry["score"]
-        pct_improvement = (
-            (improvement / baseline_entry["score"] * 100) if baseline_entry["score"] else 0
-        )
-        extra_revenue = round(improvement * total_validation_value)
-        summary = {
-            "baseline": {
-                "name": baseline_entry["id"],
-                "auc": baseline_entry.get("auc", 0),
-                "at_20": baseline_entry.get("at_20", baseline_entry["score"]),
-                "value_captured": round(
-                    baseline_entry.get("at_20", baseline_entry["score"]) * total_validation_value
-                ),
-            },
-            "winner": {
-                "name": best_entry["id"],
-                "auc": best_entry.get("auc", 0),
-                "at_20": best_entry.get("at_20", best_entry["score"]),
-                "value_captured": round(
-                    best_entry.get("at_20", best_entry["score"]) * total_validation_value
-                ),
-            },
-            "total_validation_value": total_validation_value,
-            "extra_revenue": extra_revenue,
-            "improvement_pct": round(pct_improvement, 1),
-        }
+    summary = _value_capture_summary(experiment_dir, experiment, all_candidates, leaderboard, best)
 
     scenes.append(
         {

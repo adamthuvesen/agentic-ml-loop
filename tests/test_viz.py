@@ -4,7 +4,33 @@ import json
 from pathlib import Path
 
 from viz.bundle import bundle
-from viz.generate import _validation_total_for_experiment, parse_results_json
+from viz.generate import (
+    _validation_total_for_experiment,
+    parse_experiment_md,
+    parse_results_json,
+    replay_scenes,
+)
+
+
+class TestParseExperimentMd:
+    def test_extracts_display_title_goal_and_metric(self, tmp_path: Path) -> None:
+        path = tmp_path / "experiment.md"
+        path.write_text(
+            "# Spec\n\n"
+            "## Title\n\n"
+            "demo: fraud auc model\n\n"
+            "## Goal\n\n"
+            "Build a reliable fraud model, compare candidates carefully, and keep "
+            "the replay text readable even when the spec goal is wordy.\n\n"
+            "## Objective Metric\n\n"
+            "`val_auc` — validation AUC.\n"
+        )
+
+        parsed = parse_experiment_md(path)
+
+        assert parsed["name"] == "Autonomous Research Agent: Fraud AUC Model"
+        assert parsed["goal"] == "Build a reliable fraud model, compare candidates carefully."
+        assert parsed["metric"] == "val_auc"
 
 
 class TestValidationTotals:
@@ -138,6 +164,43 @@ class TestParseResultsJson:
         assert candidate["score"] == 0.0
         assert candidate["primary_metric"]["value"] == 0.0
         assert candidate["metrics"]["auc"] == 0.0
+
+
+class TestReplayScenes:
+    def test_builds_basic_cycle_sequence_and_leaderboard(self, tmp_path: Path) -> None:
+        experiment = {"name": "Replay", "goal": "Find the best model.", "metric": "val_auc"}
+        cycles = [
+            {
+                "number": 1,
+                "title": "baseline",
+                "objective": "test learned models",
+                "has_research": True,
+                "findings": ["Baseline works."],
+                "candidates": [{"name": "baseline", "at_20": 0.6}],
+            }
+        ]
+        candidates = [
+            {
+                "id": "baseline",
+                "score": 0.6,
+                "primary_metric": {"name": "val_auc", "value": 0.6},
+            }
+        ]
+
+        scenes = replay_scenes(tmp_path, experiment, cycles, candidates)
+
+        assert [scene["type"] for scene in scenes] == [
+            "intro",
+            "hypothesis",
+            "research",
+            "training",
+            "evaluation",
+            "journal",
+            "finale",
+        ]
+        assert scenes[1]["text"] == "test trained models"
+        assert scenes[4]["leaderboard"][0]["name"] == "baseline"
+        assert scenes[4]["leaderboard"][0]["score"] == 0.6
 
 
 def test_bundle_embeds_escaped_json_payload(tmp_path: Path) -> None:
