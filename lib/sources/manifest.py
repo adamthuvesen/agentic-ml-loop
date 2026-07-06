@@ -83,11 +83,8 @@ def schema_fingerprint(schema: pa.Schema) -> str:
     return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
 
 
-def dataset_manifest_from_table(
-    request: DatasetManifestRequest | Any | None = None, **legacy_kwargs: Any
-) -> DatasetManifest:
+def dataset_manifest_from_table(request: DatasetManifestRequest) -> DatasetManifest:
     """Build a manifest from an extracted Arrow *table* (does not import pyarrow)."""
-    request = _coerce_dataset_manifest_request(request, legacy_kwargs)
     schema = request.table.schema
     return DatasetManifest(
         manifest_version=MANIFEST_VERSION,
@@ -102,58 +99,6 @@ def dataset_manifest_from_table(
         sample_seed=request.sample_seed,
         snapshot_filename=request.snapshot_filename,
         pulled_at=utc_now(),
-    )
-
-
-def _coerce_dataset_manifest_request(
-    request: DatasetManifestRequest | Any | None,
-    legacy_kwargs: dict[str, Any],
-) -> DatasetManifestRequest:
-    if isinstance(request, DatasetManifestRequest):
-        if legacy_kwargs:
-            raise TypeError(
-                "dataset_manifest_from_table() received both a "
-                "DatasetManifestRequest and legacy keyword arguments"
-            )
-        return request
-
-    table = request if request is not None else legacy_kwargs.pop("table", None)
-    if table is None:
-        raise TypeError("dataset_manifest_from_table() missing required table")
-
-    allowed = {
-        "source_type",
-        "driver",
-        "query",
-        "as_of",
-        "sample_seed",
-        "snapshot_filename",
-    }
-    unknown = sorted(set(legacy_kwargs) - allowed)
-    if unknown:
-        raise TypeError(
-            "dataset_manifest_from_table() got unexpected keyword arguments: " + ", ".join(unknown)
-        )
-
-    missing = [
-        key
-        for key in ("source_type", "driver", "query", "as_of", "sample_seed")
-        if key not in legacy_kwargs
-    ]
-    if missing:
-        raise TypeError(
-            "dataset_manifest_from_table() missing required keyword arguments: "
-            + ", ".join(missing)
-        )
-
-    return DatasetManifestRequest(
-        table=table,
-        source_type=legacy_kwargs["source_type"],
-        driver=legacy_kwargs["driver"],
-        query=legacy_kwargs["query"],
-        as_of=legacy_kwargs["as_of"],
-        sample_seed=legacy_kwargs["sample_seed"],
-        snapshot_filename=legacy_kwargs.get("snapshot_filename", SNAPSHOT_FILENAME),
     )
 
 

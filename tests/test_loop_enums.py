@@ -12,7 +12,7 @@ from loop.enums import (
 from loop.loop_state import LoopState
 
 
-class TestStrEnumBackwardCompat:
+class TestStrEnumSerialization:
     def test_members_equal_their_string_values(self) -> None:
         assert LoopStatus.RUNNING == "running"
         assert CycleResult.COMPLETE == "complete"
@@ -50,8 +50,8 @@ class TestLoopStateSerialization:
         assert blob["last_cycle_result"] == "progress"
         assert blob["stop_reason"] == "slice_stall"
 
-    def test_legacy_string_state_loads_into_enums(self) -> None:
-        # Older loop_state.json stored bare strings; these must still load.
+    def test_string_state_loads_into_enums(self) -> None:
+        # loop_state.json stores bare strings; these load as enum members.
         state = LoopState.from_dict(
             {
                 "experiment_id": "exp",

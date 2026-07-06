@@ -4,8 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from loop import artifact_snapshot, compute_progress
-from loop.artifacts import RestoreArtifactsRequest, RollbackError
-from loop.core import _restore_artifacts
+from loop.artifacts import RestoreArtifactsRequest, RollbackError, restore_artifacts
 from tests.loop.conftest import _make_experiment
 
 
@@ -94,7 +93,7 @@ class TestComputeProgress:
 
 
 class TestRestoreArtifactsAdvisoryCleanup:
-    """Verify _restore_artifacts handles advisory artifacts on rollback."""
+    """Verify restore_artifacts handles advisory artifacts on rollback."""
 
     def test_deletes_attempt_created_advisory_artifacts(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
@@ -106,7 +105,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         diag.mkdir()
         (diag / "report.json").write_text("{}")
 
-        _restore_artifacts(
+        restore_artifacts(
             RestoreArtifactsRequest(
                 experiment_dir=d,
                 journal_backup="# Journal\n",
@@ -137,7 +136,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         review_md.write_text("attempt review")
         review_json.write_text('{"attempt": true}')
 
-        _restore_artifacts(
+        restore_artifacts(
             RestoreArtifactsRequest(
                 experiment_dir=d,
                 journal_backup="# Journal\n",
@@ -157,7 +156,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         sources_path = d / "research_sources.md"
 
         # Should not raise when advisory artifacts don't exist
-        _restore_artifacts(
+        restore_artifacts(
             RestoreArtifactsRequest(
                 experiment_dir=d,
                 journal_backup="# Journal\n",
@@ -176,7 +175,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         sources_path.unlink()
         sources_path.write_text("# Attempt sources\n")
 
-        _restore_artifacts(
+        restore_artifacts(
             RestoreArtifactsRequest(
                 experiment_dir=d,
                 journal_backup="# Journal\n",
@@ -199,7 +198,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         nested.mkdir(parents=True)
         (nested / "attempt_report.json").write_text("{}")
 
-        _restore_artifacts(
+        restore_artifacts(
             RestoreArtifactsRequest(
                 experiment_dir=d,
                 journal_backup="# Journal\n",
@@ -225,7 +224,7 @@ class TestRestoreArtifactsAdvisoryCleanup:
         # Simulate an attempt writing a new diagnostic file
         (diag / "attempt_artifact.json").write_text("{}")
 
-        _restore_artifacts(
+        restore_artifacts(
             RestoreArtifactsRequest(
                 experiment_dir=d,
                 journal_backup="# Journal\n",
@@ -252,7 +251,7 @@ class TestRestoreArtifactsFailureIsLoud:
             patch("loop.artifacts.write_text", side_effect=OSError("disk full")),
             pytest.raises(RollbackError, match="Could not restore"),
         ):
-            _restore_artifacts(
+            restore_artifacts(
                 RestoreArtifactsRequest(
                     experiment_dir=d,
                     journal_backup="# Journal\n",

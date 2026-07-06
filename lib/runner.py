@@ -299,71 +299,13 @@ class RunnerMainConfig:
     retired_candidate_runners: dict[str, Callable] | None = None
 
 
-def _coerce_runner_main_config(
-    config_or_experiment_id: RunnerMainConfig | str | None,
-    legacy_args: tuple[Any, ...],
-    legacy_kwargs: dict[str, Any],
-) -> RunnerMainConfig:
-    if isinstance(config_or_experiment_id, RunnerMainConfig):
-        if legacy_args or legacy_kwargs:
-            raise TypeError("run_runner_main() received both RunnerMainConfig and legacy arguments")
-        return config_or_experiment_id
-
-    values = dict(legacy_kwargs)
-    if config_or_experiment_id is None:
-        try:
-            config_or_experiment_id = values.pop("experiment_id")
-        except KeyError as exc:
-            raise TypeError("run_runner_main() missing required experiment_id") from exc
-
-    legacy_fields = [
-        "candidate_runners",
-        "dataset_loader",
-        "template_path",
-        "research_sources_template_path",
-        "retired_candidate_runners",
-    ]
-    if len(legacy_args) > len(legacy_fields):
-        raise TypeError("run_runner_main() got too many positional arguments")
-    positional_values = dict(zip(legacy_fields, legacy_args, strict=False))
-    duplicate = sorted(set(positional_values) & set(values))
-    if duplicate:
-        raise TypeError(
-            "run_runner_main() got multiple values for argument(s): " + ", ".join(duplicate)
-        )
-
-    unknown = sorted(set(values) - set(legacy_fields))
-    if unknown:
-        raise TypeError("run_runner_main() got unexpected keyword arguments: " + ", ".join(unknown))
-    values = {**positional_values, **values}
-    missing = [key for key in ("candidate_runners", "dataset_loader") if key not in values]
-    if missing:
-        raise TypeError(
-            "run_runner_main() missing required legacy arguments: " + ", ".join(missing)
-        )
-
-    return RunnerMainConfig(
-        experiment_id=str(config_or_experiment_id),
-        candidate_runners=values["candidate_runners"],
-        dataset_loader=values["dataset_loader"],
-        template_path=values.get("template_path"),
-        research_sources_template_path=values.get("research_sources_template_path"),
-        retired_candidate_runners=values.get("retired_candidate_runners"),
-    )
-
-
-def run_runner_main(
-    config: RunnerMainConfig | str | None = None,
-    *legacy_args: Any,
-    **legacy_kwargs: Any,
-) -> int:
+def run_runner_main(config: RunnerMainConfig) -> int:
     """Parse argv and dispatch a demo runner subcommand. Returns a process exit code.
 
     Shared ``main`` for the ``runners/<id>_runner.py`` entrypoints: lists
     candidates, initializes the experiment directory, or runs a (possibly retired)
     candidate and prints its objective score as JSON.
     """
-    config = _coerce_runner_main_config(config, legacy_args, legacy_kwargs)
     retired_candidate_runners = config.retired_candidate_runners or {}
     parser = runner_cli(
         config.experiment_id,

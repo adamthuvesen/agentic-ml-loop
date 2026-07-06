@@ -1,4 +1,4 @@
-from loop.core import cycle_contract_errors, extract_completion_marker
+from loop.contracts import cycle_contract_errors, extract_completion_marker
 
 
 class TestExtractCompletionMarker:

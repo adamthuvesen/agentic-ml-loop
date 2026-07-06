@@ -2,7 +2,7 @@
 
 Structural and offline by design: the creds-free DuckDB path is exercised for
 real; the proprietary adapters are checked via fakes. No live warehouse, no
-credentials. Mirrors the change's scope cut.
+credentials.
 """
 
 from __future__ import annotations
@@ -157,33 +157,6 @@ def test_manifest_roundtrip(tmp_path) -> None:
     assert loaded.columns == ["id", "label"]
 
 
-def test_manifest_builder_accepts_legacy_keywords() -> None:
-    manifest = dataset_manifest_from_table(
-        _sample_table(),
-        source_type="duckdb",
-        driver="duckdb",
-        query="SELECT * FROM t",
-        as_of=None,
-        sample_seed=None,
-    )
-    assert manifest.row_count == 3
-    assert manifest.source_type == "duckdb"
-
-
-def test_manifest_builder_rejects_request_plus_legacy_keywords() -> None:
-    request = DatasetManifestRequest(
-        table=_sample_table(),
-        source_type="duckdb",
-        driver="duckdb",
-        query="SELECT * FROM t",
-        as_of=None,
-        sample_seed=None,
-    )
-
-    with pytest.raises(TypeError, match="both"):
-        dataset_manifest_from_table(request, source_type="duckdb")
-
-
 def test_manifest_load_rejects_unknown_keys(tmp_path) -> None:
     manifest = dataset_manifest_from_table(
         DatasetManifestRequest(
@@ -269,33 +242,6 @@ def test_duckdb_freeze_preserves_decimal_and_timestamp_types(tmp_path) -> None:
     ts_type = schema.field("ts").type
     assert pa.types.is_timestamp(ts_type)
     assert ts_type.tz is not None  # timezone survived to parquet
-
-
-@pytest.mark.skipif(not _HAS_DUCKDB, reason="duckdb not installed (needs the models extra)")
-def test_freeze_snapshot_accepts_legacy_keywords(tmp_path) -> None:
-    db_path = _make_duckdb(tmp_path)
-    out_dir = tmp_path / "legacy-data"
-
-    manifest = freeze_snapshot(
-        source_type="duckdb",
-        query="SELECT * FROM t ORDER BY id",
-        out_dir=out_dir,
-        config={"database": str(db_path), "read_only": True},
-    )
-
-    assert manifest.row_count == 2
-    assert (out_dir / "dataset_manifest.json").exists()
-
-
-def test_freeze_snapshot_rejects_request_plus_legacy_keywords(tmp_path) -> None:
-    request = SnapshotFreezeRequest(
-        source_type="duckdb",
-        query="SELECT * FROM t ORDER BY id",
-        out_dir=tmp_path / "data",
-    )
-
-    with pytest.raises(TypeError, match="both"):
-        freeze_snapshot(request, source_type="duckdb")
 
 
 @pytest.mark.skipif(not _HAS_DUCKDB, reason="duckdb not installed (needs the models extra)")

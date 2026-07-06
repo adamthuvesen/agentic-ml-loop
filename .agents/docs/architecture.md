@@ -191,7 +191,8 @@ return stream JSON or plain text. The resolved command, model, and timeout are
 persisted in loop state and attempt metadata for reproducibility.
 
 The presets are
-`claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model claude-opus-4-8-high`,
+`claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model opus`
+(with `claude-opus-4-8-high` recorded as the requested model),
 `codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high`,
 and `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5`.
 Override the model with `--runner-model`. Effort maps to `--effort` for Claude
