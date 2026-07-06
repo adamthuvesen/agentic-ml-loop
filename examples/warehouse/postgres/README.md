@@ -1,8 +1,8 @@
-# Postgres warehouse-ingestion demo (creds-free)
+# Postgres Warehouse-Ingestion Demo (creds-free)
 
-A local Postgres with `trust` auth — no password anywhere — that proves the real
-"talk to a server, read-only, freeze a snapshot" path end to end. It is the
-tier-1 demo: a real database server, still with zero committed secrets.
+A local Postgres with `trust` auth needs no password and proves the real "talk
+to a server, read-only, freeze a snapshot" path end to end. It is the tier-1
+demo: a real database server with zero committed secrets.
 
 ## Run
 
@@ -26,8 +26,8 @@ query. Nothing secret is stored anywhere.
 
 ## Reading the snapshot
 
-The experiment's `lib/<slug>/data.py` loads the frozen snapshot — no warehouse,
-fully offline — and verifies it against the manifest:
+The experiment's `lib/<slug>/data.py` loads the frozen snapshot offline and
+checks it against the manifest:
 
 ```python
 from pathlib import Path
@@ -41,5 +41,5 @@ def load_dataset():
     return read_snapshot(EXPERIMENT_DIR)
 ```
 
-Everything downstream (splits, runners, the leaderboard) is unchanged — the only
+Everything downstream (splits, runners, the leaderboard) is unchanged. The only
 difference from a CSV experiment is where `load_dataset` reads from.

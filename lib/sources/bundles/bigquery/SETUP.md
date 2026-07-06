@@ -13,7 +13,7 @@ uv sync --extra bigquery   # adbc-driver-bigquery + manager + pyarrow
 
 ## Auth (keyless local)
 
-Application Default Credentials — no key file in the repo:
+Use Application Default Credentials. Do not put a key file in the repo:
 
 ```bash
 gcloud auth application-default login
@@ -46,10 +46,10 @@ Enterprise Plus); the parquet snapshot is the durable artifact beyond that.
 
 - **Cost:** BigQuery bills by bytes scanned. Select explicit columns, filter
   partitions, and pass `--max-bytes` (best-effort: set as the
-  `adbc.bigquery.sql.query.max_bytes_billed` statement option — verify it fires
+  `adbc.bigquery.sql.query.max_bytes_billed` statement option. Check that it fires
   on your driver version). Use `--dry-run` to preview before a billable extract.
-- `NUMERIC`/`BIGNUMERIC` -> Arrow decimals; `DATETIME` is tz-naive vs `TIMESTAMP`
-  UTC — decide normalization explicitly.
+- `NUMERIC`/`BIGNUMERIC` become Arrow decimals. `DATETIME` is tz-naive while
+  `TIMESTAMP` is UTC. Decide normalization explicitly.
 
 ## Example
 

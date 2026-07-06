@@ -63,7 +63,7 @@ CIs reflect the 160-row validation set.
    is_enterprise) gives the best val AUC and the smallest train-val gap, consistent
    with capturing real nonlinear signal rather than overfitting.
 2. **LightGBM overfits despite aggressive regularization.** Early-stopped at 3
-   iterations, train-val gap of 0.093, and test AUC of 0.536 — the tree is fitting
+   iterations, train-val gap of 0.093, and test AUC of 0.536: the tree is fitting
    temporal noise. The cross-experiment learnings about tree models on small data
    are confirmed.
 3. **Feature selection matters more than model complexity.** Removing noise features
@@ -75,12 +75,12 @@ CIs reflect the 160-row validation set.
 
 ### Next Steps
 
-- The signal ceiling may be near — 4 logreg variants now cluster between 0.593 and
+- The signal ceiling may be near: 4 logreg variants now cluster between 0.593 and
   0.608 on a small val set. Before adding more candidates, it's worth asking:
   is there more signal to find, or is this the ceiling for these features?
 - Could try: elastic net regularization sweep (C values), or adding a time-aware
   feature to account for the drift.
-- The LightGBM failure suggests nonlinear modeling isn't the answer here — the
+- The LightGBM failure suggests nonlinear modeling isn't the answer here: the
   polynomial approach is a better fit for this problem shape.
 - Consider whether the experiment is near completion: the success criteria
   (logreg beats majority, both in results.json) are met. Further cycles would
@@ -108,14 +108,14 @@ Swept logistic regression C from 0.001 to 1e6 (6 orders of magnitude):
 | 1e6 | 0.592 | 0.668 | 0.076 |
 
 **Conclusion**: the model is already extracting all available linear signal at
-C=1.0. Regularization isn't the bottleneck — the feature space is.
+C=1.0. Regularization isn't the bottleneck: the feature space is.
 
 ### Independent Bootstrap CI
 
 1000 bootstrap resamples on val set for logreg-tiny (C=1.0):
 **95% CI: [0.50, 0.68], width 0.178**
 
-This confirms cycle 0001's finding — any AUC difference under ~0.09 is noise on
+This confirms cycle 0001's finding: any AUC difference under ~0.09 is noise on
 this 160-row validation set.
 
 ### Confirmed EDA Findings
@@ -130,8 +130,8 @@ Independent EDA confirmed all cycle 0001 observations:
 ### Completion Assessment
 
 The experiment's success criteria are fully met:
-- ✅ majority-baseline and logreg-tiny both run and appear in results.json
-- ✅ Logistic regression val AUC (0.593) above majority baseline (0.500)
+- Done: majority-baseline and logreg-tiny both run and appear in results.json
+- Done: Logistic regression val AUC (0.593) above majority baseline (0.500)
 
 Beyond the success criteria, the experiment has also:
 - Tested 6 candidates across 3 model families (constant, logistic, LGBM)
@@ -178,20 +178,20 @@ set. The regularizer independently confirms: only `sessions_7d` and
 | logreg-engineered | 0.596 | [0.504, 0.679] |
 | logreg-tiny | 0.593 | [0.502, 0.684] |
 
-**No pairwise comparison is significant** — all CIs overlap massively (widths ~0.18).
+**No pairwise comparison is significant**: all CIs overlap massively (widths ~0.18).
 
 ### Conclusion
 
 The experiment is complete. L1 feature selection, bootstrap analysis, and 7
 candidates across 3 model families all converge on the same conclusion: the
-achievable AUC on this dataset with available features is ~0.60 ± 0.09
+achievable AUC on this dataset with available features is ~0.60 plus/minus 0.09
 (bootstrap 95% CI). The bottleneck is signal, not model capacity.
 
 ## Cycle 0004: Error analysis on best candidate
 
 ### Pre-cycle Analysis
 
-**Leaderboard state**: 6 candidates, top 4 logreg variants clustered at 0.593–0.608.
+**Leaderboard state**: 6 candidates, top 4 logreg variants clustered at 0.593-0.608.
 Bootstrap CIs (~0.18 wide) make all pairwise differences indistinguishable from noise.
 The regularization sweep and L1 pruning both confirm the feature space is exhausted.
 
@@ -230,7 +230,7 @@ probability is 0.383).
 | mid | 52 | 21 | 40.4% | 17 | 4 |
 | enterprise | 21 | 6 | 28.6% | 0 | 6 |
 
-**Enterprise has zero false negatives** — the model catches every enterprise converter.
+**Enterprise has zero false negatives**: the model catches every enterprise converter.
 But all 6 enterprise errors are false positives (high-engagement enterprise users who
 didn't convert). SMB/mid errors are overwhelmingly false negatives: the model
 systematically underpredicts conversion for non-enterprise users.
@@ -239,9 +239,9 @@ systematically underpredicts conversion for non-enterprise users.
 
 | Sessions | Rows | Actual Rate | Avg Predicted | FN | FP |
 |---|---|---|---|---|---|
-| 0–2 | 52 | 0.44 | 0.35 | 21 | 0 |
-| 3–4 | 67 | 0.49 | 0.45 | 28 | 2 |
-| 5–6 | 27 | 0.56 | 0.62 | 0 | 12 |
+| 0-2 | 52 | 0.44 | 0.35 | 21 | 0 |
+| 3-4 | 67 | 0.49 | 0.45 | 28 | 2 |
+| 5-6 | 27 | 0.56 | 0.62 | 0 | 12 |
 | 7+ | 10 | 0.80 | 0.79 | 0 | 2 |
 
 The error structure inverts at sessions >= 5: below that, all errors are missed
@@ -258,7 +258,7 @@ The 52 missed positives are:
 - **Average predicted probability**: 0.382
 
 These are non-enterprise, low-engagement users who convert despite weak signals.
-They're fundamentally hard to predict with the available features — their conversion
+They're fundamentally hard to predict with the available features: their conversion
 rate (implied ~44%) is nearly a coin flip.
 
 ### False Positive Profile
@@ -281,10 +281,10 @@ The model correctly identifies them as high-risk but the outcome is stochastic.
 | 4 | 0.598 | 0.550 | 48 |
 | 5 | 0.763 | 0.731 | 33 |
 
-**Brier score: 0.241** (vs 0.250 for a coin flip — marginal improvement).
+**Brier score: 0.241** (vs 0.250 for a coin flip: marginal improvement).
 
 The model is systematically miscalibrated in the low-to-mid range. Bin 3 (predicted
-0.456) has actual rate 0.607 — a 15pp gap. This is consistent with the temporal drift:
+0.456) has actual rate 0.607: a 15pp gap. This is consistent with the temporal drift:
 the model was trained on data with ~46% positive rate but the val set positive rate
 is ~51%. The model's probability estimates are anchored to the training distribution.
 
@@ -296,11 +296,11 @@ model predictions:
 | Prob Bucket | days >= 4 actual rate | days < 4 actual rate |
 |---|---|---|
 | Low (<0.45) | 0.41 (n=41) | 0.40 (n=45) |
-| Mid (0.45–0.55) | 0.54 (n=13) | 0.67 (n=15) |
+| Mid (0.45-0.55) | 0.54 (n=13) | 0.67 (n=15) |
 | High (>0.55) | 0.62 (n=24) | 0.68 (n=22) |
 
 **No residual signal.** If anything, `days_active >= 4` slightly *decreases* actual
-conversion conditional on the model's predictions — the opposite of what a useful
+conversion conditional on the model's predictions: the opposite of what a useful
 feature would show. This confirms the L1 and EDA findings: `days_active` is noise.
 
 ### What I Learned
@@ -316,8 +316,8 @@ feature would show. This confirms the L1 and EDA findings: `days_active` is nois
    are false negatives.
 
 3. **No missing feature signal found.** `days_active` shows zero residual signal
-   after conditioning on model predictions. The errors cluster where expected
-   — in the low-information region where the features can't discriminate.
+   after conditioning on model predictions. The errors cluster where expected:
+   in the low-information region where the features can't discriminate.
 
 4. **Threshold tuning would help classification but not discrimination.** Lowering
    the threshold from 0.5 to ~0.42 would balance FN/FP better, but this doesn't
@@ -340,17 +340,17 @@ The error analysis reveals no actionable new direction:
 This is the strongest evidence yet that further modeling cycles would not produce
 meaningful improvement.
 
-## Cycle 0005: Roads not taken — falsification across model families
+## Cycle 0005: Roads not taken: falsification across model families
 
 ### Pre-cycle Analysis
 
-**Leaderboard state**: 6 candidates, top 4 logreg variants at 0.593–0.608, all within
+**Leaderboard state**: 6 candidates, top 4 logreg variants at 0.593-0.608, all within
 noise. Bootstrap CIs ~0.18 wide. L1, regularization sweeps, and error analysis all
 confirm the feature space is exhausted.
 
 **Gap in the completion case**: The journal has strong evidence for the ceiling but
 hasn't empirically tested untried approaches from research_sources.md. Source 003
-suggested target encoding with K-fold smoothing — never tried. The completion checklist
+suggested target encoding with K-fold smoothing: never tried. The completion checklist
 requires documenting *why untried approaches wouldn't help*, and empirical falsification
 is stronger than reasoning alone.
 
@@ -372,7 +372,7 @@ Ran 4 models on (sessions_7d, is_enterprise), all with StandardScaler preprocess
 1. **Target-encoded logreg**: Replace binary is_enterprise with train-only segment
    target mean (enterprise=0.735, mid=0.411, smb=0.419). Tests whether the
    continuous encoding adds signal over the binary indicator.
-2. **Gaussian Naive Bayes**: Different model family entirely — assumes feature
+2. **Gaussian Naive Bayes**: Different model family entirely: assumes feature
    independence and Gaussian distributions. No regularization to tune.
 3. **SVM-RBF (Platt-calibrated)**: Nonlinear kernel, tests whether a more flexible
    decision boundary helps. 5-fold Platt scaling for probability calibration.
@@ -391,14 +391,14 @@ Ran 4 models on (sessions_7d, is_enterprise), all with StandardScaler preprocess
 
 ### Analysis
 
-**All 4 approaches land within the existing noise band (0.602–0.622).** Every
+**All 4 approaches land within the existing noise band (0.602-0.622).** Every
 bootstrap CI overlaps massively with logreg-poly. The best point estimate (SVM-RBF
 at 0.622) is +0.014 above logreg-poly, but with CI widths of ~0.17, this is noise.
 
 Specific findings by technique:
 
 1. **Target encoding adds nothing.** Replacing binary is_enterprise with continuous
-   segment means (0.735/0.411/0.419) gives val AUC 0.607 — virtually identical to
+   segment means (0.735/0.411/0.419) gives val AUC 0.607: virtually identical to
    the binary version (0.608). This makes sense: the segment means for mid and smb
    are nearly identical (0.411 vs 0.419), so the continuous encoding collapses to
    approximately the same binary signal. Source 003's suggestion was reasonable but
@@ -414,7 +414,7 @@ Specific findings by technique:
    boundaries, yet it only achieves +0.014 over logreg-poly. This is the strongest
    falsification test: if a universal function approximator on 2 features can't
    materially beat a polynomial logreg, the features genuinely don't carry more signal.
-   Note the test AUC (0.578) is the worst of all models — the RBF is slightly
+   Note the test AUC (0.578) is the worst of all models: the RBF is slightly
    overfitting to val-set quirks.
 
 4. **SVM-Linear confirms the loss function is irrelevant.** Hinge loss vs log-loss
@@ -424,7 +424,7 @@ Specific findings by technique:
 
 1. **The AUC ceiling is information-theoretic, not algorithmic.** Four model families
    (logistic, NB, SVM-linear, SVM-RBF) spanning generative and discriminative,
-   linear and nonlinear, all converge on ~0.60–0.62. The feature-target mutual
+   linear and nonlinear, all converge on ~0.60-0.62. The feature-target mutual
    information is the binding constraint.
 
 2. **Target encoding is only useful when segment means differ substantially.**
@@ -438,7 +438,7 @@ Specific findings by technique:
 
 4. **Model diversity doesn't help when features are the bottleneck.** All 4 new
    models make essentially the same errors as logreg-poly because they have the
-   same inputs. This rules out ensembling as a strategy — ensembles help when
+   same inputs. This rules out ensembling as a strategy: ensembles help when
    models make *different* mistakes.
 
 ### Roads Not Taken: Why They Wouldn't Help
@@ -449,7 +449,7 @@ For completeness, approaches considered but not tested, with reasoning:
   neighborhoods. SVM-RBF already tests the "flexible nonlinear boundary" hypothesis
   more robustly.
 - **Random Forest**: Already tested LightGBM (tree-based, confirmed overfit). RF
-  with bagging would have lower variance but same bias — can't extract signal that
+  with bagging would have lower variance but same bias: can't extract signal that
   isn't there.
 - **Neural network**: Overkill for 2 features and 480 rows. Would need heavy
   regularization and still can't exceed the information in the inputs.
@@ -466,20 +466,20 @@ For completeness, approaches considered but not tested, with reasoning:
 ### Pre-cycle Analysis
 
 **Leaderboard state**: 6 formal candidates in results.json, plus 4 diagnostic models
-from cycle 0005 (not registered as candidates — they were falsification tests).
-All models across all families converge to val AUC ~0.60 ± 0.09 (bootstrap 95% CI).
+from cycle 0005 (not registered as candidates: they were falsification tests).
+All models across all families converge to val AUC ~0.60 plus/minus 0.09 (bootstrap 95% CI).
 
 **Completion checklist review**:
-- ✅ External research: Source 003 (small-data techniques) + Source 001-002, used
+- Done: External research: Source 003 (small-data techniques) + Source 001-002, used
   throughout. Research_sources.md has 11 reusable takeaways.
-- ✅ 2+ model families: constant, logistic regression, LightGBM (formal candidates);
+- Done: 2+ model families: constant, logistic regression, LightGBM (formal candidates);
   Gaussian NB, SVM-RBF, SVM-Linear (cycle 0005 falsification tests). Total: 6 families.
-- ✅ Error analysis: Cycle 0004, thorough — segment/session breakdowns, calibration,
+- Done: Error analysis: Cycle 0004, thorough: segment/session breakdowns, calibration,
   residual signal check, FN/FP profiling.
-- ✅ Statistical significance: Bootstrap CIs throughout. No pairwise comparison is
+- Done: Statistical significance: Bootstrap CIs throughout. No pairwise comparison is
   significant. CI width ~0.18 on 160-row val set.
-- ✅ Untried approaches documented: Cycle 0005 tested 4 + reasoned about 6 more.
-- ✅ Minimum 6 journal cycles: This is cycle 6.
+- Done: Untried approaches documented: Cycle 0005 tested 4 + reasoned about 6 more.
+- Done: Minimum 6 journal cycles: This is cycle 6.
 
 ### Objective
 
@@ -497,8 +497,8 @@ on 800 synthetic users with temporal splits (480 train / 160 val / 160 test).
 - Temporal drift: positive rate increases from 41% (train) to 51% (val/test),
   creating structural miscalibration in all models.
 
-**Key finding**: The achievable AUC on this dataset is ~0.60 ± 0.09. This ceiling
-is information-theoretic — determined by feature-target mutual information — not
+**Key finding**: The achievable AUC on this dataset is ~0.60 plus/minus 0.09. This ceiling
+is information-theoretic, determined by feature-target mutual information, not
 algorithmic. Evidence for this conclusion comes from 7 independent lines:
 
 1. **Regularization sweep** (cycle 0002): Val AUC flat from C=0.1 to C=1e6.
@@ -513,7 +513,7 @@ algorithmic. Evidence for this conclusion comes from 7 independent lines:
    test AUC 0.536) despite aggressive regularization. Nonlinear capacity doesn't help.
 6. **Model family diversity** (cycle 0005): 6 model families (logreg, NB, SVM-linear,
    SVM-RBF, LightGBM, constant) all converge to the same AUC band.
-7. **Cohen's d → AUC mapping**: r≈0.28 gives d≈0.58, predicting single-feature
+7. **Cohen's d -> AUC mapping**: r≈0.28 gives d≈0.58, predicting single-feature
    AUC ~0.60. The observed AUC matches the theoretical prediction.
 
 **Best candidate**: `logreg-poly` (val AUC 0.608, test AUC 0.583). Polynomial
@@ -521,7 +521,7 @@ features on sessions_7d + is_enterprise capture the nonlinear session effect wit
 the smallest train-val gap (0.051) among competitive candidates.
 
 **What worked**:
-- Feature selection before model selection — dropping noise features improved all models
+- Feature selection before model selection: dropping noise features improved all models
 - Polynomial interactions on the 2 informative features
 - Bootstrap significance testing prevented chasing noise
 - L1 as a second opinion on feature importance
@@ -530,15 +530,15 @@ the smallest train-val gap (0.051) among competitive candidates.
 - LightGBM (overfits on 480 rows even with extreme regularization)
 - Adding more features (days_active, sessions_high add no signal)
 - Target encoding of segment (mid/smb rates too similar to help)
-- More complex models (SVM-RBF, NB — same ceiling)
+- More complex models (SVM-RBF, NB: same ceiling)
 
 **Cross-experiment learnings validated**:
 - "Linear models with lightweight feature engineering outperform tree models on
-  small tabular data" — confirmed. Logreg-poly (0.608) vs LightGBM (0.602), and
+  small tabular data": confirmed. Logreg-poly (0.608) vs LightGBM (0.602), and
   LightGBM collapsed on test (0.536).
-- "Start with logistic regression baseline" — confirmed. Would have saved all
+- "Start with logistic regression baseline": confirmed. Would have saved all
   tree-model cycles.
-- "L1 is a cheap way to confirm feature importance from EDA" — confirmed. L1
+- "L1 is a cheap way to confirm feature importance from EDA": confirmed. L1
   and EDA independently identified the same 2 features.
 
 ### Lessons for Future Experiments
@@ -549,7 +549,7 @@ the smallest train-val gap (0.051) among competitive candidates.
    exceed it.
 
 2. **Feature-target correlation directly predicts the AUC ceiling.** The Cohen's d
-   mapping (r→d→AUC) gave an accurate advance estimate. Use it as a sanity check
+   mapping (r->d->AUC) gave an accurate advance estimate. Use it as a sanity check
    before spending cycles.
 
 3. **Temporal drift is the hardest challenge for small static models.** The base

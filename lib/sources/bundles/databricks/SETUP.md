@@ -19,7 +19,7 @@ databricks auth login --host https://<workspace-host>
 
 Then pass connection kwargs (`server_hostname`, `http_path`, and the OAuth
 `auth_type`) via `--conn`. M2M (service principal) is the CI option; inject the
-secret via env, never inline. PAT works but is a long-lived bearer token — avoid.
+secret via env, never inline. PAT works, but it is a long-lived bearer token. Avoid it.
 
 ## Read-only grant (the real guarantee)
 
@@ -41,8 +41,8 @@ version in the manifest.
 
 ## Caveats
 
-- **`ARRAY`/`MAP`/`STRUCT`/`VARIANT` come back as JSON strings**, not nested Arrow
-  — the most likely fidelity surprise. Parse in SQL or accept stringly-typed
+- **`ARRAY`/`MAP`/`STRUCT`/`VARIANT` come back as JSON strings**, not nested Arrow.
+  This is the most likely fidelity surprise. Parse in SQL or accept stringly-typed
   columns. `DECIMAL` and `TIMESTAMP` are faithful.
 
 ## Example

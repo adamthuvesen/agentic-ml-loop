@@ -26,7 +26,7 @@ This file covers enforceable guardrails, not philosophy.
    change the hypothesis instead of stacking patches.
 
 4. **`objective_score` = validation metric, same metric and split for all candidates.**
-   Not test, not holdout, not tuning-CV. Report test metrics separately — they
+   Not test, not holdout, not tuning-CV. Report test metrics separately; they
    must never flow into `objective_score`.
 
 5. **Keep train/val/test roles separate and explicit.**
@@ -40,10 +40,10 @@ This file covers enforceable guardrails, not philosophy.
    promote a new holdout before continuing.
 
 7. **Split first; fit every learned preprocessing step on train only, then apply unchanged to val and test.**
-   Scalers, encoders, imputers — all fitted on train. Fitting per-split makes
+   Scalers, encoders, and imputers are all fitted on train. Fitting per-split makes
    metrics incomparable.
 
-8. **Supervised transforms — target encoding, feature selection, calibration — must use train-only or out-of-fold data.**
+8. **Supervised transforms (target encoding, feature selection, calibration) must use train-only or out-of-fold data.**
    `df.groupby('col')['target'].mean()` on the full dataset is target leakage.
    Calibrators fitted on the same data they predict on are overfit. Use
    `Pipeline` or compute per-fold.
@@ -82,22 +82,22 @@ This file covers enforceable guardrails, not philosophy.
 
 15. **Flag train-val gaps exceeding 0.05 AUC or 10% relative.**
    Every candidate must report both train and validation metrics. A large gap
-   signals overfitting — investigate before accepting a candidate as "best."
+   signals overfitting. Investigate before accepting a candidate as "best."
 
 16. **Lock hyperparameter search budgets up front; tune on train-only data; persist the study.**
     Declare the trial count (e.g. `n_trials=50`) in the research journal before
-    starting the search, fit on CV or a tuning slice carved from train, and
+    starting the search, fit on CV or a tuning split carved from train, and
     save the study artefact to `work/` (`optuna_study.db` or a trials CSV).
     Extending the budget mid-search after peeking at scores reintroduces
     selection bias on the tuning-CV scores. The tuned config's *validation*
-    score — not its best tuning-CV score — is what enters `objective_score`.
+    score, not its best tuning-CV score, is what enters `objective_score`.
 
 ## Reporting
 
 17. **Report both discrimination and task-appropriate operating metrics.**
     Every candidate needs a ranking metric (AUC) and a metric that reflects the
     deployment decision (precision@k, F-beta, Brier, etc.). Which operating
-    metric depends on the task — `experiment.md` should specify it.
+    metric depends on the task. `experiment.md` should specify it.
 
 18. **Keep the metric contract explicit.**
     `experiment.md` should name the target, primary validation metric,
@@ -105,9 +105,9 @@ This file covers enforceable guardrails, not philosophy.
     change, update the experiment spec before comparing new candidates to old
     ones.
 
-19. **Report important slices, not just aggregate scores.**
+19. **Report important cohort metrics, not only aggregate scores.**
     When the domain has meaningful cohorts, time periods, classes, or data
-    regimes, report slice metrics for top candidates. A model that wins only in
+    regimes, report cohort metrics for top candidates. A model that wins only in
     aggregate may be the wrong model.
 
 ## Data Handling
@@ -146,4 +146,4 @@ This file covers enforceable guardrails, not philosophy.
 
 26. **`results.json` must remain valid and atomic.**
     Either write a complete candidate entry or fail cleanly. Don't catch
-    exceptions just to write partial entries — they break artifact trust.
+    exceptions just to write partial entries. They break artifact trust.

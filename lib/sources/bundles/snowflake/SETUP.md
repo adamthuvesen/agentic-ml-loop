@@ -12,7 +12,7 @@ uv sync --extra snowflake   # adbc-driver-snowflake + manager + pyarrow
 ## Auth (keyless local)
 
 Use a **named connection** in `~/.snowflake/connections.toml` (shared with the
-Snowflake CLI) with browser SSO — nothing secret in the repo:
+Snowflake CLI) with browser SSO. Nothing secret belongs in the repo:
 
 ```toml
 [ml_ro]

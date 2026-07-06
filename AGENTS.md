@@ -1,4 +1,4 @@
-# AGENTS.md — Agentic ML Loop
+# AGENTS.md - Agentic ML Loop
 
 `agentic-ml-loop` is a local, offline model-search harness for agent-driven ML
 experiments. The main unit of work is an experiment under `experiments/<experiment_id>/`.
@@ -15,28 +15,28 @@ program.md        Research principles + ML craft, read by each cycle
 guidelines.md     Operational rules injected into cycle prompts
 loop/             Long-running supervisor and runner invocation
 runners/          Demo runner entrypoints
-lib/              Shared modules (paths.py → outputs/work/scripts; io, eval, schemas)
+lib/              Shared modules (paths.py -> outputs/work/scripts; io, eval, schemas)
 experiments/      One dir per experiment; <experiment_id>/ holds all its files
 .agents/skills/   Portable local skills for experiment setup and notebooks
-.agents/docs/     Subsystem docs — see Index
+.agents/docs/     Subsystem docs; see Index
 ```
 
 ## Quickstart
 
 ```bash
-uv run python experiment.py validate experiments/<experiment_id>   # add --strict-completion to gate done
+uv run python experiment.py validate experiments/<experiment_id>   # add --strict-completion for completion checks
 uv run python -m loop start experiments/<experiment_id>            # also: resume, status; --max-cycles N
 uv run --extra models python runners/<experiment_id>_runner.py run-candidate --experiment experiments/<experiment_id> --candidate <id>
 uv run --extra models python runners/demo_bootstrap_runner.py init-demo --force
 
-# CI gate (all must pass):
+# CI check:
 uv run ruff check . && uv run ruff format --check . && uv run --extra models --extra deep pytest
 ```
 
 ## Critical Conventions
 
-- **`CLAUDE.md` is a symlink to `AGENTS.md`.** `AGENTS.md` is the canonical agent
-  instruction file; never replace the symlink with a copy.
+- **`CLAUDE.md` is a one-line import of `AGENTS.md`.** `AGENTS.md` is the canonical
+  agent instruction file; keep the import file as `@AGENTS.md`.
 - **`experiment.md` is a spec, not scratch.** Do not mutate
   `experiments/<experiment_id>/experiment.md` unless the human explicitly asks for
   a spec rewrite.
@@ -44,7 +44,7 @@ uv run ruff check . && uv run ruff format --check . && uv run --extra models --e
   `experiments/<experiment_id>/scripts/`; keep long-lived modules in
   `lib/<experiment_id>/`.
 - **Runner presets bypass all sandboxing** and run with full workspace
-  permissions — see [runners.md](.agents/docs/runners.md) before changing them.
+  permissions. Read [runners.md](.agents/docs/runners.md) before changing them.
 - **Never commit secrets, `.env`, generated notebooks, or local data.**
 
 ## Operating Principles
@@ -64,15 +64,15 @@ uv run ruff check . && uv run ruff format --check . && uv run --extra models --e
 
 Each cycle must end with exactly one marker:
 
-- `<promise>CYCLE_DONE</promise>` — continue the experiment.
-- `<promise>EXPERIMENT_COMPLETE</promise>` — genuinely done.
+- `<promise>CYCLE_DONE</promise>`: continue the experiment.
+- `<promise>EXPERIMENT_COMPLETE</promise>`: genuinely done.
 
 ## Read The Docs First
 
 Before editing a subsystem, read the matching doc:
 
-- **Architecture / cycle anatomy** → [architecture.md](.agents/docs/architecture.md)
-- **Runner config / model aliases / effort flags** → [runners.md](.agents/docs/runners.md)
+- **Architecture / cycle anatomy**: [architecture.md](.agents/docs/architecture.md)
+- **Runner config / model aliases / effort flags**: [runners.md](.agents/docs/runners.md)
 
 If a doc disagrees with code, fix the doc in the same change.
 

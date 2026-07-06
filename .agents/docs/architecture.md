@@ -15,14 +15,14 @@ and the **loop lifecycle** that decides when to stop.
 
 A single pipeline in cycle order: the CLI drives the supervisor, which builds a
 prompt, invokes the external agent, validates the attempt, and runs post-cycle
-hooks. Framework code (blue) reads and writes the experiment directory (green)
-but never imports experiment code (grey) — runners are the only bridge.
+hooks. Framework code (blue) reads and writes the experiment directory (green),
+but it never imports experiment code (grey). Runners are the only bridge.
 
 ```mermaid
 flowchart LR
     CLI(["python -m loop<br/>start · resume · status · bench"])
 
-    subgraph fw ["Framework — loop/ + lib/*.py"]
+    subgraph fw ["Framework: loop/ + lib/*.py"]
         direction LR
         Core["core.py<br/>supervisor"]
         Prompts["prompts.py<br/>build prompt"]
@@ -33,13 +33,13 @@ flowchart LR
 
     Agent["External agent CLI<br/>claude · codex · cursor · custom"]
 
-    subgraph store ["experiments/&lt;id&gt;/ — persisted state"]
+    subgraph store ["experiments/&lt;id&gt;/: persisted state"]
         direction TB
         SpecJournal["experiment.md · research_sources.md<br/>research_journal.md · results.json"]
         LoopState["loop_state.json · status.md · cycles/<br/>outputs/ · work/ · scripts/"]
     end
 
-    subgraph expcode ["Experiment code — reached only via runners"]
+    subgraph expcode ["Experiment code: reached only via runners"]
         direction LR
         Runners["runners/demo_*_runner.py"] --> Lib["lib/demo_*/<br/>data.py · modeling.py"]
     end
@@ -142,7 +142,7 @@ tests/                 Framework and demo tests
 
 Framework modules must not import concrete experiment packages. Experiment
 behavior lives under `lib/<experiment_id>/` and is reached through runner
-registries — this keeps the supervisor generic and experiments swappable.
+registries. That keeps the supervisor generic and experiments swappable.
 
 ## The cycle contract
 
@@ -155,7 +155,7 @@ once attempts are exhausted the cycle is recorded as `failed`.
   `CYCLE_DONE` or `EXPERIMENT_COMPLETE`.
 - `validate_experiment` reports no actionable errors (warnings are allowed).
 - `research_journal.md` changed during the cycle.
-- `experiment.md` did **not** change — the spec is immutable inside a cycle.
+- `experiment.md` did **not** change. The spec is immutable inside a cycle.
 
 `EXPERIMENT_COMPLETE` is validated with stricter rules and must clear the
 minimum journal-cycle count declared in `experiment.md`.
@@ -176,8 +176,8 @@ minimum journal-cycle count declared in `experiment.md`.
 
 - The last cycle emitted `EXPERIMENT_COMPLETE` (unless `--run-until-limit`).
 - `--max-cycles` or `--max-hours` is reached.
-- Three consecutive no-progress cycles (stall) — status `stalled`.
-- Three consecutive failed cycles — status `failed`.
+- Three consecutive no-progress cycles (stall): status `stalled`.
+- Three consecutive failed cycles: status `failed`.
 
 Ctrl+C stops immediately, rolls back the active cycle, and sets status
 `stopped`. A per-experiment `.loop.lock` prevents two supervisors from running
@@ -222,10 +222,10 @@ on first use. The loop also writes `loop_state.json`, `status.md`, and a
 The public repo ships deterministic synthetic demos that prove the harness
 before pointing it at real data:
 
-- `demo_bootstrap` — tiny classification smoke test
-- `demo_classification` — synthetic binary classification
-- `demo_regression` — synthetic zero-inflated revenue regression
-- `demo_deep` — nonlinear tabular classification with PyTorch MLPs
+- `demo_bootstrap`: tiny classification smoke test
+- `demo_classification`: synthetic binary classification
+- `demo_regression`: synthetic zero-inflated revenue regression
+- `demo_deep`: nonlinear tabular classification with PyTorch MLPs
   (requires `--extra deep`)
 
 Synthetic data is generated in memory when local CSVs are absent. Generated data

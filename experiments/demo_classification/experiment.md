@@ -42,7 +42,7 @@ Validation AUC for candidate ranking (`val_auc`), with holdout AUC reported sepa
 
 - deterministic demo
 - no external data dependencies
-- one bounded slice per loop cycle
+- one bounded hypothesis test per loop cycle
 
 ## Success Definition
 

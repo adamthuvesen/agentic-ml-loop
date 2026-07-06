@@ -4,9 +4,9 @@ Artifacts the loop produces, committed so you can look without running anything.
 
 ## `demo_bootstrap_replay.html`
 
-A self-contained replay of the `demo_bootstrap` experiment — open it in any
+A self-contained replay of the `demo_bootstrap` experiment. Open it in any
 browser (no server, no dependencies). It walks through the five research cycles
-(hypothesis → research → training → scoreboard → journal), building up the
+(hypothesis -> research -> training -> scoreboard -> journal), building up the
 leaderboard cycle by cycle.
 
 It is generated from the committed experiment artifacts:

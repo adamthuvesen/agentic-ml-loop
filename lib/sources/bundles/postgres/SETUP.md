@@ -12,7 +12,7 @@ uv sync --extra postgres   # adbc-driver-postgresql + manager + pyarrow
 
 ## Auth (keyless local)
 
-- **Local demo:** Postgres with `trust`/`peer` auth — no password. Connect as the
+- **Local demo:** Postgres with `trust`/`peer` auth, no password. Connect as the
   SELECT-only role: `postgresql://demo_ro@localhost:5432/demo`.
 - **Real targets:** keep the URI out of the repo. Use `PG*` env vars, `~/.pgpass`,
   or resolve it at runtime: `--uri "$(op read 'op://vault/pg-readonly/uri')"`.
@@ -36,7 +36,7 @@ Postgres has no time travel. Model the as-of as a predicate
 ## Caveats
 
 - High-precision `NUMERIC` and `TIMESTAMPTZ` are preserved via Arrow/ADBC; if you
-  route through pandas elsewhere, watch decimal->float and tz drift.
+  route through pandas elsewhere, watch decimal-to-float and timezone drift.
 - `JSONB` and array columns arrive as strings/objects; flatten in SQL if needed.
 
 ## Example

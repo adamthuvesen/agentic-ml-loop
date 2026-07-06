@@ -1,11 +1,13 @@
 # Experiment replay (`viz/`)
 
-Turns experiment artifacts into a **standalone HTML replay**: a small canvas animation that walks through research cycles (plan → research → lab → scoreboard → journal → finale).
+Turns experiment artifacts into a standalone HTML replay: a small canvas
+animation that walks through research cycles (plan -> research -> lab ->
+scoreboard -> journal -> finale).
 
 ## How it works
 
-1. **`generate.py`** reads `experiments/<id>/experiment.md`, `results.json`, and `research_journal.md`, normalizes candidate metrics, builds a list of **scenes**, and writes **`output/<id>/script.json`**.
-2. **`bundle.py`** embeds that JSON (HTML-safe) and inlines all **`renderer/*.js`** into **`output/<id>/replay.html`** — one file you can open in a browser (no server required).
+1. `generate.py` reads `experiments/<id>/experiment.md`, `results.json`, and `research_journal.md`, normalizes candidate metrics, builds a list of scenes, and writes `output/<id>/script.json`.
+2. `bundle.py` embeds that JSON (HTML-safe) and inlines all `renderer/*.js` into `output/<id>/replay.html`, one file you can open in a browser with no server.
 
 Development: open `renderer/index.html` with separate script tags; bundled replays use the single-file output.
 
@@ -24,8 +26,8 @@ Candidate summaries always include common fields: `id`, `family`, `objective_met
 
 | Path          | Role                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------- |
-| `generate.py` | Parse experiment files → `script.json`                                                |
-| `bundle.py`   | `script.json` + `renderer/` → single `replay.html`                                    |
+| `generate.py` | Parse experiment files into `script.json`                                             |
+| `bundle.py`   | Combine `script.json` and `renderer/` into one `replay.html`                          |
 | `renderer/`   | `index.html`, canvas + keyboard UI, plain JS (engine, scenes, room, character, sound) |
 | `templates/`  | Static data for the room layout (`room_layout.json`)                                  |
 | `output/`     | Generated `script.json` and `replay.html` per experiment                              |
@@ -49,4 +51,6 @@ uv run python viz/bundle.py viz/output/<experiment_id>/script.json /path/to/repl
 
 ## Tests
 
-`tests/test_viz.py` covers JSON escaping, validation-total helpers, and metric-adaptive result parsing for captured-at-K, classification, regression, and unknown metrics.
+`tests/test_viz.py` covers JSON escaping, validation-total helpers, and
+metric-adaptive result parsing for captured-at-K, classification, regression,
+and unknown metrics.
