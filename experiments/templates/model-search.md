@@ -35,7 +35,7 @@ checks the snapshot against it.
 
 ## Data Profile
 
-Fill in after the data audit slice:
+Fill in after the data audit pass:
 
 - **Row count**: _unknown_
 - **Feature count**: _unknown_
@@ -62,7 +62,7 @@ How should train, validation, and test be defined?
 
 ## Objective Metric
 
-What metric determines "better"? Name it with a parenthesized, validation-scoped token —
+What metric determines "better"? Name it with a parenthesized, validation-scoped token:
 `val_<name>` or `validation_<name>` (e.g. `(val_auc)`, `(val_r2)`). `experiment.py` extracts
 this token and checks every `results.json` candidate's `objective_metric` against it, so it
 must be the validation metric each candidate reports. Keep the bare name (`auc`) as the key
@@ -118,7 +118,7 @@ Source cards are supporting provenance; `Reusable Takeaways` is what future cycl
 ## Research Hypotheses
 
 Ranked directions for the loop to explore, informed by data profiling and
-prior knowledge. The loop agent should treat these as starting priors —
+prior knowledge. The loop agent should treat these as starting priors:
 verify, refine, or discard based on evidence.
 
 - _none yet_
@@ -132,17 +132,17 @@ What would make the loop useful?
 - clear next moves
 
 Optionally floor the loop's effort with a line like
-`Minimum loop cycles before EXPERIMENT_COMPLETE: 4` — the loop will not accept
+`Minimum loop cycles before EXPERIMENT_COMPLETE: 4`. The loop will not accept
 `EXPERIMENT_COMPLETE` until that many `## Cycle NNNN:` journal entries exist.
 
 ## Deliverables
 
 Stakeholder-facing artefacts this experiment should produce. Every path lives
-under `outputs/<filename>` — never flat at the experiment root. Cycles use
+under `outputs/<filename>`, never flat at the experiment root. Cycles use
 `lib.paths.outputs_dir(exp_dir)` to locate this folder. See `program.md`'s
 "Output paths" section for the full layout (`outputs/`, `work/`, `scripts/`).
 
-- `outputs/<final_report>.md` — write-up of findings
-- `outputs/<final_results>.csv` — final ranked / scored output
+- `outputs/<final_report>.md`: write-up of findings
+- `outputs/<final_results>.csv`: final ranked / scored output
 
 (Replace these placeholders with the concrete deliverables for this experiment.)

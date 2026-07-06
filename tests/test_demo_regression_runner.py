@@ -21,7 +21,7 @@ class TestInitRegressionDemo:
             assert unwanted not in names
         assert not (d / "results").is_dir()
 
-    def test_force_removes_old_files_and_dirs(self, tmp_path: Path) -> None:
+    def test_force_removes_stale_files_and_dirs(self, tmp_path: Path) -> None:
         with patch("lib.runner.ROOT", tmp_path):
             d = init_demo()
             (d / "status.md").write_text("stale\n")
@@ -30,10 +30,10 @@ class TestInitRegressionDemo:
             (d / "evaluation_review.json").write_text("{}\n")
             extra_dir = d / "cycles"
             extra_dir.mkdir()
-            (extra_dir / "old.txt").write_text("old\n")
+            (extra_dir / "stale.txt").write_text("stale\n")
             diagnostics_dir = d / "diagnostics"
             diagnostics_dir.mkdir()
-            (diagnostics_dir / "summary.md").write_text("old diagnostics\n")
+            (diagnostics_dir / "summary.md").write_text("stale diagnostics\n")
 
             refreshed = init_demo(force=True)
 

@@ -18,12 +18,12 @@
 - **Feature redundancy hurts**: when two features have r>0.8, dropping the weaker
   predictor often helps regularized models and reduces split dilution in trees.
 - **Nonlinear feature effects** (e.g., conversion rate jumps above a session threshold)
-  are invisible to linear models without explicit encoding — polynomial features or
+  are invisible to linear models without explicit encoding. Polynomial features or
   tree models can capture these.
 - **Regularization sweep as signal diagnostic**: if val AUC barely changes across 6
   orders of C magnitude, the model has already extracted the available linear signal.
   The bottleneck is the feature space, not the model.
-- **Cohen's d → AUC mapping**: a feature with r≈0.28 to the target corresponds to
+- **Cohen's d -> AUC mapping**: a feature with r≈0.28 to the target corresponds to
   d≈0.58, giving a single-feature AUC of ~0.60. If the strongest features are
   collinear, combining them adds little beyond this ceiling.
 - **L1 as feature selection diagnostic**: ElasticNet with l1_ratio=0.5 on small
@@ -34,7 +34,7 @@
 - **Model family diversity can't compensate for feature poverty.** When logistic
   regression, Naive Bayes, SVM-linear, and SVM-RBF all converge to the same AUC
   within noise, the ceiling is information-theoretic (limited feature-target mutual
-  information), not algorithmic. Ensembling won't help either — the models make the
+  information), not algorithmic. Ensembling will not help either: the models make the
   same structural errors because they share the same inputs.
 - **Target encoding only helps with diverse subgroup rates.** When the largest
   categorical has segments with nearly identical target rates (e.g., 0.41 vs 0.42),
@@ -42,7 +42,7 @@
   nothing over one-hot or binary indicators.
 - **Error analysis reveals the signal boundary.** When false negatives cluster in
   low-feature-value subgroups and false positives cluster in high-feature-value
-  subgroups, the model is correctly using the available signal — errors mark where
+  subgroups, the model is correctly using the available signal. Errors mark where
   the features can't discriminate. This pattern means the bottleneck is features,
   not model capacity.
 - **Temporal drift causes systematic calibration bias.** When the base rate shifts
@@ -52,7 +52,7 @@
 
 ## Source Cards
 
-### Source 001: sklearn — ROC-AUC
+### Source 001: sklearn: ROC-AUC
 
 - **Type:** docs
 - **URL:** https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
@@ -62,7 +62,7 @@
 - **Ideas this suggests:** Use `roc_auc_score` on validation for `objective_score`.
 - **Status:** used
 
-### Source 002: Probst, Bischl, Boulesteix — tunability vs performance (2019)
+### Source 002: Probst, Bischl, Boulesteix: tunability vs performance (2019)
 
 - **Type:** paper
 - **URL:** https://arxiv.org/abs/1802.09596

@@ -50,8 +50,7 @@ class LoopState:
     def from_dict(cls, data: dict[str, Any]) -> LoopState:
         """Build state from on-disk JSON, applying defaults for missing keys.
 
-        String enum fields are coerced from their stored values; legacy strings
-        already match the enum values, so older state files load unchanged.
+        String enum fields are coerced from their stored values.
         """
         runner_name = str(data.get("runner_name", "unknown"))
         runner_command = data.get("runner_command") or [runner_name]

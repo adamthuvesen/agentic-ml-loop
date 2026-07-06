@@ -1,7 +1,7 @@
 # DuckDB source
 
-Tier-0, fully creds-free. Use it to prove the ingestion path end to end with no
-server and no credentials, and as the bundled demo source.
+Tier-0 and fully creds-free. Use it to prove the ingestion path end to end with
+no server and no credentials. It is also the bundled demo source.
 
 ## Install
 

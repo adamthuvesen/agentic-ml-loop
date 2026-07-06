@@ -13,12 +13,12 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 
 ## Reusable Takeaways
 
-- **Two-stage hurdle models are the practical standard for zero-inflated regression** — separate binary classification (zero vs. positive) from amount regression on positives only. Each stage can use different model families. Expect better R² than single-model approaches when zero fraction ≥ 20%. **Caveat (empirical, demo_regression Cycle 2):** The hurdle fails to improve when the zero/positive boundary is determined by an unmeasured factor. If the classifier uses the same features as the base model and those features are scale-dominated, the classifier learns the same biased rule and the hurdle gains nothing. Feature quality is the binding constraint, not the model architecture.
-- **Tweedie loss does not fix temporal overfitting** — XGB-Tweedie (p=1.5) worsened the train-val gap vs. XGB-squarederror (0.461 vs. 0.438) on demo_regression. Tweedie may increase sensitivity to small-value patterns in the training period, compounding temporal generalization failures. Try Tweedie only after confirming the generalization gap isn't structural.
-- **Scale confounders (revenue, seat count) inflate raw correlations** — test whether the model is capturing true expansion propensity or just account size by comparing raw-target vs. revenue-normalized target R². If normalization drops R² significantly (demo_regression: 0.435 → −0.140), the raw signal is mostly scale and behavioral features carry negligible independent signal.
-- **Log(1+y) transform is CONTRAINDICATED when (a) the target is zero-inflated AND (b) a few extreme outliers dominate SS_tot** — tested on demo_regression: ridge-log dropped from 0.435 to 0.126. Root cause: top 1% of values contributed 42.8% of SS_tot; log compression during training causes systematic under-prediction of those cases; back-transform errors destroy R². Tweedie loss or two-stage hurdle are the correct treatments for this regime.
-- **Bootstrap CI width reveals R² reliability** — when the top 10% of accounts own >80% of SS_tot, bootstrap R² has 95% CIs spanning ±0.13. Any claimed improvement < ~0.05 is within noise. Always compute bootstrap CIs before declaring a winner on concentrated-outcome targets.
-- **When three model families cluster at the same R², the feature space is the ceiling** — additional model variants won't escape the plateau. The signal is in the features, not the architecture. The correct next move is feature engineering or problem reframing.
+- **Two-stage hurdle models are the practical standard for zero-inflated regression.** Separate binary classification (zero vs. positive) from amount regression on positives only. Each stage can use different model families. Expect better R² than single-model approaches when zero fraction >= 20%. **Caveat (empirical, demo_regression Cycle 2):** The hurdle fails to improve when the zero/positive boundary is determined by an unmeasured factor. If the classifier uses the same features as the base model and those features are scale-dominated, the classifier learns the same biased rule and the hurdle gains nothing. Feature quality is the binding constraint, not the model architecture.
+- **Tweedie loss does not fix temporal overfitting.** XGB-Tweedie (p=1.5) worsened the train-val gap vs. XGB-squarederror (0.461 vs. 0.438) on demo_regression. Tweedie may increase sensitivity to small-value patterns in the training period, compounding temporal generalization failures. Try Tweedie only after confirming the generalization gap is not structural.
+- **Scale confounders (revenue, seat count) inflate raw correlations.** Test whether the model is capturing true expansion propensity or account size by comparing raw-target vs. revenue-normalized target R². If normalization drops R² significantly (demo_regression: 0.435 -> -0.140), the raw signal is mostly scale and behavioral features carry negligible independent signal.
+- **Log(1+y) transform is contraindicated when the target is zero-inflated and a few extreme outliers dominate SS_tot.** Tested on demo_regression: ridge-log dropped from 0.435 to 0.126. Root cause: top 1% of values contributed 42.8% of SS_tot; log compression during training causes systematic under-prediction of those cases; back-transform errors destroy R². Tweedie loss or two-stage hurdle are the right treatments for this regime.
+- **Bootstrap CI width reveals R² reliability.** When the top 10% of accounts own >80% of SS_tot, bootstrap R² has 95% CIs spanning roughly 0.13 in either direction. Any claimed improvement < ~0.05 is within noise. Always compute bootstrap CIs before declaring a winner on concentrated-outcome targets.
+- **When three model families cluster at the same R², the feature space is the ceiling.** Additional model variants will not escape the plateau. The signal is in the features, not the architecture. The next move is feature engineering or problem reframing.
 
 ## Source Cards
 
@@ -29,7 +29,7 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 - **Why relevant here:** Target has 25.3% exact zeros; single-model regression must simultaneously fit zero and positive regimes
 - **Key takeaways:** Two-stage approach separates the problem into binary classification (zero vs. non-zero) followed by regression on the positive subset. Each stage can use different model families and hyperparameters. Outperforms single-model approaches on zero-inflated data.
 - **Applicability / caveats:** Directly applicable. Adds implementation complexity (two models, combined prediction pipeline). Validation requires accounting for both stages in the final R² computation.
-- **Ideas this suggests:** H3 — implement a logistic classifier + ridge/XGB regressor as a two-stage candidate
+- **Ideas this suggests:** H3: implement a logistic classifier + ridge/XGB regressor as a two-stage candidate
 - **Status:** used
 
 ### Source 002: Dealing with Zero-Inflated Data: Achieving State-of-the-Art with a Two-Fold ML Approach
@@ -62,31 +62,31 @@ Phrase takeaways as scoped heuristics with caveats, not universal laws.
 - **Ideas this suggests:** Try `objective="reg:tweedie"` in XGBoost with p cross-validated over [1.1, 1.5, 1.9]
 - **Status:** deferred
 
-### Source 006: Scale Confound Confirmed — H2 Scale Normalization Failure (empirical, this experiment)
+### Source 006: Scale Confound Confirmed: H2 Scale Normalization Failure (empirical, this experiment)
 
 - **Type:** empirical
 - **URL:** local cycle 0002 demo_regression
 - **Why relevant here:** H2 test: predict expansion_rate = target / contract_value_t0, back-multiply. Ridge-scale-norm val R²=−0.140 (vs ridge-basic 0.435). Behavioral features (usage_growth r=0.089, champion_engagement r=0.010 on |residual|) carry negligible signal independent of scale.
-- **Key takeaways:** When behavioral feature correlations with residuals are in the 0.01–0.09 range and |residual| correlates r=0.80 with the scale feature, behavioral features are noise after controlling for scale. Rate normalization amplifies errors catastrophically for large-revenue accounts. The practical signal is "big accounts expand more."
+- **Key takeaways:** When behavioral feature correlations with residuals are in the 0.01-0.09 range and |residual| correlates r=0.80 with the scale feature, behavioral features are noise after controlling for scale. Rate normalization amplifies errors catastrophically for large-revenue accounts. The practical signal is "big accounts expand more."
 - **Applicability / caveats:** Specific to this feature set and temporal split. Behavioral features might become predictive with richer signals (trajectories, change signals, historical patterns).
 - **Ideas this suggests:** Feature engineering: YoY usage growth, historical expansion patterns, account health trajectories. Or reframe as ranking (who is most likely to expand) rather than absolute amount.
 - **Status:** used
 
-### Source 007: Hurdle Model Bootstrap CI — Feature Ceiling (empirical, this experiment)
+### Source 007: Hurdle Model Bootstrap CI: Feature Ceiling (empirical, this experiment)
 
 - **Type:** empirical
 - **URL:** local cycle 0002 demo_regression
 - **Why relevant here:** Hurdle-logistic-ridge vs ridge-basic: paired bootstrap CI [-0.006, +0.010], P(hurdle > ridge)=71.1%. Not significant.
-- **Key takeaways:** (1) When the classifier in a hurdle model uses scale-dominated features, it learns the same biased rule as the base model — the architecture improvement is neutralized by feature quality. (2) Bootstrap CI width ±0.13 on R² for top-10%-concentrated targets means differences <0.05 are noise. (3) Three linear variants clustering at 0.435–0.437 is strong evidence of a feature space ceiling.
-- **Applicability / caveats:** Applies broadly to any zero-inflated regression where zeros/positives are separated by unmeasured factors. The hurdle is not a magic fix — it needs a classifier with genuine discriminating signal.
+- **Key takeaways:** (1) When the classifier in a hurdle model uses scale-dominated features, it learns the same biased rule as the base model. Feature quality neutralizes the architecture improvement. (2) Bootstrap CI width around 0.13 in either direction on R² for top-10%-concentrated targets means differences <0.05 are noise. (3) Three linear variants clustering at 0.435-0.437 is strong evidence of a feature space ceiling.
+- **Applicability / caveats:** Applies broadly to any zero-inflated regression where zeros/positives are separated by unmeasured factors. The hurdle needs a classifier with genuine discriminating signal.
 - **Status:** used
 
 ### Source 004: How to Remove or Control Confounds in Predictive Models
 
 - **Type:** paper
 - **URL:** https://academic.oup.com/gigascience/article/doi/10.1093/gigascience/giac014/6547681
-- **Why relevant here:** contract_value_t0 (r=0.70) and seat_count (r=0.60) are scale confounders — models may be fitting account size rather than expansion propensity
+- **Why relevant here:** contract_value_t0 (r=0.70) and seat_count (r=0.60) are scale confounders. Models may be fitting account size rather than expansion propensity
 - **Key takeaways:** Partial regression / residualization against confounders before fitting; or use confounders as explicit controls; or model the rate (expansion/revenue) instead of absolute amount. Naive feature selection that captures confounding rather than causal signal inflates apparent performance.
 - **Applicability / caveats:** Directly relevant to H2. Residualization may remove too much signal if the scale variables carry genuine predictive value. Testing both approaches (raw and normalized) is the cleanest approach here.
-- **Ideas this suggests:** H2 — compute expansion_rate = net_revenue_change_180d / contract_value_t0, train a model, back-multiply, compare R² to raw-target model
+- **Ideas this suggests:** H2: compute expansion_rate = net_revenue_change_180d / contract_value_t0, train a model, back-multiply, compare R² to raw-target model
 - **Status:** used

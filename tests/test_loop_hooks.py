@@ -47,39 +47,6 @@ class TestDefaultCycleHooks:
         assert result.progress_reasons == ["new_candidates:new-model"]
         assert result.learnings_extracted is False
 
-    def test_post_cycle_accepts_legacy_positional_args(self, tmp_path: Path) -> None:
-        d = _make_experiment(tmp_path)
-        hooks = DefaultCycleHooks()
-        before = artifact_snapshot(d)
-        (d / "results.json").write_text(
-            json.dumps([{"candidate_id": "new-model", "objective_score": 0.7}]) + "\n"
-        )
-        after = artifact_snapshot(d)
-
-        result = hooks.post_cycle(d, "0001", before, after, "", "CYCLE_DONE")
-
-        assert result.progress_reasons == ["new_candidates:new-model"]
-
-    def test_post_cycle_accepts_legacy_mixed_keyword_args(self, tmp_path: Path) -> None:
-        d = _make_experiment(tmp_path)
-        hooks = DefaultCycleHooks()
-        before = artifact_snapshot(d)
-        (d / "results.json").write_text(
-            json.dumps([{"candidate_id": "new-model", "objective_score": 0.7}]) + "\n"
-        )
-        after = artifact_snapshot(d)
-
-        result = hooks.post_cycle(
-            d,
-            "0001",
-            before,
-            after,
-            output="",
-            marker="CYCLE_DONE",
-        )
-
-        assert result.progress_reasons == ["new_candidates:new-model"]
-
     def test_post_cycle_extracts_learnings_on_completion(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         hooks = DefaultCycleHooks()
@@ -102,29 +69,21 @@ class TestDefaultCycleHooks:
 
         assert result.learnings_extracted is True
 
-    def test_post_cycle_adapter_accepts_custom_legacy_hook(self, tmp_path: Path) -> None:
+    def test_post_cycle_adapter_passes_context_to_custom_hook(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
         snapshot = artifact_snapshot(d)
 
-        class LegacyHooks:
-            def post_cycle(  # noqa: PLR0913 - documents the compatibility shape.
-                self,
-                experiment_dir: Path,
-                cycle_id: str,
-                before_snapshot: dict[str, object],
-                after_snapshot: dict[str, object],
-                output: str,
-                marker: str,
-            ) -> PostCycleResult:
-                assert experiment_dir == d
-                assert before_snapshot == snapshot
-                assert after_snapshot == snapshot
-                assert output == ""
-                assert marker == "CYCLE_DONE"
-                return PostCycleResult(progress_reasons=[f"legacy:{cycle_id}"])
+        class CustomHooks:
+            def post_cycle(self, context: PostCycleContext) -> PostCycleResult:
+                assert context.experiment_dir == d
+                assert context.before_snapshot == snapshot
+                assert context.after_snapshot == snapshot
+                assert context.output == ""
+                assert context.marker == "CYCLE_DONE"
+                return PostCycleResult(progress_reasons=[f"custom:{context.cycle_id}"])
 
         result = call_post_cycle_hook(
-            LegacyHooks(),
+            CustomHooks(),
             PostCycleContext(
                 experiment_dir=d,
                 cycle_id="0001",
@@ -135,7 +94,7 @@ class TestDefaultCycleHooks:
             ),
         )
 
-        assert result.progress_reasons == ["legacy:0001"]
+        assert result.progress_reasons == ["custom:0001"]
 
 
 class TestJournalMentionsErrorAnalysis:

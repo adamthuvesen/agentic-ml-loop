@@ -10,7 +10,7 @@ Synthetic marketing funnel data for **binary classification**: whether a trial u
 ## Split
 
 Prefer a **temporal** split: earlier events train, later events validate and test.
-No user-level leakage — each row is one trial cohort snapshot.
+No user-level leakage. Each row is one trial cohort snapshot.
 
 ## Metric
 

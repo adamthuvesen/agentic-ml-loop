@@ -12,7 +12,7 @@ uv sync --extra redshift   # redshift-connector + pyarrow
 
 ## Auth (keyless local)
 
-IAM via an AWS SSO **profile** — no DB password:
+Use IAM through an AWS SSO profile. No DB password is needed:
 
 ```bash
 aws sso login --profile redshift-ro
@@ -47,9 +47,9 @@ one transaction (default SNAPSHOT isolation). The value is recorded in the manif
 
 - `DECIMAL` arrives as `Decimal` objects and `SUPER`/JSON as strings; cast
   deliberately. Normalize `TIMESTAMPTZ` to UTC. (No Arrow-native fetch, so results
-  pass through pandas — assert dtypes after extract.)
+  pass through pandas, so assert dtypes after extract.)
 - A 0-row pull can lose column names/types (the connector returns no schema for an
-  empty result) — avoid freezing empty snapshots.
+  empty result). Avoid freezing empty snapshots.
 
 ## Example
 

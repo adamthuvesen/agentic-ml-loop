@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -291,48 +291,15 @@ def _resolve_signal_inputs(experiment_dir: Path, options: SignalOptions | None) 
     )
 
 
-_SIGNAL_INPUT_FIELDS = {
-    "results",
-    "journal_cycles",
-    "external_sources",
-    "has_error_analysis",
-    "has_diagnostics",
-}
-
-
-def _coerce_signal_options(
-    options: SignalOptions | None,
-    legacy_overrides: dict[str, Any],
-    *,
-    allow_limit: bool,
-) -> SignalOptions:
-    allowed = set(_SIGNAL_INPUT_FIELDS)
-    if allow_limit:
-        allowed.add("limit")
-    unknown = sorted(set(legacy_overrides) - allowed)
-    if unknown:
-        raise TypeError("unexpected signal option keyword arguments: " + ", ".join(unknown))
-
-    resolved = options or SignalOptions()
-    if not legacy_overrides:
-        return resolved
-    return replace(resolved, **legacy_overrides)
-
-
 def research_signals(
     experiment_dir: Path,
     options: SignalOptions | None = None,
-    **legacy_overrides: Any,
 ) -> list[str]:
     """Return bounded, advisory research signals derived from current artifacts.
 
-    Preserves the original public API: returns list[str] (no priority scores).
+    Returns list[str] without priority scores.
     """
-    options = _coerce_signal_options(
-        options,
-        legacy_overrides,
-        allow_limit=True,
-    )
+    options = options or SignalOptions()
     inputs = _resolve_signal_inputs(experiment_dir, options)
     candidates: list[tuple[int, str]] = _get_research_signal_observations(
         inputs.results,
@@ -377,17 +344,12 @@ def _get_research_signal_observations(
 def advisory_signals(
     experiment_dir: Path,
     options: SignalOptions | None = None,
-    **legacy_overrides: Any,
 ) -> list[tuple[int, str]]:
     """Collect, dedup, and return priority-sorted advisory signals from all sources.
 
     Returns at most ADVISORY_SIGNAL_CAP items.
     """
-    options = _coerce_signal_options(
-        options,
-        legacy_overrides,
-        allow_limit=False,
-    )
+    options = options or SignalOptions()
     inputs = _resolve_signal_inputs(experiment_dir, options)
 
     return merge_observations(

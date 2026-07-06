@@ -30,7 +30,7 @@ Time split with 60% train, 20% validation, and 20% holdout test.
 
 ## Objective Metric
 
-Validation AUC for candidate ranking (`objective_score`), with holdout AUC reported separately for transparency.
+Validation AUC (`val_auc`) for candidate ranking, with holdout AUC reported separately for transparency.
 
 ## Candidate Families
 
@@ -42,7 +42,7 @@ Validation AUC for candidate ranking (`objective_score`), with holdout AUC repor
 
 - deterministic demo
 - no external data dependencies
-- one bounded slice per loop cycle
+- one bounded hypothesis test per loop cycle
 
 ## Success Definition
 

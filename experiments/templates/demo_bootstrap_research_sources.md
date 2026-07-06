@@ -12,7 +12,7 @@
 
 ## Source Cards
 
-### Source 001: sklearn — ROC-AUC
+### Source 001: sklearn: ROC-AUC
 
 - **Type:** docs
 - **URL:** https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
@@ -22,7 +22,7 @@
 - **Ideas this suggests:** Use `roc_auc_score` on validation for `objective_score`.
 - **Status:** used
 
-### Source 002: Probst, Bischl, Boulesteix — tunability vs performance (2019)
+### Source 002: Probst, Bischl, Boulesteix: tunability vs performance (2019)
 
 - **Type:** paper
 - **URL:** https://arxiv.org/abs/1802.09596

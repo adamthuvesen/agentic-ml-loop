@@ -1,18 +1,21 @@
-# Autonomous loop (`loop/`)
+# Autonomous Loop (`loop/`)
 
-Supervisor that runs **repeatable cycles** on an experiment: each cycle builds a prompt from the experiment's files, invokes the configured **runner** CLI, then updates persisted state and terminal/`status.md` output.
+The supervisor runs repeatable experiment cycles. Each cycle builds a prompt from
+the experiment files, invokes the configured runner CLI, then updates persisted
+state and terminal/`status.md` output.
 
 ## How it works
 
-1. **`start`** — requires a clean experiment (no `loop_state.json` yet). Initializes state, acquires a **file lock** (`.loop.lock`), and enters **`run_loop`**.
-2. **`resume`** — loads `loop_state.json` and continues until limits or completion.
-3. Each **cycle** (`run_cycle` in `core.py`): capture baselines via **`artifacts.py`** → build prompt in **`prompts.py`** → per-attempt **`cycle_attempt.py`** (invoke + **`contracts.py`**) → progress via **`hooks.py`** → retry up to **`DEFAULT_MAX_ATTEMPTS_PER_CYCLE`**.
-4. **Stop** via **`stop_policy.py`**: `max_cycles`, `max_hours`, **`EXPERIMENT_COMPLETE`** (unless `--run-until-limit`), stall/failure caps, or Ctrl+C.
+1. `start` requires a clean experiment (no `loop_state.json` yet). It initializes state, acquires a file lock (`.loop.lock`), and enters `run_loop`.
+2. `resume` loads `loop_state.json` and continues until limits or completion.
+3. Each cycle (`run_cycle` in `core.py`) captures baselines with `artifacts.py`, builds the prompt in `prompts.py`, runs each attempt through `cycle_attempt.py` and `contracts.py`, records progress through `hooks.py`, and retries up to `DEFAULT_MAX_ATTEMPTS_PER_CYCLE`.
+4. `stop_policy.py` handles stop reasons: `max_cycles`, `max_hours`, `EXPERIMENT_COMPLETE` (unless `--run-until-limit`), stall/failure caps, or Ctrl+C.
    Final-holdout access is stronger than budget mode: once
    `final_holdout_accessed=true`, the supervisor stops instead of prompting for
    another search cycle.
 
-State and human-readable status live under the experiment directory: **`loop_state.json`**, **`status.md`**, plus the lock file.
+State and human-readable status live under the experiment directory:
+`loop_state.json`, `status.md`, plus the lock file.
 
 ## Layout
 
@@ -23,12 +26,12 @@ State and human-readable status live under the experiment directory: **`loop_sta
 | `stop_policy.py`   | Ordered stop reasons (`evaluate_stop` / `should_stop`)                                                                      |
 | `cycle_attempt.py` | Single runner attempt: invoke, validate, contract check                                                                     |
 | `artifacts.py`     | `CycleBaselines`, snapshots, progress reasons, advisory rollback                                                            |
-| `contracts.py`     | Completion markers and actionable validation errors for failed attempts                                                     |
+| `contracts.py`     | Completion markers and validation errors for failed attempts                                                               |
 | `prompts.py`       | Cycle prompt assembly, token-budget truncation, completion markers                                                          |
 | `hooks.py`         | `CycleHooks` protocol; default pre/post cycle behavior                                                                      |
 | `status.py`        | `status.md` Markdown rendering                                                                                              |
 | `ui.py`            | Terminal banners and `emit_*` hooks                                                                                         |
-| `__main__.py`      | `python -m loop` → `main()`                                                                                                 |
+| `__main__.py`      | `python -m loop` entry point                                                                                                |
 
 ## Commands
 
@@ -45,15 +48,19 @@ uv run python -m loop final-holdout experiments/<experiment_id>
 uv run python -m loop ledger experiments/<experiment_id>
 ```
 
-Use **`resume`** if `loop_state.json` already exists; **`start`** is for a new run only.
-Use **`freeze`** to lock validation-time selection before final test access.
-Use **`final-holdout`** to score only frozen external-target candidates and write
-`outputs/final_holdout.json` without touching `results.json`. Use **`ledger`**
+Use `resume` if `loop_state.json` already exists; `start` is for a new run only.
+Use `freeze` to lock validation-time selection before final test access.
+Use `final-holdout` to score only frozen external-target candidates and write
+`outputs/final_holdout.json` without touching `results.json`. Use `ledger`
 to rebuild `outputs/cycle_metrics.csv` from cycle summaries.
 
 ## Contract with the runner
 
-The loop expects the runner to edit experiment artifacts (especially `research_journal.md` and `results.json`) and to end cycles with exactly one marker: `<promise>CYCLE_DONE</promise>` or `<promise>EXPERIMENT_COMPLETE</promise>` (see `prompts.py`). See repo **`AGENTS.md`** for the full experiment contract.
+The loop expects the runner to edit experiment artifacts, especially
+`research_journal.md` and `results.json`, and to end cycles with exactly one
+marker: `<promise>CYCLE_DONE</promise>` or
+`<promise>EXPERIMENT_COMPLETE</promise>` (see `prompts.py`). See repo
+`AGENTS.md` for the full experiment contract.
 
 When an experiment has `diagnostics/summary.md`, the prompt builder may surface it
 as advisory context. Diagnostics remain optional and do not change the loop's

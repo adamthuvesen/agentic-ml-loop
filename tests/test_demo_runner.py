@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from lib.runner import (
+    RunnerMainConfig,
     init_experiment_dir,
     run_runner_main,
     runner_cli,
@@ -90,7 +91,7 @@ def test_saves_rule_baseline(
 
 
 def test_runner_parser_exposes_retired_candidate_commands() -> None:
-    parser = runner_cli("demo", ["active"], ["old"])
+    parser = runner_cli("demo", ["active"], ["archived"])
 
     list_args = parser.parse_args(["list-retired-candidates"])
     assert list_args.command == "list-retired-candidates"
@@ -101,17 +102,23 @@ def test_runner_parser_exposes_retired_candidate_commands() -> None:
             "--experiment",
             "experiments/demo",
             "--candidate",
-            "old",
+            "archived",
         ]
     )
     assert run_args.command == "run-retired-candidate"
-    assert run_args.candidate == "old"
+    assert run_args.candidate == "archived"
 
 
-def test_runner_main_accepts_legacy_generated_runner_call(monkeypatch, capsys) -> None:
+def test_runner_main_uses_runner_config(monkeypatch, capsys) -> None:
     monkeypatch.setattr("sys.argv", ["runner", "list-candidates"])
 
-    exit_code = run_runner_main("demo", {"active": lambda _splits: {}}, lambda: None)
+    exit_code = run_runner_main(
+        RunnerMainConfig(
+            experiment_id="demo",
+            candidate_runners={"active": lambda _splits: {}},
+            dataset_loader=lambda: None,
+        )
+    )
 
     assert exit_code == 0
     assert capsys.readouterr().out == "active\n"
@@ -132,7 +139,7 @@ class TestInitDemo:
             assert unwanted not in names
         assert not (d / "results").is_dir()
 
-    def test_force_removes_old_files_and_dirs(self, tmp_path: Path) -> None:
+    def test_force_removes_stale_files_and_dirs(self, tmp_path: Path) -> None:
         with patch("lib.runner.ROOT", tmp_path):
             d = init_demo()
             (d / "status.md").write_text("stale\n")
@@ -141,10 +148,10 @@ class TestInitDemo:
             (d / "evaluation_review.json").write_text("{}\n")
             extra_dir = d / "cycles"
             extra_dir.mkdir()
-            (extra_dir / "old.txt").write_text("old\n")
+            (extra_dir / "stale.txt").write_text("stale\n")
             diagnostics_dir = d / "diagnostics"
             diagnostics_dir.mkdir()
-            (diagnostics_dir / "summary.md").write_text("old diagnostics\n")
+            (diagnostics_dir / "summary.md").write_text("stale diagnostics\n")
 
             refreshed = init_demo(force=True)
 

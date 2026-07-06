@@ -74,7 +74,7 @@ def test_save_candidate_result_rejects_malformed_results_before_loading_data(
 ) -> None:
     exp_dir = tmp_path / "exp"
     exp_dir.mkdir()
-    (exp_dir / "results.json").write_text('{"candidate_id": "old"}\n')
+    (exp_dir / "results.json").write_text('{"candidate_id": "existing"}\n')
     calls: list[str] = []
 
     with pytest.raises(ValueError, match="JSON list of result objects"):
@@ -92,7 +92,7 @@ def test_save_candidate_result_rejects_malformed_results_before_loading_data(
     ("results_json", "message"),
     [
         ('[{"objective_score": 0.5}]\n', "candidate_id"),
-        ('[{"candidate_id": "old", "objective_score": "0.5"}]\n', "objective_score"),
+        ('[{"candidate_id": "existing", "objective_score": "0.5"}]\n', "objective_score"),
         ("[1]\n", "must be an object"),
     ],
 )

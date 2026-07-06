@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import inspect
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -58,79 +56,14 @@ class CycleHooks(Protocol):
         state: dict[str, Any],
     ) -> PreCycleResult: ...
 
-    def post_cycle(self, *args: Any, **kwargs: Any) -> PostCycleResult: ...
-
-
-def _post_cycle_context_from_args(
-    context_or_experiment_dir: PostCycleContext | Path,
-    legacy_args: tuple[Any, ...],
-    legacy_kwargs: dict[str, Any],
-) -> PostCycleContext:
-    if isinstance(context_or_experiment_dir, PostCycleContext):
-        if legacy_args or legacy_kwargs:
-            raise TypeError("post_cycle() got extra arguments with PostCycleContext")
-        return context_or_experiment_dir
-
-    fields = ["cycle_id", "before_snapshot", "after_snapshot", "output", "marker"]
-    if len(legacy_args) > len(fields):
-        raise TypeError("post_cycle() got too many positional arguments")
-    positional_values = dict(zip(fields, legacy_args, strict=False))
-    duplicate = sorted(set(positional_values) & set(legacy_kwargs))
-    if duplicate:
-        raise TypeError("post_cycle() got multiple values for argument(s): " + ", ".join(duplicate))
-
-    unknown = sorted(set(legacy_kwargs) - set(fields))
-    if unknown:
-        raise TypeError("post_cycle() got unexpected keyword arguments: " + ", ".join(unknown))
-    values = {**positional_values, **legacy_kwargs}
-    missing = [field for field in fields if field not in values]
-    if missing:
-        raise TypeError(
-            "post_cycle() expected PostCycleContext or legacy arguments "
-            "(experiment_dir, cycle_id, before_snapshot, after_snapshot, output, marker); "
-            "missing: " + ", ".join(missing)
-        )
-    return PostCycleContext(
-        experiment_dir=context_or_experiment_dir,
-        cycle_id=values["cycle_id"],
-        before_snapshot=values["before_snapshot"],
-        after_snapshot=values["after_snapshot"],
-        output=values["output"],
-        marker=values["marker"],
-    )
-
-
-def _expects_legacy_post_cycle(
-    post_cycle: Callable[..., PostCycleResult],
-) -> bool:
-    try:
-        signature = inspect.signature(post_cycle)
-    except (TypeError, ValueError):
-        return False
-    required_positionals = [
-        parameter
-        for parameter in signature.parameters.values()
-        if parameter.kind
-        in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        and parameter.default is inspect.Parameter.empty
-    ]
-    return len(required_positionals) > 1
+    def post_cycle(self, context: PostCycleContext) -> PostCycleResult: ...
 
 
 def call_post_cycle_hook(
     hooks: CycleHooks,
     context: PostCycleContext,
 ) -> PostCycleResult:
-    """Call a post-cycle hook, accepting both current and legacy hook shapes."""
-    if _expects_legacy_post_cycle(hooks.post_cycle):
-        return hooks.post_cycle(
-            context.experiment_dir,
-            context.cycle_id,
-            context.before_snapshot,
-            context.after_snapshot,
-            context.output,
-            context.marker,
-        )
+    """Call a post-cycle hook with the cycle context."""
     return hooks.post_cycle(context)
 
 
@@ -151,13 +84,8 @@ class DefaultCycleHooks:
 
     def post_cycle(
         self,
-        context_or_experiment_dir: PostCycleContext | Path,
-        *legacy_args: Any,
-        **legacy_kwargs: Any,
+        context: PostCycleContext,
     ) -> PostCycleResult:
-        context = _post_cycle_context_from_args(
-            context_or_experiment_dir, legacy_args, legacy_kwargs
-        )
         progress_reasons = compute_progress(context.before_snapshot, context.after_snapshot)
 
         learnings_extracted = False
@@ -187,13 +115,8 @@ class RefereeCycleHooks(DefaultCycleHooks):
 
     def post_cycle(
         self,
-        context_or_experiment_dir: PostCycleContext | Path,
-        *legacy_args: Any,
-        **legacy_kwargs: Any,
+        context: PostCycleContext,
     ) -> PostCycleResult:
-        context = _post_cycle_context_from_args(
-            context_or_experiment_dir, legacy_args, legacy_kwargs
-        )
         result = super().post_cycle(context)
         try:
             scorecard = grade_cycle(

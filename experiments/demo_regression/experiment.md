@@ -23,7 +23,7 @@ Bundled synthetic tabular dataset generated in-repo by `lib/demo_regression/gene
 - **Feature types**: numeric, categorical, boolean, datetime (snapshot_date)
 - **Missing values**: none
 - **Target distribution**: 25.3% zeros, 74.7% positive; mean=574, median=117, max=13,339; skew=4.28
-- **Top correlations with target**: contract_value_t0 (0.70), seat_count (0.60), avg_weekly_active_users (0.55) — all scale proxies
+- **Top correlations with target**: contract_value_t0 (0.70), seat_count (0.60), avg_weekly_active_users (0.55). All are scale proxies.
 
 ## Target
 
@@ -53,13 +53,13 @@ Validation R² (`val_r2`) for candidate ranking (`objective_score`). Secondary: 
 - deterministic demo
 - no external data dependencies
 - no holdout leakage into candidate ranking or model selection
-- one bounded slice per loop cycle
+- one bounded hypothesis test per loop cycle
 
 ## Known Risks
 
 - **Scale confounders**: contract_value_t0 (r=0.70) and seat_count (r=0.60) dominate; models may be fitting account size rather than true expansion propensity
 - **Right-tail outliers**: 48 rows above 99th percentile (~5,500+) can swing R² on validation; track RMSE and MAE alongside R²
-- **Temporal drift**: 3-year span (2023–2025) may produce structural train-val gaps that look like overfitting but aren't fixable by regularization
+- **Temporal drift**: 3-year span (2023-2025) may produce structural train-val gaps that look like overfitting but aren't fixable by regularization
 
 ## Evaluation Strategy
 

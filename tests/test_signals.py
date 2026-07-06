@@ -9,6 +9,7 @@ from lib.diagnostics import get_diagnostics_observations
 from lib.evaluation_review import get_evaluation_observations
 from lib.observations import dedup_observations
 from lib.signals import (
+    SignalOptions,
     _count_external_sources,
     advisory_signals,
     research_signals,
@@ -486,8 +487,8 @@ class TestDedupObservations:
         assert dedup_observations([]) == []
 
 
-class TestBuildResearchSignalsBackwardCompat:
-    """Ensure research_signals still returns list[str] (no priority scores)."""
+class TestBuildResearchSignals:
+    """Ensure research_signals returns list[str] without priority scores."""
 
     def test_returns_list_of_strings(self, tmp_path: Path) -> None:
         d = _make_experiment(
@@ -513,48 +514,52 @@ class TestBuildResearchSignalsBackwardCompat:
         for signal in signals:
             assert isinstance(signal, str)
 
-    def test_research_signal_keyword_overrides_still_work(self, tmp_path: Path) -> None:
+    def test_research_signal_options_override_artifact_reads(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
 
         signals = research_signals(
             d,
-            results=[
-                {
-                    "candidate_id": "a",
-                    "objective_score": 0.701,
-                    "objective_metric": "val_auc",
-                    "hyperparameters": {"val_auc_ci_95": [0.68, 0.72]},
-                },
-                {
-                    "candidate_id": "b",
-                    "objective_score": 0.695,
-                    "objective_metric": "val_auc",
-                    "hyperparameters": {"val_auc_ci_95": [0.67, 0.71]},
-                },
-            ],
-            journal_cycles=1,
-            external_sources=2,
-            has_error_analysis=True,
-            has_diagnostics=True,
-            limit=1,
+            SignalOptions(
+                results=[
+                    {
+                        "candidate_id": "a",
+                        "objective_score": 0.701,
+                        "objective_metric": "val_auc",
+                        "hyperparameters": {"val_auc_ci_95": [0.68, 0.72]},
+                    },
+                    {
+                        "candidate_id": "b",
+                        "objective_score": 0.695,
+                        "objective_metric": "val_auc",
+                        "hyperparameters": {"val_auc_ci_95": [0.67, 0.71]},
+                    },
+                ],
+                journal_cycles=1,
+                external_sources=2,
+                has_error_analysis=True,
+                has_diagnostics=True,
+                limit=1,
+            ),
         )
 
         assert len(signals) == 1
         assert "clustered" in signals[0].lower() or "plateau" in signals[0].lower()
 
-    def test_advisory_signal_keyword_overrides_still_work(self, tmp_path: Path) -> None:
+    def test_advisory_signal_options_override_artifact_reads(self, tmp_path: Path) -> None:
         d = _make_experiment(tmp_path)
 
         signals = advisory_signals(
             d,
-            results=[
-                {"candidate_id": "a", "objective_score": 0.701},
-                {"candidate_id": "b", "objective_score": 0.695},
-            ],
-            journal_cycles=1,
-            external_sources=2,
-            has_error_analysis=True,
-            has_diagnostics=True,
+            SignalOptions(
+                results=[
+                    {"candidate_id": "a", "objective_score": 0.701},
+                    {"candidate_id": "b", "objective_score": 0.695},
+                ],
+                journal_cycles=1,
+                external_sources=2,
+                has_error_analysis=True,
+                has_diagnostics=True,
+            ),
         )
 
         assert all(

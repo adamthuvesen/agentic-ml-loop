@@ -1,8 +1,8 @@
 # Agentic ML Loop
 
 `agentic-ml-loop` runs local, repeatable ML experiment cycles. You write a spec,
-choose a runner, and the loop asks for one bounded hypothesis test at a time
-while maintaining a journal and leaderboard.
+choose a runner, and the loop asks for one bounded hypothesis test at a time.
+It keeps the journal and leaderboard updated as it goes.
 
 Cycles are checked in code ([`loop/cycle_attempt.py`](loop/cycle_attempt.py),
 [`loop/contracts.py`](loop/contracts.py)): the journal must be updated,
@@ -10,9 +10,9 @@ Cycles are checked in code ([`loop/cycle_attempt.py`](loop/cycle_attempt.py),
 and results must match the expected schema and metrics. Failed cycles roll back
 and retry.
 
-The repo ships with deterministic synthetic demos only; no external data source
-is required. Worked example in [`examples/`](examples/). Internals:
-[`.agents/docs/architecture.md`](.agents/docs/architecture.md).
+The repo ships with deterministic synthetic demos only. No external data source
+is required. Start with [`examples/`](examples/) for a worked output and
+[`.agents/docs/architecture.md`](.agents/docs/architecture.md) for internals.
 
 ## Setup
 
@@ -126,10 +126,10 @@ runner error is recorded and does not stop the others.
 
 Four deterministic demos exercise the framework:
 
-- `demo_bootstrap` — tiny classification smoke test
-- `demo_classification` — synthetic binary classification
-- `demo_regression` — synthetic zero-inflated revenue regression
-- `demo_deep` — synthetic nonlinear tabular classification with PyTorch MLPs
+- `demo_bootstrap`: tiny classification smoke test
+- `demo_classification`: synthetic binary classification
+- `demo_regression`: synthetic zero-inflated revenue regression
+- `demo_deep`: synthetic nonlinear tabular classification with PyTorch MLPs
 
 ```bash
 uv run --extra models python runners/demo_bootstrap_runner.py init-demo --force
