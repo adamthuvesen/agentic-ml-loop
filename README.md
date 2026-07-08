@@ -1,5 +1,7 @@
 # Agentic ML Loop
 
+![License](https://img.shields.io/github/license/adamthuvesen/agentic-ml-loop) ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
+
 `agentic-ml-loop` runs local, repeatable ML experiment cycles. You write a spec,
 choose a runner, and the loop asks for one bounded hypothesis test at a time.
 It keeps the journal and leaderboard updated as it goes.
