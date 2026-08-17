@@ -67,8 +67,10 @@ fill it.
 
 ## Runners
 
-Presets cover Claude, Codex, and Cursor; custom commands work too. The presets
-run unattended, without approval prompts, and with full workspace permissions.
+Presets cover Claude, Codex, and Cursor; custom commands work too. Cycles run
+unattended, so no preset can stop to ask for approval — each grants shell access
+up front. They name the tools they grant and keep the CLI's own sandbox on where
+it has one, rather than switching enforcement off wholesale.
 
 ```bash
 uv run python -m loop start experiments/demo_bootstrap --runner claude
@@ -78,9 +80,15 @@ uv run python -m loop start experiments/demo_bootstrap --runner-command "claude 
 
 | Runner | Default command |
 | --- | --- |
-| Claude | `claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model opus` (`claude-opus-4-8-high` is recorded as the requested model) |
-| Codex | `codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high` |
-| Cursor | `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5` |
+| Claude | `claude --print --verbose --output-format stream-json --permission-mode acceptEdits --allowedTools <list> --model opus` (`claude-opus-4-8-high` is recorded as the requested model) |
+| Codex | `codex exec --full-auto -c sandbox_workspace_write.network_access=true --model gpt-5.5-high` |
+| Cursor | `cursor-agent --print --force --model composer-2.5` |
+
+The Claude allowlist is `CLAUDE_ALLOWED_TOOLS` in `loop/invoke.py`: the built-in
+file, shell, and web tools plus `mcp__context7`, which the first-cycle prompt
+asks for. Other MCP servers need `--runner-command`. Codex runs in its
+workspace-write sandbox with network access enabled, since cycles do live
+research.
 
 `--runner-effort` maps to `--effort` for Claude and
 `-c model_reasoning_effort=<effort>` for Codex; Cursor has no effort flag, so

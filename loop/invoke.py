@@ -38,6 +38,15 @@ class RunnerPreset:
     default_model: str
 
 
+# Cycles run unattended, so no runner can stop to ask. That forces a blanket
+# grant or an explicit one; these are the explicit ones. Each still gives the
+# agent shell access — it has to run training scripts — but keeps the sandbox
+# and the tool surface named rather than switched off. Override with
+# --runner-command when your setup needs more.
+CLAUDE_ALLOWED_TOOLS = (
+    "Bash,Edit,Glob,Grep,NotebookEdit,Read,Task,TodoWrite,WebFetch,WebSearch,Write,mcp__context7"
+)
+
 BUILTIN_RUNNER_PRESETS = {
     "claude": RunnerPreset(
         command=(
@@ -47,23 +56,25 @@ BUILTIN_RUNNER_PRESETS = {
             "--output-format",
             "stream-json",
             "--permission-mode",
-            "bypassPermissions",
+            "acceptEdits",
+            "--allowedTools",
+            CLAUDE_ALLOWED_TOOLS,
         ),
         default_model="claude-opus-4-8-high",
     ),
     "codex": RunnerPreset(
-        command=("codex", "exec", "--dangerously-bypass-approvals-and-sandbox"),
+        # Workspace-write sandbox, plus the network the research phase needs.
+        command=(
+            "codex",
+            "exec",
+            "--full-auto",
+            "-c",
+            "sandbox_workspace_write.network_access=true",
+        ),
         default_model="gpt-5.5-high",
     ),
     "cursor": RunnerPreset(
-        command=(
-            "cursor-agent",
-            "--print",
-            "--trust",
-            "--force",
-            "--sandbox",
-            "disabled",
-        ),
+        command=("cursor-agent", "--print", "--force"),
         default_model="composer-2.5",
     ),
 }

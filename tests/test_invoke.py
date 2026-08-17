@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from loop.invoke import (
+    CLAUDE_ALLOWED_TOOLS,
     extract_agent_text,
     extract_agent_text_from_jsonl,
     extract_agent_text_from_stream_json,
@@ -88,7 +89,9 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
                 "--output-format",
                 "stream-json",
                 "--permission-mode",
-                "bypassPermissions",
+                "acceptEdits",
+                "--allowedTools",
+                CLAUDE_ALLOWED_TOOLS,
                 "--model",
                 "opus",
             ],
@@ -98,7 +101,9 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
             [
                 "codex",
                 "exec",
-                "--dangerously-bypass-approvals-and-sandbox",
+                "--full-auto",
+                "-c",
+                "sandbox_workspace_write.network_access=true",
                 "--model",
                 "gpt-5.5-high",
             ],
@@ -108,10 +113,7 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
             [
                 "cursor-agent",
                 "--print",
-                "--trust",
                 "--force",
-                "--sandbox",
-                "disabled",
                 "--model",
                 "composer-2.5",
             ],

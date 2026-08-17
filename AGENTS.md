@@ -43,8 +43,9 @@ uv run ruff check . && uv run ruff format --check . && uv run --extra models --e
 - **New code lands per-experiment.** Write new scripts under
   `experiments/<experiment_id>/scripts/`; keep long-lived modules in
   `lib/<experiment_id>/`.
-- **Runner presets bypass all sandboxing** and run with full workspace
-  permissions. Read [runners.md](.agents/docs/runners.md) before changing them.
+- **Runner presets grant shell access without prompting**, because cycles run
+  unattended. They name the tools and keep each CLI's sandbox where it exists.
+  Read [runners.md](.agents/docs/runners.md) before changing them.
 - **Never commit secrets, `.env`, generated notebooks, or local data.**
 
 ## Operating Principles
