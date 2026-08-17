@@ -141,7 +141,7 @@ def get_min_cycles_before_complete(experiment_dir: Path) -> int | None:
         Minimum loop cycles before EXPERIMENT_COMPLETE: N
 
     requires at least N ``## Cycle NNNN:`` headings in ``research_journal.md``
-    before the loop accepts ``<promise>EXPERIMENT_COMPLETE</promise>``.
+    before the loop accepts an ``EXPERIMENT_COMPLETE`` cycle status.
     """
     spec_path = experiment_dir / "experiment.md"
     if not spec_path.exists():

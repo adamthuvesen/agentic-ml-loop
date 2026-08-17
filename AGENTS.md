@@ -43,8 +43,9 @@ uv run ruff check . && uv run ruff format --check . && uv run --extra models --e
 - **New code lands per-experiment.** Write new scripts under
   `experiments/<experiment_id>/scripts/`; keep long-lived modules in
   `lib/<experiment_id>/`.
-- **Runner presets bypass all sandboxing** and run with full workspace
-  permissions. Read [runners.md](.agents/docs/runners.md) before changing them.
+- **Runner presets grant shell access without prompting**, because cycles run
+  unattended. They name the tools and keep each CLI's sandbox where it exists.
+  Read [runners.md](.agents/docs/runners.md) before changing them.
 - **Never commit secrets, `.env`, generated notebooks, or local data.**
 
 ## Operating Principles
@@ -62,10 +63,19 @@ uv run ruff check . && uv run ruff format --check . && uv run --extra models --e
 
 ## Loop Contract
 
-Each cycle must end with exactly one marker:
+Each cycle ends by writing its status to
+`experiments/<experiment_id>/cycles/<cycle_id>/cycle_status.json`. The cycle
+prompt names the absolute path.
 
-- `<promise>CYCLE_DONE</promise>`: continue the experiment.
-- `<promise>EXPERIMENT_COMPLETE</promise>`: genuinely done.
+```json
+{"status": "CYCLE_DONE"}
+```
+
+- `CYCLE_DONE`: continue the experiment.
+- `EXPERIMENT_COMPLETE`: genuinely done.
+
+The supervisor clears that file before every attempt and reads nothing else, so
+naming these values in the journal is safe. A missing file fails the attempt.
 
 ## Read The Docs First
 

@@ -29,6 +29,7 @@ def _attempt_request(
         attempt_meta=attempt_meta or cycle_dir / "attempt_01_meta.json",
         attempt_result_path=attempt_result_path or cycle_dir / "attempt_01_result.json",
         agent_message_path=cycle_dir / "agent_last_message.md",
+        cycle_status_path=cycle_dir / "cycle_status.json",
         runner_config=runner_config or default_runner_config(),
     )
 
@@ -72,7 +73,7 @@ def test_contract_failure_record_matches_persisted_json(tmp_path: Path) -> None:
         "returncode": 0,
         "stdout_path": str(cycle_dir / "attempt_01_stdout.log"),
         "stderr_path": str(cycle_dir / "attempt_01_stderr.log"),
-        "agent_message_path": None,  # no assistant text -> missing completion marker
+        "agent_message_path": None,
     }
 
     with patch("loop.cycle_attempt.invoke_runner", return_value=runner_result):
@@ -86,8 +87,33 @@ def test_contract_failure_record_matches_persisted_json(tmp_path: Path) -> None:
 
     assert not outcome.success
     assert outcome.attempt_record["failure_reason"] == "cycle_validation_failed"
-    assert "missing completion marker" in outcome.attempt_record["marker_errors"]
+    assert (
+        "missing completion status file: cycle_status.json"
+        in outcome.attempt_record["marker_errors"]
+    )
     assert json.loads(attempt_result_path.read_text()) == dict(outcome.attempt_record)
+
+
+def test_stale_status_file_does_not_survive_into_the_next_attempt(tmp_path: Path) -> None:
+    """A status left by an earlier attempt must not be credited to this one."""
+    experiment_dir = make_experiment_dir(tmp_path)
+    cycle_dir = experiment_dir / "cycles" / "0001"
+    cycle_dir.mkdir(parents=True)
+    status_path = cycle_dir / "cycle_status.json"
+    status_path.write_text('{"status": "EXPERIMENT_COMPLETE"}', encoding="utf-8")
+
+    runner_result = {
+        "returncode": 0,
+        "stdout_path": str(cycle_dir / "attempt_01_stdout.log"),
+        "stderr_path": str(cycle_dir / "attempt_01_stderr.log"),
+        "agent_message_path": None,
+    }
+
+    with patch("loop.cycle_attempt.invoke_runner", return_value=runner_result):
+        outcome = run_cycle_attempt(_attempt_request(experiment_dir, cycle_dir))
+
+    assert outcome.marker == ""
+    assert not status_path.exists()
 
 
 def test_runner_config_is_written_to_attempt_metadata(tmp_path: Path) -> None:

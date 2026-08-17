@@ -62,7 +62,7 @@ class TestDefaultCycleHooks:
                     cycle_id="0001",
                     before_snapshot=snapshot,
                     after_snapshot=snapshot,
-                    output="<promise>EXPERIMENT_COMPLETE</promise>",
+                    output="Search space exhausted.",
                     marker="EXPERIMENT_COMPLETE",
                 )
             )

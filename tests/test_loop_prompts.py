@@ -331,6 +331,29 @@ class TestErrorAnalysisNudge:
         assert "neither error analysis nor diagnostics are recorded yet" not in prompt
 
 
+class TestCompletionStatusSection:
+    def test_names_the_absolute_status_path(self, tmp_path: Path) -> None:
+        d = _make_experiment(tmp_path)
+        prompt = cycle_prompt(d, "0007").assemble()
+
+        status_path = d.resolve() / "cycles" / "0007" / "cycle_status.json"
+        assert "## Ending The Cycle" in prompt
+        assert str(status_path) in prompt
+        assert '{"status": "CYCLE_DONE"}' in prompt
+
+    def test_survives_full_truncation(self, tmp_path: Path) -> None:
+        """A budget-starved prompt still has to say how to report status."""
+        d = _make_experiment(
+            tmp_path,
+            results=[{"candidate_id": f"c{i}", "objective_score": 0.5} for i in range(50)],
+            journal="# Journal\n\n"
+            + "".join(f"## Cycle {i:04d}: x\n\nlong entry\n\n" for i in range(20)),
+        )
+        prompt = cycle_prompt(d, "0021", max_tokens=1).assemble()
+
+        assert "## Ending The Cycle" in prompt
+
+
 class TestCompletionRigorCheck:
     def test_present_after_first_cycle(self, tmp_path: Path) -> None:
         d = _make_experiment(

@@ -57,10 +57,11 @@ to rebuild `outputs/cycle_metrics.csv` from cycle summaries.
 ## Contract with the runner
 
 The loop expects the runner to edit experiment artifacts, especially
-`research_journal.md` and `results.json`, and to end cycles with exactly one
-marker: `<promise>CYCLE_DONE</promise>` or
-`<promise>EXPERIMENT_COMPLETE</promise>` (see `prompts.py`). See repo
-`AGENTS.md` for the full experiment contract.
+`research_journal.md` and `results.json`, and to end each cycle by writing
+`cycles/<cycle_id>/cycle_status.json` with a `status` of `CYCLE_DONE` or
+`EXPERIMENT_COMPLETE`. `prompts.py` names the absolute path in the prompt,
+`contracts.py` reads it, and `cycle_attempt.py` clears it before every attempt.
+See repo `AGENTS.md` for the full experiment contract.
 
 When an experiment has `diagnostics/summary.md`, the prompt builder may surface it
 as advisory context. Diagnostics remain optional and do not change the loop's

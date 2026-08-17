@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from loop.invoke import (
+    CLAUDE_ALLOWED_TOOLS,
     extract_agent_text,
     extract_agent_text_from_jsonl,
     extract_agent_text_from_stream_json,
@@ -23,7 +24,7 @@ def test_extract_agent_text_collects_assistant_text_blocks() -> None:
                         "content": [
                             {"type": "text", "text": "First note."},
                             {"type": "tool_use", "name": "x"},
-                            {"type": "text", "text": "<promise>CYCLE_DONE</promise>"},
+                            {"type": "text", "text": "Second note."},
                         ]
                     },
                 }
@@ -31,20 +32,18 @@ def test_extract_agent_text_collects_assistant_text_blocks() -> None:
         ]
     )
 
-    assert extract_agent_text_from_stream_json(raw) == (
-        "First note.\n<promise>CYCLE_DONE</promise>"
-    )
+    assert extract_agent_text_from_stream_json(raw) == ("First note.\nSecond note.")
 
 
 def test_extract_agent_text_uses_result_event_when_assistant_text_missing() -> None:
     raw = json.dumps(
         {
             "type": "result",
-            "result": "Final answer.\n<promise>EXPERIMENT_COMPLETE</promise>",
+            "result": "Final answer.",
         }
     )
 
-    assert "<promise>EXPERIMENT_COMPLETE</promise>" in (extract_agent_text_from_stream_json(raw))
+    assert "Final answer." in extract_agent_text_from_stream_json(raw)
 
 
 def test_extract_agent_text_ignores_malformed_ndjson_lines(tmp_path: Path) -> None:
@@ -71,11 +70,11 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
     raw = json.dumps(
         {
             "type": "agent_message",
-            "message": "Done.\n<promise>CYCLE_DONE</promise>",
+            "message": "Done.\nAll good.",
         }
     )
 
-    assert extract_agent_text_from_jsonl(raw) == "Done.\n<promise>CYCLE_DONE</promise>"
+    assert extract_agent_text_from_jsonl(raw) == "Done.\nAll good."
 
 
 @pytest.mark.parametrize(
@@ -90,7 +89,9 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
                 "--output-format",
                 "stream-json",
                 "--permission-mode",
-                "bypassPermissions",
+                "acceptEdits",
+                "--allowedTools",
+                CLAUDE_ALLOWED_TOOLS,
                 "--model",
                 "opus",
             ],
@@ -100,7 +101,9 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
             [
                 "codex",
                 "exec",
-                "--dangerously-bypass-approvals-and-sandbox",
+                "--full-auto",
+                "-c",
+                "sandbox_workspace_write.network_access=true",
                 "--model",
                 "gpt-5.5-high",
             ],
@@ -110,10 +113,7 @@ def test_extract_agent_text_handles_string_message_jsonl() -> None:
             [
                 "cursor-agent",
                 "--print",
-                "--trust",
                 "--force",
-                "--sandbox",
-                "disabled",
                 "--model",
                 "composer-2.5",
             ],

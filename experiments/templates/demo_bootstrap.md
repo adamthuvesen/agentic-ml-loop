@@ -65,8 +65,8 @@ learnings, research signals, journal iteration, and bounded cycles.
 
 Minimum loop cycles before EXPERIMENT_COMPLETE: 6
 
-- Use `<promise>CYCLE_DONE</promise>` until at least six `## Cycle NNNN:` entries exist
+- Report a `CYCLE_DONE` status until at least six `## Cycle NNNN:` entries exist
   in `research_journal.md` (each cycle: one hypothesis, bounded work, honest write-up).
-- Only then may you emit `<promise>EXPERIMENT_COMPLETE</promise>`, and only if the
-  completion rigor checklist in the cycle prompt is satisfied.
+- Only then may you report `EXPERIMENT_COMPLETE`, and only if the completion
+  rigor checklist in the cycle prompt is satisfied.
 - Stopping after one cycle defeats the purpose of this demo.

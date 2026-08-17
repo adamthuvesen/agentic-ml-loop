@@ -151,8 +151,9 @@ experiment back to its pre-cycle snapshot and retries (up to three attempts);
 once attempts are exhausted the cycle is recorded as `failed`.
 
 - Runner exits with return code `0`.
-- Output contains exactly one `<promise>…</promise>` marker, and it is
-  `CYCLE_DONE` or `EXPERIMENT_COMPLETE`.
+- `cycles/<cycle_id>/cycle_status.json` holds a `status` of `CYCLE_DONE` or
+  `EXPERIMENT_COMPLETE`. The supervisor deletes the file before each attempt, so
+  it can only describe the attempt being judged.
 - `validate_experiment` reports no actionable errors (warnings are allowed).
 - `research_journal.md` changed during the cycle.
 - `experiment.md` did **not** change. The spec is immutable inside a cycle.
@@ -164,9 +165,12 @@ minimum journal-cycle count declared in `experiment.md`.
 
 1. Snapshot baselines (`research_journal.md` hash and `experiment.md`).
 2. Build the prompt from static program guidance plus dynamic experiment state.
-3. Invoke the configured runner with the prompt on stdin.
-4. Extract assistant text from stream JSON when present, else raw stdout.
-5. Check the cycle contract; retry on failure, roll back when exhausted.
+3. Clear the cycle status file, then invoke the configured runner with the
+   prompt on stdin.
+4. Extract assistant text from stream JSON when present, else raw stdout, and
+   persist it for debugging.
+5. Read the cycle status file and check the cycle contract; retry on failure,
+   roll back when exhausted.
 6. On success, run post-cycle hooks (progress, advisory referee, learnings),
    then persist `cycle_summary.json`, `loop_state.json`, and `status.md`.
 
@@ -191,10 +195,13 @@ return stream JSON or plain text. The resolved command, model, and timeout are
 persisted in loop state and attempt metadata for reproducibility.
 
 The presets are
-`claude --print --verbose --output-format stream-json --permission-mode bypassPermissions --model opus`
+`claude --print --verbose --output-format stream-json --permission-mode acceptEdits --allowedTools <CLAUDE_ALLOWED_TOOLS> --model opus`
 (with `claude-opus-4-8-high` recorded as the requested model),
-`codex exec --dangerously-bypass-approvals-and-sandbox --model gpt-5.5-high`,
-and `cursor-agent --print --trust --force --sandbox disabled --model composer-2.5`.
+`codex exec --full-auto -c sandbox_workspace_write.network_access=true --model gpt-5.5-high`,
+and `cursor-agent --print --force --model composer-2.5`. Unattended cycles
+cannot answer an approval prompt, so each preset grants shell access up front
+but names its tools instead of disabling enforcement — see
+[runners.md](runners.md).
 Override the model with `--runner-model`. Effort maps to `--effort` for Claude
 and `-c model_reasoning_effort=<effort>` for Codex. Cursor has no separate
 effort flag; pick a Cursor model id that already encodes effort.

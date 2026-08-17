@@ -38,6 +38,15 @@ class RunnerPreset:
     default_model: str
 
 
+# Cycles run unattended, so no runner can stop to ask. That forces a blanket
+# grant or an explicit one; these are the explicit ones. Each still gives the
+# agent shell access — it has to run training scripts — but keeps the sandbox
+# and the tool surface named rather than switched off. Override with
+# --runner-command when your setup needs more.
+CLAUDE_ALLOWED_TOOLS = (
+    "Bash,Edit,Glob,Grep,NotebookEdit,Read,Task,TodoWrite,WebFetch,WebSearch,Write,mcp__context7"
+)
+
 BUILTIN_RUNNER_PRESETS = {
     "claude": RunnerPreset(
         command=(
@@ -47,23 +56,25 @@ BUILTIN_RUNNER_PRESETS = {
             "--output-format",
             "stream-json",
             "--permission-mode",
-            "bypassPermissions",
+            "acceptEdits",
+            "--allowedTools",
+            CLAUDE_ALLOWED_TOOLS,
         ),
         default_model="claude-opus-4-8-high",
     ),
     "codex": RunnerPreset(
-        command=("codex", "exec", "--dangerously-bypass-approvals-and-sandbox"),
+        # Workspace-write sandbox, plus the network the research phase needs.
+        command=(
+            "codex",
+            "exec",
+            "--full-auto",
+            "-c",
+            "sandbox_workspace_write.network_access=true",
+        ),
         default_model="gpt-5.5-high",
     ),
     "cursor": RunnerPreset(
-        command=(
-            "cursor-agent",
-            "--print",
-            "--trust",
-            "--force",
-            "--sandbox",
-            "disabled",
-        ),
+        command=("cursor-agent", "--print", "--force"),
         default_model="composer-2.5",
     ),
 }
@@ -233,8 +244,8 @@ def extract_agent_text_from_jsonl(raw: str) -> str:
     Other runners may emit JSONL events with plain string message/result fields.
     Unknown JSONL falls back to raw stdout so text-mode Codex/Cursor still works.
 
-    We collect ALL assistant text blocks across the entire session so the
-    completion marker is captured even if the agent does tool calls after it.
+    All assistant text blocks across the session are collected, so a failed
+    cycle's transcript shows the whole reasoning trail rather than its tail.
     """
     text_parts: list[str] = []
     for event in _jsonl_events(raw):
@@ -268,7 +279,8 @@ def invoke_runner(
 
     ``cwd`` is the repo root so paths in the prompt resolve consistently. On success,
     assistant text is extracted from stream-json into ``agent_message_path`` when
-    missing, so downstream code can read markers like ``<promise>CYCLE_DONE</promise>``.
+    missing, so a failed cycle leaves a readable transcript. The completion status
+    itself comes from the cycle status file, not from this text.
 
     Return dict keys: ``returncode`` (``-1`` if timed out), ``stdout_path``,
     ``stderr_path``, ``agent_message_path`` (may be ``None``), and ``timeout``
@@ -310,7 +322,7 @@ def invoke_runner(
                 "timeout": True,
             }
 
-    # Extract assistant text for <promise> marker parsing.
+    # Persist assistant text so failures and retries stay debuggable.
     if not agent_message_path.exists():
         agent_text = extract_agent_text(stdout_path)
         if agent_text.strip():
