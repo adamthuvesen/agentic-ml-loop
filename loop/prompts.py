@@ -23,12 +23,12 @@ from lib.signals import (
     advisory_signals as collect_advisory_signals,
 )
 
-from .constants import ROOT, STATE_PATH_NAME
+from .constants import CYCLE_STATUS_FILENAME, ROOT, STATE_PATH_NAME, cycle_artifacts_dir
 
 PROGRAM_MD_PATH = ROOT / "program.md"
 
-CYCLE_DONE_MARKER = "<promise>CYCLE_DONE</promise>"
-EXPERIMENT_COMPLETE_MARKER = "<promise>EXPERIMENT_COMPLETE</promise>"
+CYCLE_DONE_MARKER = "CYCLE_DONE"
+EXPERIMENT_COMPLETE_MARKER = "EXPERIMENT_COMPLETE"
 
 RESEARCHER_FRAMING = (
     "You are an ML researcher running an autonomous experiment. Make meaningful\n"
@@ -371,7 +371,29 @@ def _done_section(experiment_dir: Path) -> str:
             f"`{lib_module_dir}`.",
             "- Write deliverables under `outputs/` and intermediate scratch under `work/` "
             "(use `outputs_dir` / `work_dir` from `lib.paths`). Do not dump files in the experiment root.",
-            f"- End with `{CYCLE_DONE_MARKER}` if continuing, or `{EXPERIMENT_COMPLETE_MARKER}` if genuinely done.",
+            "- Record your completion status last — see **Ending The Cycle** below.",
+        ]
+    )
+
+
+def _completion_status_section(experiment_dir: Path, cycle_id: str) -> str:
+    status_path = cycle_artifacts_dir(experiment_dir, cycle_id).resolve() / CYCLE_STATUS_FILENAME
+    return "\n".join(
+        [
+            "## Ending The Cycle",
+            "",
+            f"The last thing you do is write `{status_path}`:",
+            "",
+            "```json",
+            f'{{"status": "{CYCLE_DONE_MARKER}"}}',
+            "```",
+            "",
+            f"Use `{CYCLE_DONE_MARKER}` if the experiment should continue, or "
+            f"`{EXPERIMENT_COMPLETE_MARKER}` if it is genuinely done.",
+            "",
+            "The supervisor reads only this file. Nothing you print counts as a "
+            "status, so quoting these values in your notes is safe. A cycle with "
+            "no status file is a failed attempt.",
         ]
     )
 
@@ -432,9 +454,10 @@ def _minimum_cycles_section(experiment_dir: Path, journal_cycles: int) -> str | 
             "## Minimum cycles contract",
             "",
             f"This experiment requires **{min_before_complete}** completed journal cycles "
-            f"(`## Cycle NNNN:` headings) before you may use "
-            f"`{EXPERIMENT_COMPLETE_MARKER}`. Current journal cycle count: **{journal_cycles}**. "
-            f"Use `{CYCLE_DONE_MARKER}` until the contract is satisfied.",
+            f"(`## Cycle NNNN:` headings) before you may report a "
+            f"`{EXPERIMENT_COMPLETE_MARKER}` status. Current journal cycle count: "
+            f"**{journal_cycles}**. Report `{CYCLE_DONE_MARKER}` until the contract "
+            "is satisfied.",
         ]
     )
 
@@ -538,6 +561,8 @@ def _dynamic_prompt_sections(context: PromptContext, options: PromptOptions) -> 
         )
     )
     dynamic_sections.extend(_cycle_guidance_sections(context.journal_cycles, context.loop_state))
+    # Last, and never truncated: without it the cycle has no way to report status.
+    dynamic_sections.append(_completion_status_section(context.experiment_dir, context.cycle_id))
     return dynamic_sections
 
 

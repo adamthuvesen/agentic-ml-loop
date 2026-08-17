@@ -19,7 +19,13 @@ from .artifacts import (
     capture_cycle_baselines,
     restore_cycle_baselines,
 )
-from .constants import DEFAULT_MAX_ATTEMPTS_PER_CYCLE, ROOT, STATE_PATH_NAME
+from .constants import (
+    CYCLE_STATUS_FILENAME,
+    DEFAULT_MAX_ATTEMPTS_PER_CYCLE,
+    ROOT,
+    STATE_PATH_NAME,
+    cycle_artifacts_dir,
+)
 from .cycle_attempt import AttemptOutcome, CycleAttemptRequest, run_cycle_attempt
 from .enums import (
     AttemptOutcomeKind,
@@ -287,7 +293,7 @@ def _clear_active_state(state: LoopState, outcome: str) -> None:
 
 
 def _prepare_cycle_dir(experiment_dir: Path, cycle_id: str, prompt_text: str) -> Path:
-    cycle_dir = experiment_dir / "cycles" / cycle_id
+    cycle_dir = cycle_artifacts_dir(experiment_dir, cycle_id)
     cycle_dir.mkdir(parents=True, exist_ok=True)
     (cycle_dir / "prompt.md").write_text(prompt_text, encoding="utf-8")
     return cycle_dir
@@ -427,6 +433,7 @@ def run_cycle(
     prompt_text = pre.prompt_text
     cycle_dir = _prepare_cycle_dir(experiment_dir, cycle_id, prompt_text)
     agent_message_path = cycle_dir / "agent_last_message.md"
+    cycle_status_path = cycle_dir / CYCLE_STATUS_FILENAME
 
     baselines = capture_cycle_baselines(experiment_dir)
     before_snapshot = baselines.before_snapshot
@@ -459,6 +466,7 @@ def run_cycle(
                     attempt_meta=paths.meta,
                     attempt_result_path=paths.result,
                     agent_message_path=agent_message_path,
+                    cycle_status_path=cycle_status_path,
                     runner_config=runner_config,
                 )
             )

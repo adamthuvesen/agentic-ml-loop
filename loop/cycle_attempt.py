@@ -18,7 +18,7 @@ from lib.io import read_text, utc_now, write_json
 from .artifacts import sha256_text
 from .contracts import (
     cycle_contract_errors,
-    extract_completion_marker,
+    read_completion_marker,
     validation_warnings,
 )
 from .invoke import RunnerConfig, default_runner_config, invoke_runner
@@ -73,12 +73,15 @@ class CycleAttemptRequest:
     attempt_meta: Path
     attempt_result_path: Path
     agent_message_path: Path
+    cycle_status_path: Path
     runner_config: RunnerConfig = field(default_factory=default_runner_config)
 
 
 def run_cycle_attempt(request: CycleAttemptRequest) -> AttemptOutcome:
     """Run one runner attempt and return success or a failure record."""
     request.agent_message_path.unlink(missing_ok=True)
+    # Clear last attempt's status so a crashed retry cannot inherit it.
+    request.cycle_status_path.unlink(missing_ok=True)
 
     write_json(
         request.attempt_meta,
@@ -89,6 +92,7 @@ def run_cycle_attempt(request: CycleAttemptRequest) -> AttemptOutcome:
             "stdout_path": str(request.attempt_stdout.resolve()),
             "stderr_path": str(request.attempt_stderr.resolve()),
             "agent_message_path": str(request.agent_message_path.resolve()),
+            "cycle_status_path": str(request.cycle_status_path.resolve()),
             "runner_name": request.runner_config.name,
             "runner_command": request.runner_config.command,
             "runner_model": request.runner_config.model,
@@ -135,7 +139,7 @@ def run_cycle_attempt(request: CycleAttemptRequest) -> AttemptOutcome:
     except FileNotFoundError:
         output_text = ""
 
-    marker, marker_errors = extract_completion_marker(output_text)
+    marker, marker_errors = read_completion_marker(request.cycle_status_path)
 
     validation_errors = validate_experiment(
         request.experiment_dir,

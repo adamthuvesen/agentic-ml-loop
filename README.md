@@ -60,8 +60,10 @@ Each experiment lives under `experiments/<experiment_id>/`:
 | `scripts/` | One-shot scripts written during cycles |
 
 `loop/` starts a fresh runner process per cycle. The runner receives the cycle
-prompt on stdin and must end with exactly one marker:
-`<promise>CYCLE_DONE</promise>` or `<promise>EXPERIMENT_COMPLETE</promise>`.
+prompt on stdin and ends by writing `cycles/<cycle_id>/cycle_status.json` with
+`{"status": "CYCLE_DONE"}` or `{"status": "EXPERIMENT_COMPLETE"}`. The
+supervisor clears that file before each attempt, so only the current attempt can
+fill it.
 
 ## Runners
 

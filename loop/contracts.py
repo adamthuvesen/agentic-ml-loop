@@ -1,18 +1,32 @@
 from __future__ import annotations
 
-import re
+import json
+from pathlib import Path
 
 VALID_COMPLETION_MARKERS = frozenset({"CYCLE_DONE", "EXPERIMENT_COMPLETE"})
 
 
-def extract_completion_marker(output_text: str) -> tuple[str, list[str]]:
-    """Return the sole valid completion marker plus validation errors."""
-    markers = [marker.strip() for marker in re.findall(r"<promise>([^<]+)</promise>", output_text)]
-    if not markers:
-        return "", ["missing completion marker"]
-    if len(markers) > 1:
-        return "", [f"expected exactly one completion marker, found {len(markers)}"]
-    marker = markers[0]
+def read_completion_marker(status_path: Path) -> tuple[str, list[str]]:
+    """Return the cycle's completion marker plus validation errors.
+
+    The marker is a file the agent writes, not a token matched out of its prose.
+    Scanning stdout meant an agent that quoted the marker while reasoning about
+    it failed its own cycle, and the old "exactly one match" rule existed only
+    to blunt that. The supervisor clears this file before every attempt, so its
+    contents can only come from the attempt being judged.
+    """
+    if not status_path.exists():
+        return "", [f"missing completion status file: {status_path.name}"]
+    try:
+        payload = json.loads(status_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return "", [f"{status_path.name} is not readable JSON: {exc}"]
+    if not isinstance(payload, dict):
+        return "", [f"{status_path.name} must hold a JSON object"]
+
+    marker = str(payload.get("status", "")).strip()
+    if not marker:
+        return "", [f"{status_path.name} needs a non-empty `status`"]
     if marker not in VALID_COMPLETION_MARKERS:
         return marker, [f"unknown completion marker: {marker}"]
     return marker, []
