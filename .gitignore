@@ -50,4 +50,3 @@ experiments/**/*.parquet
 !.agents/skills/
 .cursor/
 .claude/scheduled_tasks.lock
-openspec/
