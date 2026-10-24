@@ -1,6 +1,6 @@
 # Agentic ML Loop
 
-![License](https://img.shields.io/github/license/adamthuvesen/agentic-ml-loop) ![Python](https://img.shields.io/badge/python-3.12%2B-blue)
+![License](https://img.shields.io/github/license/adamthuvesen/agentic-ml-loop) ![Python](https://img.shields.io/badge/python-3.13%2B-blue)
 
 `agentic-ml-loop` runs local, repeatable ML experiment cycles. You write a spec,
 choose a runner, and the loop asks for one bounded hypothesis test at a time.
@@ -18,7 +18,7 @@ is required. Start with [`examples/`](examples/) for a worked output and
 
 ## Setup
 
-Requires Python 3.12+ and `uv`.
+Requires Python 3.13+ and `uv`.
 
 ```bash
 uv sync --extra models --extra deep   # extras optional; dev group installs by default
